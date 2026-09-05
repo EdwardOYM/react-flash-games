@@ -1,0 +1,19 @@
+{
+  "brand": "快闪游戏",
+  "status": "three.js 游戏空间",
+  "eyebrow": "快速回合，精彩创意。",
+  "headlineStart": "选择游戏。",
+  "headlineEmphasis": "全力以赴。",
+  "description": "这里有小型实验、反应力测试，以及尊重你时间的游戏。",
+  "previewLabel": "实时 / 001",
+  "previewAlt": "动态游戏预览",
+  "gameStatus": {
+    "ready": "可开始",
+    "comingSoon": "即将推出"
+  },
+  "games": {
+    "orbit": "轨道捕捉",
+    "signal": "信号冲刺",
+    "memory": "记忆花园"
+  }
+}

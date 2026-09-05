@@ -1,0 +1,19 @@
+{
+  "brand": "Flash Games",
+  "status": "three.js playground",
+  "eyebrow": "Quick rounds. Bright ideas.",
+  "headlineStart": "Pick a game.",
+  "headlineEmphasis": "Make it count.",
+  "description": "A home for tiny experiments, reflex tests, and games that respect your time.",
+  "previewLabel": "LIVE / 001",
+  "previewAlt": "Animated game preview",
+  "gameStatus": {
+    "ready": "ready",
+    "comingSoon": "coming soon"
+  },
+  "games": {
+    "orbit": "Orbit Catch",
+    "signal": "Signal Sprint",
+    "memory": "Memory Bloom"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "brand": "Permainan Pantas",
+  "status": "ruang main three.js",
+  "eyebrow": "Pusingan pantas. Idea bernas.",
+  "headlineStart": "Pilih permainan.",
+  "headlineEmphasis": "Jadikan ia bermakna.",
+  "description": "Ruang untuk eksperimen kecil, ujian tindak balas dan permainan yang menghargai masa anda.",
+  "previewLabel": "LANGSUNG / 001",
+  "previewAlt": "Pratonton permainan beranimasi",
+  "gameStatus": {
+    "ready": "sedia",
+    "comingSoon": "akan datang"
+  },
+  "games": {
+    "orbit": "Tangkap Orbit",
+    "signal": "Larian Isyarat",
+    "memory": "Kembangan Memori"
+  }
+}
