@@ -7,6 +7,23 @@
   "description": "A home for tiny experiments, reflex tests, and games that respect your time.",
   "previewLabel": "LIVE / 001",
   "previewAlt": "Animated game preview",
+  "openSettings": "Open settings",
+  "settingsTitle": "Settings",
+  "closeSettings": "Close settings",
+  "volume": "Audio volume",
+  "language": "Language",
+  "keybinds": "Key bindings",
+  "remap": "Remap",
+  "pressKey": "Press a key",
+  "resetKey": "Reset",
+  "languageNames": {
+    "en": "English",
+    "ms": "Malay",
+    "zh": "Chinese"
+  },
+  "keyNames": {
+    "primary": "Primary action"
+  },
   "gameStatus": {
     "ready": "ready",
     "comingSoon": "coming soon"

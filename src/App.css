@@ -3,9 +3,12 @@
 #root { min-height: 100vh; }
 .start-page { min-height: 100vh; padding: 28px 6vw 48px; background: radial-gradient(circle at 76% 22%, #273d45 0, #101820 34%), #101820; overflow: hidden; }
 .topbar { display: flex; justify-content: space-between; align-items: center; max-width: 1180px; margin: auto; font-family: 'DM Mono', monospace; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+.topbar-actions { display: flex; align-items: center; gap: 18px; }
 .brand { display: flex; gap: 12px; align-items: center; font-weight: 500; }
 .brand-mark { display: grid; place-items: center; width: 34px; aspect-ratio: 1; color: #101820; background: #ffc857; border-radius: 50%; font-weight: 700; }
 .status { color: #9babb0; }
+.settings-trigger { display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid #50676a; border-radius: 50%; color: #ffc857; background: transparent; font-size: 1.05rem; cursor: pointer; transition: color .2s, border-color .2s, transform .2s; }
+.settings-trigger:hover { border-color: #ffc857; color: #f5f0e8; transform: rotate(25deg); }
 .intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 460px); gap: clamp(42px, 8vw, 150px); align-items: center; max-width: 1180px; margin: clamp(70px, 13vh, 150px) auto 0; }
 .eyebrow { margin: 0 0 22px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; }
 h1 { max-width: 680px; margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(3.6rem, 8vw, 7.4rem); line-height: .88; letter-spacing: -.06em; }
@@ -19,4 +22,22 @@ h1 em { color: #f18165; font-style: normal; }
 .preview { position: relative; width: 100%; aspect-ratio: 1; border: 1px solid #50676a; border-radius: 50%; background: linear-gradient(145deg, rgba(255,200,87,.08), rgba(241,129,101,.13)); box-shadow: 0 0 0 18px rgba(255,255,255,.015), 0 0 100px rgba(255,200,87,.12); }
 .preview canvas { width: 100%; height: 100%; }
 .preview-label { position: absolute; right: 14%; bottom: 12%; padding: 6px 10px; color: #101820; background: #ffc857; font-family: 'DM Mono', monospace; font-size: .65rem; }
+.settings-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px; background: rgba(6, 12, 16, .78); backdrop-filter: blur(8px); animation: fade-in .2s ease-out; }
+.settings-modal { position: relative; width: min(100%, 540px); padding: 42px clamp(24px, 5vw, 52px) 44px; border: 1px solid #50676a; background: #17262d; box-shadow: 0 24px 80px rgba(0, 0, 0, .42); animation: modal-in .25s ease-out; }
+.settings-modal h2 { margin: -12px 0 34px; color: #f5f0e8; font-family: 'Space Grotesk', sans-serif; font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -.05em; }
+.settings-close { position: absolute; top: 14px; right: 16px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #50676a; border-radius: 50%; color: #aeb9b9; background: transparent; font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.settings-close:hover { border-color: #f18165; color: #f18165; }
+.setting-control { padding: 20px 0; border-top: 1px solid #385058; }
+.setting-control label, .setting-label { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 14px; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .75rem; text-transform: uppercase; }
+.setting-control output { color: #ffc857; }
+.setting-control input[type='range'] { width: 100%; accent-color: #ffc857; cursor: pointer; }
+.setting-control select { width: 100%; padding: 12px; border: 1px solid #50676a; border-radius: 0; color: #f5f0e8; background: #101820; font: inherit; cursor: pointer; }
+.keybind-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; color: #aeb9b9; font-size: .9rem; }
+.keybind-row kbd { min-width: 76px; padding: 8px 10px; border: 1px solid #50676a; color: #ffc857; background: #101820; font-family: 'DM Mono', monospace; font-size: .7rem; text-align: center; }
+.keybind-row button { padding: 8px 10px; border: 1px solid #f18165; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .65rem; text-transform: uppercase; cursor: pointer; }
+.keybind-row button:hover { color: #101820; background: #f18165; }
+.keybind-row .reset-button { border-color: #50676a; color: #aeb9b9; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (max-width: 720px) { .start-page { padding: 22px 24px 40px; } .status { display: none; } .intro { grid-template-columns: 1fr; margin-top: 70px; } .preview { width: min(78vw, 360px); margin: 0 auto; order: -1; } }
+@media (max-width: 520px) { .keybind-row { grid-template-columns: 1fr 1fr; } .keybind-row span { grid-column: 1 / -1; } .keybind-row kbd { min-width: 0; } }

@@ -7,6 +7,23 @@
   "description": "这里有小型实验、反应力测试，以及尊重你时间的游戏。",
   "previewLabel": "实时 / 001",
   "previewAlt": "动态游戏预览",
+  "openSettings": "打开设置",
+  "settingsTitle": "设置",
+  "closeSettings": "关闭设置",
+  "volume": "音量",
+  "language": "语言",
+  "keybinds": "按键设置",
+  "remap": "重新绑定",
+  "pressKey": "请按下按键",
+  "resetKey": "重置",
+  "languageNames": {
+    "en": "英语",
+    "ms": "马来语",
+    "zh": "中文"
+  },
+  "keyNames": {
+    "primary": "主要操作"
+  },
   "gameStatus": {
     "ready": "可开始",
     "comingSoon": "即将推出"

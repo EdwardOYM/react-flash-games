@@ -13,6 +13,19 @@ export type TranslationKey =
   | 'description'
   | 'previewLabel'
   | 'previewAlt'
+  | 'openSettings'
+  | 'settingsTitle'
+  | 'closeSettings'
+  | 'volume'
+  | 'language'
+  | 'keybinds'
+  | 'remap'
+  | 'pressKey'
+  | 'resetKey'
+  | 'languageNames.en'
+  | 'languageNames.ms'
+  | 'languageNames.zh'
+  | 'keyNames.primary'
   | 'gameStatus.ready'
   | 'gameStatus.comingSoon'
   | 'games.orbit'
@@ -24,13 +37,15 @@ const dictionaries: Record<Locale, TranslationDictionary> = { en, ms, zh }
 function readTranslation(dictionary: TranslationDictionary, key: TranslationKey): string {
   const [group, value] = key.split('.')
   if (value) {
-    return dictionary[group as 'gameStatus' | 'games'][value as keyof TranslationDictionary['gameStatus'] & keyof TranslationDictionary['games']]
+    return dictionary[group as 'gameStatus' | 'games' | 'languageNames' | 'keyNames'][value as never]
   }
   return dictionary[key as keyof TranslationDictionary] as string
 }
 
 export function getPreferredLocale(): Locale {
   if (typeof navigator === 'undefined') return 'en'
+  const savedLocale = localStorage.getItem('flash-games-locale')
+  if (savedLocale === 'en' || savedLocale === 'ms' || savedLocale === 'zh') return savedLocale
   const language = navigator.language.toLowerCase()
   if (language.startsWith('ms')) return 'ms'
   if (language.startsWith('zh')) return 'zh'

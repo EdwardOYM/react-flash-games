@@ -7,6 +7,23 @@
   "description": "Ruang untuk eksperimen kecil, ujian tindak balas dan permainan yang menghargai masa anda.",
   "previewLabel": "LANGSUNG / 001",
   "previewAlt": "Pratonton permainan beranimasi",
+  "openSettings": "Buka tetapan",
+  "settingsTitle": "Tetapan",
+  "closeSettings": "Tutup tetapan",
+  "volume": "Kelantangan audio",
+  "language": "Bahasa",
+  "keybinds": "Pemetaan kekunci",
+  "remap": "Petakan semula",
+  "pressKey": "Tekan kekunci",
+  "resetKey": "Set semula",
+  "languageNames": {
+    "en": "Inggeris",
+    "ms": "Melayu",
+    "zh": "Cina"
+  },
+  "keyNames": {
+    "primary": "Tindakan utama"
+  },
   "gameStatus": {
     "ready": "sedia",
     "comingSoon": "akan datang"
