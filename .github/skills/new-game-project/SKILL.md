@@ -20,6 +20,7 @@ Before editing, identify:
 - The player actions that need key bindings.
 - Any images, models, textures, audio, or other assets needed.
 - The default highscore behavior and score calculation.
+- The game's inspiration and the credit/source name to display for it.
 
 If the game name or core loop is missing, ask for those details before creating folders.
 
@@ -57,12 +58,13 @@ Keep game-specific files inside those folders. Shared utilities belong in an exi
    - Return to game start and retry controls.
 7. Add every player-facing string to `src/assets/languages/en.json`, `ms.json`, and `zh.json` using identical key shapes.
 8. Render all copy through the existing translation method. Never hardcode visible text, button labels, status text, tutorial text, aria labels, or error messages in JSX or game definitions.
-9. Represent game names, actions, and status labels in metadata as translation keys, not localized strings.
-10. Add every new gameplay action to the reusable settings/key-remapping contract so players can remap it. Music controls must also use translated labels.
-11. Register the game in `src/games/index.ts` with its id, translation keys, status, and page/component entry point. Ensure the main game list opens the new game page instead of only displaying metadata.
-12. Keep Three.js setup and cleanup local to the game. Dispose geometries, materials, textures, renderers, listeners, and animation frames during unmount or state teardown.
-13. Add or update focused tests when the game has non-trivial state transitions, scoring, persistence, or input mapping.
-14. Run the narrowest relevant validation after each implementation slice, then run the production build and locale-shape validation.
+9. Represent game names, actions, status labels, and inspiration credits in metadata as translation keys, not localized strings.
+10. Add the game's inspiration source to the credits page under the “Game inspired by” section. If the game is an original concept, record that explicitly; do not omit the credit.
+11. Add every new gameplay action to the reusable settings/key-remapping contract so players can remap it. Music controls must also use translated labels.
+12. Register the game in `src/games/index.ts` with its id, translation keys, status, inspiration credit, and page/component entry point. Ensure the main game list opens the new game page instead of only displaying metadata.
+13. Keep Three.js setup and cleanup local to the game. Dispose geometries, materials, textures, renderers, listeners, and animation frames during unmount or state teardown.
+14. Add or update focused tests when the game has non-trivial state transitions, scoring, persistence, or input mapping.
+15. Run the narrowest relevant validation after each implementation slice, then run the production build and locale-shape validation.
 
 ## Quality Gates
 
@@ -74,6 +76,7 @@ Before finishing, verify:
 - Settings opens from the game start page and includes all new keybind actions.
 - Volume/music and highscore persistence do not crash when storage is unavailable or empty.
 - All three locale dictionaries contain matching keys for the new feature.
+- The credits page includes the new game's inspiration/source entry.
 - No player-facing literal strings remain in the new game UI or metadata.
 - `npm run build` passes.
 - Relevant diagnostics, tests, or lint checks pass; report any environment-only blockers.

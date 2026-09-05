@@ -22,6 +22,17 @@ h1 em { color: #f18165; font-style: normal; }
 .preview { position: relative; width: 100%; aspect-ratio: 1; border: 1px solid #50676a; border-radius: 50%; background: linear-gradient(145deg, rgba(255,200,87,.08), rgba(241,129,101,.13)); box-shadow: 0 0 0 18px rgba(255,255,255,.015), 0 0 100px rgba(255,200,87,.12); }
 .preview canvas { width: 100%; height: 100%; }
 .preview-label { position: absolute; right: 14%; bottom: 12%; padding: 6px 10px; color: #101820; background: #ffc857; font-family: 'DM Mono', monospace; font-size: .65rem; }
+.text-button { padding: 8px 0; border: 0; color: #aeb9b9; background: transparent; font-family: 'DM Mono', monospace; font-size: .7rem; text-transform: uppercase; cursor: pointer; }
+.text-button:hover { color: #ffc857; }
+.credits-page { min-height: 100vh; padding: 28px 6vw 48px; background: radial-gradient(circle at 72% 28%, #273d45 0, #101820 38%), #101820; }
+.credits-header { display: flex; justify-content: space-between; align-items: center; max-width: 1180px; margin: auto; }
+.credits-content { max-width: 760px; margin: clamp(90px, 16vh, 170px) auto 0; }
+.credits-content h1 { margin-bottom: 24px; color: #f5f0e8; }
+.credits-description { max-width: 520px; margin: 0 0 60px; color: #aeb9b9; font-size: 1.05rem; line-height: 1.5; }
+.credits-list { border-top: 1px solid #385058; }
+.credit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 22px 0; border-bottom: 1px solid #385058; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .78rem; text-transform: uppercase; }
+.credit-row strong { color: #f5f0e8; font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 500; text-transform: none; }
+.credit-stack > div { display: grid; gap: 12px; }
 .settings-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px; background: rgba(6, 12, 16, .78); backdrop-filter: blur(8px); animation: fade-in .2s ease-out; }
 .settings-modal { position: relative; width: min(100%, 540px); padding: 42px clamp(24px, 5vw, 52px) 44px; border: 1px solid #50676a; background: #17262d; box-shadow: 0 24px 80px rgba(0, 0, 0, .42); animation: modal-in .25s ease-out; }
 .settings-modal h2 { margin: -12px 0 34px; color: #f5f0e8; font-family: 'Space Grotesk', sans-serif; font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -.05em; }
@@ -39,5 +50,5 @@ h1 em { color: #f18165; font-style: normal; }
 .keybind-row .reset-button { border-color: #50676a; color: #aeb9b9; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-@media (max-width: 720px) { .start-page { padding: 22px 24px 40px; } .status { display: none; } .intro { grid-template-columns: 1fr; margin-top: 70px; } .preview { width: min(78vw, 360px); margin: 0 auto; order: -1; } }
+@media (max-width: 720px) { .start-page, .credits-page { padding: 22px 24px 40px; } .status { display: none; } .topbar-actions { gap: 12px; } .intro { grid-template-columns: 1fr; margin-top: 70px; } .preview { width: min(78vw, 360px); margin: 0 auto; order: -1; } .credits-content { margin-top: 90px; } }
 @media (max-width: 520px) { .keybind-row { grid-template-columns: 1fr 1fr; } .keybind-row span { grid-column: 1 / -1; } .keybind-row kbd { min-width: 0; } }

@@ -16,6 +16,27 @@
   "remap": "重新绑定",
   "pressKey": "请按下按键",
   "resetKey": "重置",
+  "credits": "制作人员",
+  "creditsTitle": "制作人员",
+  "creditsEyebrow": "用心打造。",
+  "creditsDescription": "感谢帮助塑造这个小型游戏世界的工具与每一位参与者。",
+  "backToHome": "返回主页",
+  "developer": "开发者",
+  "developerName": "Ong Yu Mhing",
+  "technology": "技术",
+  "gameInspiredBy": "游戏灵感来源",
+  "technologyNames": {
+    "react": "React",
+    "three": "Three.js",
+    "vite": "Vite",
+    "typescript": "TypeScript",
+    "oxlint": "Oxlint"
+  },
+  "gameInspiration": {
+    "orbit": "原创概念",
+    "signal": "原创概念",
+    "memory": "原创概念"
+  },
   "languageNames": {
     "en": "英语",
     "ms": "马来语",

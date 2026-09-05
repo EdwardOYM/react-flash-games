@@ -16,6 +16,27 @@
   "remap": "Petakan semula",
   "pressKey": "Tekan kekunci",
   "resetKey": "Set semula",
+  "credits": "Kredit",
+  "creditsTitle": "Kredit",
+  "creditsEyebrow": "Dibina dengan teliti.",
+  "creditsDescription": "Terima kasih kepada alat dan semua yang membantu membentuk dunia permainan kecil ini.",
+  "backToHome": "Kembali ke halaman utama",
+  "developer": "Pembangun",
+  "developerName": "Ong Yu Mhing",
+  "technology": "Teknologi",
+  "gameInspiredBy": "Permainan diilhamkan oleh",
+  "technologyNames": {
+    "react": "React",
+    "three": "Three.js",
+    "vite": "Vite",
+    "typescript": "TypeScript",
+    "oxlint": "Oxlint"
+  },
+  "gameInspiration": {
+    "orbit": "Konsep asli",
+    "signal": "Konsep asli",
+    "memory": "Konsep asli"
+  },
   "languageNames": {
     "en": "Inggeris",
     "ms": "Melayu",

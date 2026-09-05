@@ -16,6 +16,27 @@
   "remap": "Remap",
   "pressKey": "Press a key",
   "resetKey": "Reset",
+  "credits": "Credits",
+  "creditsTitle": "Credits",
+  "creditsEyebrow": "Built with care.",
+  "creditsDescription": "Thanks to the tools and people helping shape this small game universe.",
+  "backToHome": "Back to home",
+  "developer": "Developer",
+  "developerName": "Ong Yu Mhing",
+  "technology": "Technology",
+  "gameInspiredBy": "Game inspired by",
+  "technologyNames": {
+    "react": "React",
+    "three": "Three.js",
+    "vite": "Vite",
+    "typescript": "TypeScript",
+    "oxlint": "Oxlint"
+  },
+  "gameInspiration": {
+    "orbit": "Original concept",
+    "signal": "Original concept",
+    "memory": "Original concept"
+  },
   "languageNames": {
     "en": "English",
     "ms": "Malay",

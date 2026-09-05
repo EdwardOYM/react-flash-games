@@ -3,10 +3,11 @@ export type GameDefinition = {
   titleKey: 'games.orbit' | 'games.signal' | 'games.memory'
   icon: string
   statusKey: 'gameStatus.ready' | 'gameStatus.comingSoon'
+  inspirationKey: 'gameInspiration.orbit' | 'gameInspiration.signal' | 'gameInspiration.memory'
 }
 
 export const games: GameDefinition[] = [
-  { id: 'orbit', titleKey: 'games.orbit', icon: '◉', statusKey: 'gameStatus.ready' },
-  { id: 'signal', titleKey: 'games.signal', icon: '↗', statusKey: 'gameStatus.comingSoon' },
-  { id: 'memory', titleKey: 'games.memory', icon: '✦', statusKey: 'gameStatus.comingSoon' },
+  { id: 'orbit', titleKey: 'games.orbit', icon: '◉', statusKey: 'gameStatus.ready', inspirationKey: 'gameInspiration.orbit' },
+  { id: 'signal', titleKey: 'games.signal', icon: '↗', statusKey: 'gameStatus.comingSoon', inspirationKey: 'gameInspiration.signal' },
+  { id: 'memory', titleKey: 'games.memory', icon: '✦', statusKey: 'gameStatus.comingSoon', inspirationKey: 'gameInspiration.memory' },
 ]
