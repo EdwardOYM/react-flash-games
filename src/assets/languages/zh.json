@@ -35,7 +35,8 @@
   "gameInspiration": {
     "orbit": "原创概念",
     "signal": "原创概念",
-    "memory": "原创概念"
+    "memory": "原创概念",
+    "bubbleTrouble": "Miniclip 的 Bubble Trouble"
   },
   "languageNames": {
     "en": "英语",
@@ -43,15 +44,59 @@
     "zh": "中文"
   },
   "keyNames": {
-    "primary": "主要操作"
+    "primary": "主要操作",
+    "moveLeft": "向左移动",
+    "moveRight": "向右移动",
+    "shoot": "射击"
   },
   "gameStatus": {
     "ready": "可开始",
     "comingSoon": "即将推出"
   },
+  "bubble": {
+    "title": "Bubble Trouble",
+    "description": "在弹跳泡泡碰到你之前击破所有泡泡。",
+    "startGame": "开始游戏",
+    "tutorial": "帮助 / 教程",
+    "tutorialTitle": "游戏玩法",
+    "tutorialOne": "向左或向右移动，然后向上发射绳线。",
+    "tutorialTwo": "绳线碰到泡泡时会将其分裂。较小的泡泡也会带来分数。",
+    "tutorialThree": "承受三次攻击，并清除所有泡泡即可获胜。",
+    "previous": "上一步",
+    "next": "下一步",
+    "finish": "完成",
+    "settings": "设置",
+    "musicOn": "音乐开启",
+    "musicOff": "音乐关闭",
+    "exit": "退出",
+    "loading": "正在加载游戏",
+    "playing": "游戏中",
+    "paused": "已暂停",
+    "pause": "暂停",
+    "resume": "继续",
+    "gameOver": "游戏结束",
+    "victory": "胜利",
+    "highscore": "最高分",
+    "score": "分数",
+    "rank": "排名",
+    "noScores": "暂无分数",
+    "health": "生命值",
+    "gameBoardLabel": "Bubble Trouble 游戏棋盘",
+    "playerName": "玩家名称",
+    "defaultPlayerName": "玩家",
+    "namePlaceholder": "输入你的名称",
+    "submitScore": "保存分数",
+    "scoreSaved": "分数已保存",
+    "downloadScore": "下载分数",
+    "retry": "再玩一次",
+    "backToStart": "返回游戏开始",
+    "points": "分",
+    "inspiredBy": "灵感来自 Miniclip 的 Bubble Trouble"
+  },
   "games": {
     "orbit": "轨道捕捉",
     "signal": "信号冲刺",
-    "memory": "记忆花园"
+    "memory": "记忆花园",
+    "bubbleTrouble": "Bubble Trouble"
   }
 }

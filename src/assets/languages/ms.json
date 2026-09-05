@@ -35,7 +35,8 @@
   "gameInspiration": {
     "orbit": "Konsep asli",
     "signal": "Konsep asli",
-    "memory": "Konsep asli"
+    "memory": "Konsep asli",
+    "bubbleTrouble": "Bubble Trouble daripada Miniclip"
   },
   "languageNames": {
     "en": "Inggeris",
@@ -43,15 +44,59 @@
     "zh": "Cina"
   },
   "keyNames": {
-    "primary": "Tindakan utama"
+    "primary": "Tindakan utama",
+    "moveLeft": "Gerak ke kiri",
+    "moveRight": "Gerak ke kanan",
+    "shoot": "Tembak"
   },
   "gameStatus": {
     "ready": "sedia",
     "comingSoon": "akan datang"
   },
+  "bubble": {
+    "title": "Bubble Trouble",
+    "description": "Pecahkan setiap buih yang melantun sebelum ia sampai kepada anda.",
+    "startGame": "Mula permainan",
+    "tutorial": "Bantuan / tutorial",
+    "tutorialTitle": "Cara bermain",
+    "tutorialOne": "Gerak ke kiri dan kanan, kemudian tembak tali lurus ke atas.",
+    "tutorialTwo": "Tali akan memecahkan buih apabila menyentuhnya. Buih kecil juga memberikan mata.",
+    "tutorialThree": "Bertahan daripada tiga serangan dan hapuskan semua buih untuk menang.",
+    "previous": "Sebelumnya",
+    "next": "Seterusnya",
+    "finish": "Selesai",
+    "settings": "Tetapan",
+    "musicOn": "Muzik hidup",
+    "musicOff": "Muzik mati",
+    "exit": "Keluar",
+    "loading": "Memuatkan permainan",
+    "playing": "Sedang bermain",
+    "paused": "Dijeda",
+    "pause": "Jeda",
+    "resume": "Sambung",
+    "gameOver": "Permainan tamat",
+    "victory": "Kemenangan",
+    "highscore": "Skor tertinggi",
+    "score": "Mata",
+    "rank": "Kedudukan",
+    "noScores": "Belum ada skor",
+    "health": "Kesihatan",
+    "gameBoardLabel": "Papan permainan Bubble Trouble",
+    "playerName": "Nama pemain",
+    "defaultPlayerName": "Pemain",
+    "namePlaceholder": "Masukkan nama anda",
+    "submitScore": "Simpan skor",
+    "scoreSaved": "Skor disimpan",
+    "downloadScore": "Muat turun skor",
+    "retry": "Cuba lagi",
+    "backToStart": "Kembali ke mula permainan",
+    "points": "mata",
+    "inspiredBy": "Diilhamkan oleh Bubble Trouble daripada Miniclip"
+  },
   "games": {
     "orbit": "Tangkap Orbit",
     "signal": "Larian Isyarat",
-    "memory": "Kembangan Memori"
+    "memory": "Kembangan Memori",
+    "bubbleTrouble": "Bubble Trouble"
   }
 }

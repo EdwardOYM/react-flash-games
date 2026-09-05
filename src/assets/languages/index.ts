@@ -48,13 +48,58 @@ export type TranslationKey =
   | 'games.orbit'
   | 'games.signal'
   | 'games.memory'
+  | 'games.bubbleTrouble'
+  | 'keyNames.moveLeft'
+  | 'keyNames.moveRight'
+  | 'keyNames.shoot'
+  | 'gameInspiration.bubbleTrouble'
+  | `bubble.${BubbleTranslationKey}`
+type BubbleTranslationKey =
+  | 'title'
+  | 'description'
+  | 'startGame'
+  | 'tutorial'
+  | 'tutorialTitle'
+  | 'tutorialOne'
+  | 'tutorialTwo'
+  | 'tutorialThree'
+  | 'previous'
+  | 'next'
+  | 'finish'
+  | 'settings'
+  | 'musicOn'
+  | 'musicOff'
+  | 'exit'
+  | 'loading'
+  | 'playing'
+  | 'paused'
+  | 'pause'
+  | 'resume'
+  | 'gameOver'
+  | 'victory'
+  | 'highscore'
+  | 'score'
+  | 'rank'
+  | 'noScores'
+  | 'health'
+  | 'gameBoardLabel'
+  | 'playerName'
+  | 'defaultPlayerName'
+  | 'namePlaceholder'
+  | 'submitScore'
+  | 'scoreSaved'
+  | 'downloadScore'
+  | 'retry'
+  | 'backToStart'
+  | 'points'
+  | 'inspiredBy'
 
 const dictionaries: Record<Locale, TranslationDictionary> = { en, ms, zh }
 
 function readTranslation(dictionary: TranslationDictionary, key: TranslationKey): string {
   const [group, value] = key.split('.')
   if (value) {
-    return dictionary[group as 'gameStatus' | 'games' | 'languageNames' | 'keyNames'][value as never]
+    return dictionary[group as 'gameStatus' | 'games' | 'languageNames' | 'keyNames' | 'gameInspiration' | 'bubble'][value as never]
   }
   return dictionary[key as keyof TranslationDictionary] as string
 }

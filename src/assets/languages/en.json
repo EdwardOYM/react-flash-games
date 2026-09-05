@@ -35,7 +35,8 @@
   "gameInspiration": {
     "orbit": "Original concept",
     "signal": "Original concept",
-    "memory": "Original concept"
+    "memory": "Original concept",
+    "bubbleTrouble": "Bubble Trouble from Miniclip"
   },
   "languageNames": {
     "en": "English",
@@ -43,15 +44,59 @@
     "zh": "Chinese"
   },
   "keyNames": {
-    "primary": "Primary action"
+    "primary": "Primary action",
+    "moveLeft": "Move left",
+    "moveRight": "Move right",
+    "shoot": "Shoot"
   },
   "gameStatus": {
     "ready": "ready",
     "comingSoon": "coming soon"
   },
+  "bubble": {
+    "title": "Bubble Trouble",
+    "description": "Split every bouncing bubble before it reaches you.",
+    "startGame": "Start game",
+    "tutorial": "Help / tutorial",
+    "tutorialTitle": "How to play",
+    "tutorialOne": "Move left and right, then shoot a string straight up.",
+    "tutorialTwo": "A string splits a bubble when it touches it. Smaller bubbles are worth points too.",
+    "tutorialThree": "Survive three hits and clear every bubble to win.",
+    "previous": "Previous",
+    "next": "Next",
+    "finish": "Finish",
+    "settings": "Settings",
+    "musicOn": "Music on",
+    "musicOff": "Music off",
+    "exit": "Exit",
+    "loading": "Loading game",
+    "playing": "Playing",
+    "paused": "Paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "gameOver": "Game over",
+    "victory": "Victory",
+    "highscore": "Highscore",
+    "score": "Score",
+    "rank": "Rank",
+    "noScores": "No scores yet",
+    "health": "Health",
+    "gameBoardLabel": "Bubble Trouble game board",
+    "playerName": "Player name",
+    "defaultPlayerName": "Player",
+    "namePlaceholder": "Enter your name",
+    "submitScore": "Save score",
+    "scoreSaved": "Score saved",
+    "downloadScore": "Download scores",
+    "retry": "Retry",
+    "backToStart": "Back to game start",
+    "points": "points",
+    "inspiredBy": "Inspired by Bubble Trouble from Miniclip"
+  },
   "games": {
     "orbit": "Orbit Catch",
     "signal": "Signal Sprint",
-    "memory": "Memory Bloom"
+    "memory": "Memory Bloom",
+    "bubbleTrouble": "Bubble Trouble"
   }
 }
