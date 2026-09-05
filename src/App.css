@@ -1,0 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+#root { min-height: 100vh; }
+.start-page { min-height: 100vh; padding: 28px 6vw 48px; background: radial-gradient(circle at 76% 22%, #273d45 0, #101820 34%), #101820; overflow: hidden; }
+.topbar { display: flex; justify-content: space-between; align-items: center; max-width: 1180px; margin: auto; font-family: 'DM Mono', monospace; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+.brand { display: flex; gap: 12px; align-items: center; font-weight: 500; }
+.brand-mark { display: grid; place-items: center; width: 34px; aspect-ratio: 1; color: #101820; background: #ffc857; border-radius: 50%; font-weight: 700; }
+.status { color: #9babb0; }
+.intro { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 460px); gap: clamp(42px, 8vw, 150px); align-items: center; max-width: 1180px; margin: clamp(70px, 13vh, 150px) auto 0; }
+.eyebrow { margin: 0 0 22px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; }
+h1 { max-width: 680px; margin: 0; font-family: 'Space Grotesk', sans-serif; font-size: clamp(3.6rem, 8vw, 7.4rem); line-height: .88; letter-spacing: -.06em; }
+h1 em { color: #f18165; font-style: normal; }
+.lede { max-width: 390px; margin: 28px 0 42px; color: #aeb9b9; font-size: 1.05rem; line-height: 1.5; }
+.game-list { max-width: 500px; border-top: 1px solid #385058; }
+.game-row { display: grid; grid-template-columns: 32px 1fr auto; gap: 14px; align-items: center; width: 100%; padding: 16px 4px; border: 0; border-bottom: 1px solid #385058; color: #f5f0e8; background: transparent; text-align: left; cursor: pointer; transition: padding .2s, color .2s; }
+.game-row:hover { padding-left: 12px; color: #ffc857; }
+.game-row > span:first-child { color: #f18165; font-size: 1.2rem; }
+.game-row small { color: #74888b; font-family: 'DM Mono', monospace; font-size: .65rem; text-transform: uppercase; }
+.preview { position: relative; width: 100%; aspect-ratio: 1; border: 1px solid #50676a; border-radius: 50%; background: linear-gradient(145deg, rgba(255,200,87,.08), rgba(241,129,101,.13)); box-shadow: 0 0 0 18px rgba(255,255,255,.015), 0 0 100px rgba(255,200,87,.12); }
+.preview canvas { width: 100%; height: 100%; }
+.preview-label { position: absolute; right: 14%; bottom: 12%; padding: 6px 10px; color: #101820; background: #ffc857; font-family: 'DM Mono', monospace; font-size: .65rem; }
+@media (max-width: 720px) { .start-page { padding: 22px 24px 40px; } .status { display: none; } .intro { grid-template-columns: 1fr; margin-top: 70px; } .preview { width: min(78vw, 360px); margin: 0 auto; order: -1; } }
