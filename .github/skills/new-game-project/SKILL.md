@@ -55,7 +55,7 @@ Keep game-specific files inside those folders. Shared utilities belong in an exi
    - Score display.
    - Player name input when the game ends.
    - Persistent highscore storage in the requested `.txt` representation or the project's established storage boundary. In a browser-only app, use an explicit `.txt` download/export or an existing backend; do not claim that `localStorage` is a `.txt` file.
-   - Return to game start and retry controls.
+   - Return to game start and retry controls. After a successful save, return automatically to the game start page so the updated highscore list is immediately visible.
 7. Add every player-facing string to `src/assets/languages/en.json`, `ms.json`, and `zh.json` using identical key shapes.
 8. Render all copy through the existing translation method. Never hardcode visible text, button labels, status text, tutorial text, aria labels, or error messages in JSX or game definitions.
 9. Represent game names, actions, status labels, and inspiration credits in metadata as translation keys, not localized strings.
@@ -72,6 +72,7 @@ Before finishing, verify:
 
 - The game can enter and leave every required page/state without a dead end.
 - Loading, pause, game over, victory, retry, exit, and highscore paths are reachable.
+- Saving a highscore returns to the game start page and shows the updated leaderboard.
 - Tutorial navigation works and does not require hardcoded copy.
 - Settings opens from the game start page and includes all new keybind actions.
 - Volume/music and highscore persistence do not crash when storage is unavailable or empty.
