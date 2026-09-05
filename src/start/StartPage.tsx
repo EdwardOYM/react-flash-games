@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { BubbleTroubleGame, games } from '../games'
-import { getPreferredLocale, type Locale, useTranslations } from '../assets/languages'
+import { getPreferredLocale, persistLocale, type Locale, useTranslations } from '../assets/languages'
 import { CreditsPage } from '../credits'
 import { SettingsModal } from '../settings'
 
@@ -46,7 +46,7 @@ export function StartPage() {
 
   const changeLocale = (nextLocale: Locale) => {
     setLocale(nextLocale)
-    localStorage.setItem('flash-games-locale', nextLocale)
+    persistLocale(nextLocale)
   }
 
   if (creditsOpen) return <CreditsPage onBack={() => setCreditsOpen(false)} t={t} />

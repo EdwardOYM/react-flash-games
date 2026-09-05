@@ -1,6 +1,7 @@
 import en from './en.json'
 import ms from './ms.json'
 import zh from './zh.json'
+import { readConfig, updateConfig } from '../../config'
 
 export type Locale = 'en' | 'ms' | 'zh'
 type TranslationDictionary = typeof en
@@ -106,7 +107,7 @@ function readTranslation(dictionary: TranslationDictionary, key: TranslationKey)
 
 export function getPreferredLocale(): Locale {
   if (typeof navigator === 'undefined') return 'en'
-  const savedLocale = localStorage.getItem('flash-games-locale')
+  const savedLocale = readConfig().settings.locale
   if (savedLocale === 'en' || savedLocale === 'ms' || savedLocale === 'zh') return savedLocale
   const language = navigator.language.toLowerCase()
   if (language.startsWith('ms')) return 'ms'
@@ -117,4 +118,8 @@ export function getPreferredLocale(): Locale {
 export function useTranslations(locale: Locale): (key: TranslationKey) => string {
   const dictionary = dictionaries[locale]
   return (key) => readTranslation(dictionary, key)
+}
+
+export function persistLocale(locale: Locale) {
+  updateConfig((config) => ({ ...config, settings: { ...config.settings, locale } }))
 }

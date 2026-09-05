@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { getPreferredLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
+import { getPreferredLocale, persistLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
+import { readConfig, updateConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import { HighscoreTable } from './HighscoreTable'
 import { formatHighscores, readHighscores, saveHighscore } from './highscores'
@@ -21,7 +22,7 @@ const keyBindings: AdditionalKeyBinding[] = [
   { id: 'bubble-shoot', labelKey: 'keyNames.shoot', defaultKey: 'ArrowUp' },
 ]
 
-function readKey(id: string, fallback: string) { return localStorage.getItem(`flash-games-key-${id}`) ?? fallback }
+function readKey(id: string, fallback: string) { return readConfig().settings.keybindings[id] ?? fallback }
 function randomDirection() { return Math.random() > 0.5 ? 1 : -1 }
 function createBalls(count: number, radius = 48, level = 0): Ball[] { return Array.from({ length: count }, (_, index) => ({ x: 150 + index * 150, y: 145 + index * 12, radius, velocityX: randomDirection() * (130 + level * 18), velocityY: 0, level })) }
 function GameCanvas({ view, runtime, gameBoardLabel, onScore, onHealth, onClear, onGameOver, onPause }: { view: View; runtime: React.MutableRefObject<Runtime>; gameBoardLabel: string; onScore: (score: number) => void; onHealth: (health: number) => void; onClear: () => void; onGameOver: () => void; onPause: () => void }) {
@@ -109,7 +110,7 @@ export function BubbleTroubleGame({ locale: providedLocale, onLocaleChange, onEx
   const t = providedTranslations ?? useTranslations(locale)
   const [view, setView] = useState<View>('start')
   const [tutorialSlide, setTutorialSlide] = useState(0)
-  const [music, setMusic] = useState(() => localStorage.getItem('bubble-trouble-music') !== 'off')
+  const [music, setMusic] = useState(() => readConfig().settings.music)
   const [score, setScore] = useState(0)
   const [health, setHealth] = useState(3)
   const [submitted, setSubmitted] = useState(false)
@@ -127,8 +128,8 @@ export function BubbleTroubleGame({ locale: providedLocale, onLocaleChange, onEx
   const startGame = () => { runtime.current = defaultRuntime(); setScore(0); setHealth(3); setView('loading'); loadingTimer.current = window.setTimeout(() => setView('playing'), 650) }
   const finishGame = (nextView: 'gameover' | 'victory') => setView(nextView)
   const backToStart = () => { setView('start'); setSubmitted(false); setPlayerName('') }
-  const changeLocale = (nextLocale: Locale) => { setLocale(nextLocale); onLocaleChange?.(nextLocale); localStorage.setItem('flash-games-locale', nextLocale) }
-  const toggleMusic = () => { const next = !music; setMusic(next); localStorage.setItem('bubble-trouble-music', next ? 'on' : 'off') }
+  const changeLocale = (nextLocale: Locale) => { setLocale(nextLocale); onLocaleChange?.(nextLocale); persistLocale(nextLocale) }
+  const toggleMusic = () => { const next = !music; setMusic(next); updateConfig((config) => ({ ...config, settings: { ...config.settings, music: next } })) }
   const downloadScores = () => { const content = formatHighscores(highscores.length > 0 ? highscores : [{ name: playerName || t('bubble.defaultPlayerName'), score }]); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([content], { type: 'text/plain' })); link.download = 'bubble-trouble-highscores.txt'; link.click(); URL.revokeObjectURL(link.href) }
   const submitScore = () => { if (submitted) return; const entries = saveHighscore({ name: playerName.trim() || t('bubble.defaultPlayerName'), score }); setHighscores(entries); setSubmitted(false); setPlayerName(''); setView('start') }
   const gameSettings = settingsOpen && <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} additionalBindings={keyBindings} musicEnabled={music} onMusicToggle={toggleMusic} />
