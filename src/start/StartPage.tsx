@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { games } from '../games'
+import { getPreferredLocale, useTranslations } from '../assets/languages'
 
-function ScenePreview() {
+function ScenePreview({ previewAlt }: { previewAlt: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -24,9 +25,11 @@ function ScenePreview() {
     return () => { cancelAnimationFrame(frame); window.removeEventListener('resize', resize); shape.geometry.dispose(); shape.material.dispose(); renderer.dispose() }
   }, [])
 
-  return <canvas ref={canvasRef} aria-label="Animated game preview" />
+  return <canvas ref={canvasRef} aria-label={previewAlt} />
 }
 
 export function StartPage() {
-  return <main className="start-page"><header className="topbar"><div className="brand"><span className="brand-mark">FG</span><span>Flash Games</span></div><span className="status">three.js playground</span></header><section className="intro"><div className="intro-copy"><p className="eyebrow">Quick rounds. Bright ideas.</p><h1>Pick a game.<br /><em>Make it count.</em></h1><p className="lede">A home for tiny experiments, reflex tests, and games that respect your time.</p><div className="game-list">{games.map((game) => <button className="game-row" key={game.id} type="button"><span>{game.icon}</span><span>{game.title}</span><small>{game.status}</small></button>)}</div></div><div className="preview"><ScenePreview /><span className="preview-label">LIVE / 001</span></div></section></main>
+  const t = useTranslations(getPreferredLocale())
+
+  return <main className="start-page"><header className="topbar"><div className="brand"><span className="brand-mark">FG</span><span>{t('brand')}</span></div><span className="status">{t('status')}</span></header><section className="intro"><div className="intro-copy"><p className="eyebrow">{t('eyebrow')}</p><h1>{t('headlineStart')}<br /><em>{t('headlineEmphasis')}</em></h1><p className="lede">{t('description')}</p><div className="game-list">{games.map((game) => <button className="game-row" key={game.id} type="button"><span>{game.icon}</span><span>{t(game.titleKey)}</span><small>{t(game.statusKey)}</small></button>)}</div></div><div className="preview"><ScenePreview previewAlt={t('previewAlt')} /><span className="preview-label">{t('previewLabel')}</span></div></section></main>
 }
