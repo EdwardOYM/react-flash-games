@@ -21,6 +21,7 @@ Before editing, identify:
 - Any images, models, textures, audio, or other assets needed.
 - The default highscore behavior and score calculation.
 - The game's inspiration and the credit/source name to display for it.
+- The default configuration values and config namespace for settings and highscores.
 
 If the game name or core loop is missing, ask for those details before creating folders.
 
@@ -37,7 +38,7 @@ Keep game-specific files inside those folders. Shared utilities belong in an exi
 
 1. Inspect nearby implementations, `src/games/index.ts`, `src/settings/`, `src/assets/languages/`, and the current routing or page composition.
 2. Form a local implementation plan covering the game id, page entry point, state transitions, assets, translation keys, and key bindings.
-3. Create the game and asset folders before adding implementation files.
+3. Create the game and asset folders before adding implementation files. Add or extend the default `.config` file and config store for the game's settings and highscores.
 4. Create a game start page with:
    - Start game button.
    - Help/Tutorial button.
@@ -54,7 +55,7 @@ Keep game-specific files inside those folders. Shared utilities belong in an exi
 6. Create the highscore page with:
    - Score display.
    - Player name input when the game ends.
-   - Persistent highscore storage in the requested `.txt` representation or the project's established storage boundary. In a browser-only app, use an explicit `.txt` download/export or an existing backend; do not claim that `localStorage` is a `.txt` file.
+   - Persistent highscore storage in the shared config store, plus the requested `.txt` representation through an explicit download/export or an existing backend. Do not scatter settings or highscores across unrelated storage keys.
    - Return to game start and retry controls. After a successful save, return automatically to the game start page so the updated highscore list is immediately visible.
 7. Add every player-facing string to `src/assets/languages/en.json`, `ms.json`, and `zh.json` using identical key shapes.
 8. Render all copy through the existing translation method. Never hardcode visible text, button labels, status text, tutorial text, aria labels, or error messages in JSX or game definitions.
@@ -76,6 +77,7 @@ Before finishing, verify:
 - Tutorial navigation works and does not require hardcoded copy.
 - Settings opens from the game start page and includes all new keybind actions.
 - Volume/music and highscore persistence do not crash when storage is unavailable or empty.
+- Default settings and highscores are represented in the project `.config` file, with browser persistence using the shared config store.
 - All three locale dictionaries contain matching keys for the new feature.
 - The credits page includes the new game's inspiration/source entry.
 - No player-facing literal strings remain in the new game UI or metadata.

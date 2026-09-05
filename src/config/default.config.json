@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "settings": {
+    "volume": 70,
+    "locale": "en",
+    "music": true,
+    "primaryKey": "Space",
+    "keybindings": {}
+  },
+  "highscores": {
+    "bubble-trouble": []
+  }
+}
