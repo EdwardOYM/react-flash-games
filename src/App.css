@@ -33,7 +33,7 @@ h1 em { color: #f18165; font-style: normal; }
 .credit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 22px 0; border-bottom: 1px solid #385058; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .78rem; text-transform: uppercase; }
 .credit-row strong { color: #f5f0e8; font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 500; text-transform: none; }
 .credit-stack > div { display: grid; gap: 12px; }
-.bubble-page { min-height: 100dvh; padding: clamp(22px, 4vw, 40px) clamp(20px, 6vw, 72px) 48px; color: #f5f0e8; background: radial-gradient(circle at 70% 20%, #273d45 0, #101820 42%), #101820; overflow-y: auto; }
+.bubble-page { height: 100dvh; min-height: 0; padding: clamp(22px, 4vw, 40px) clamp(20px, 6vw, 72px) 48px; color: #f5f0e8; background: radial-gradient(circle at 70% 20%, #273d45 0, #101820 42%), #101820; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 .bubble-shell, .bubble-panel { width: min(100%, 760px); margin: clamp(70px, 13vh, 150px) auto 0; }
 .bubble-shell h1, .bubble-panel h1 { color: #f5f0e8; }
 .bubble-description, .tutorial-copy { max-width: 540px; margin: 28px 0 40px; color: #aeb9b9; font-size: 1.1rem; line-height: 1.6; }
@@ -54,7 +54,7 @@ h1 em { color: #f18165; font-style: normal; }
 .loading-orb { width: 68px; height: 68px; margin-bottom: 36px; border: 8px solid #385058; border-top-color: #ffc857; border-radius: 50%; animation: spin 1s linear infinite; }
 .bubble-hud { display: flex; justify-content: space-between; align-items: center; width: min(100%, 960px); margin: 0 auto 14px; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .75rem; text-transform: uppercase; }
 .bubble-canvas { display: block; width: min(100%, 960px); max-height: calc(100dvh - 110px); height: auto; aspect-ratio: 16 / 9; margin: 0 auto; border: 1px solid #50676a; background: #101820; image-rendering: auto; }
-.bubble-gameplay-page { height: 100dvh; min-height: 0; padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); overflow: hidden; }
+.bubble-gameplay-page { height: 100dvh; min-height: 0; padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); overflow: hidden; touch-action: none; }
 .bubble-stage { position: relative; display: grid; place-items: center; min-height: 0; flex: 1; }
 .bubble-gameplay-page .bubble-hud { flex: 0 0 auto; }
 .mobile-controls { display: none; position: absolute; inset: 0; pointer-events: none; }
