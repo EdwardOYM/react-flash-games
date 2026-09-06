@@ -17,22 +17,41 @@ type GameInputSettingsProps = {
   onRemapController?: () => void
 }
 
-function useDesktopInputMode() {
-  const [isDesktop, setIsDesktop] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 721px)').matches)
+type InputMode = 'keyboard' | 'gamepad'
+
+function hasTouchInput() {
+  if (typeof navigator === 'undefined') return false
+  return navigator.maxTouchPoints > 0 || (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
+}
+
+function hasConnectedGamepad() {
+  if (typeof navigator === 'undefined' || !navigator.getGamepads) return false
+  return Array.from(navigator.getGamepads()).some((gamepad) => gamepad?.connected)
+}
+
+function useInputMode() {
+  const [inputMode, setInputMode] = useState<InputMode>(() => hasTouchInput() || hasConnectedGamepad() ? 'gamepad' : 'keyboard')
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 721px)')
-    const updateMode = () => setIsDesktop(mediaQuery.matches)
-    updateMode()
-    mediaQuery.addEventListener('change', updateMode)
-    return () => mediaQuery.removeEventListener('change', updateMode)
+    const handleKeyDown = () => setInputMode('keyboard')
+    const handlePointerDown = (event: PointerEvent) => { if (event.pointerType === 'touch') setInputMode('gamepad') }
+    const handleGamepadConnected = () => setInputMode('gamepad')
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('pointerdown', handlePointerDown)
+    window.addEventListener('gamepadconnected', handleGamepadConnected)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('pointerdown', handlePointerDown)
+      window.removeEventListener('gamepadconnected', handleGamepadConnected)
+    }
   }, [])
 
-  return isDesktop
+  return inputMode
 }
 
 export function GameInputSettings({ t, additionalBindings = [], labelKey = 'keybinds', onRemapController }: GameInputSettingsProps) {
-  const isDesktop = useDesktopInputMode()
+  const inputMode = useInputMode()
+  const isDesktop = inputMode === 'keyboard'
   const [bindings, setBindings] = useState<KeyBindings>(() => ({ primary: readConfig().settings.primaryKey }))
   const [listening, setListening] = useState(false)
   const [activeBinding, setActiveBinding] = useState<string | null>(null)
