@@ -58,8 +58,8 @@ h1 em { color: #f18165; font-style: normal; }
 .bubble-stage { position: relative; display: grid; place-items: center; min-height: 0; flex: 1; }
 .bubble-gameplay-page .bubble-hud { flex: 0 0 auto; }
 .mobile-controls { display: none; }
-.bubble-pause-overlay { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: rgba(6, 12, 16, .58); backdrop-filter: blur(5px); }
-.bubble-pause-card { width: min(100%, 460px); padding: 42px; border: 1px solid #50676a; background: #17262d; }
+.bubble-pause-overlay { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: rgba(6, 12, 16, .58); backdrop-filter: blur(5px); pointer-events: none; }
+.bubble-pause-card { position: relative; z-index: 7; width: min(100%, 460px); padding: 42px; border: 1px solid #50676a; background: #17262d; pointer-events: auto; }
 .bubble-pause-card h2 { margin: -12px 0 28px; color: #f5f0e8; font-family: 'Space Grotesk', sans-serif; font-size: 2.5rem; }
 .score-display { margin: 28px 0; color: #ffc857; font-family: 'DM Mono', monospace; font-size: 1rem; }
 .bubble-panel .highscore-table { margin: 28px 0 34px; }
@@ -83,7 +83,6 @@ h1 em { color: #f18165; font-style: normal; }
 .keybind-row button { padding: 8px 10px; border: 1px solid #f18165; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .65rem; text-transform: uppercase; cursor: pointer; }
 .keybind-row button:hover { color: #101820; background: #f18165; }
 .keybind-row .reset-button { border-color: #50676a; color: #aeb9b9; }
-.settings-mobile-gamepad .setting-control:last-child { display: none; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (max-width: 720px) { .start-page, .credits-page, .bubble-page { padding: 22px 24px 40px; } .status { display: none; } .topbar-actions { gap: 12px; } .intro { grid-template-columns: 1fr; margin-top: 70px; } .preview { width: min(78vw, 360px); margin: 0 auto; order: -1; } .credits-content { margin-top: 90px; } .bubble-shell, .bubble-panel { margin-top: 56px; } }
@@ -114,10 +113,10 @@ h1 em { color: #f18165; font-style: normal; }
 	.bubble-gameplay-page { padding-right: max(12px, env(safe-area-inset-right)); padding-left: max(12px, env(safe-area-inset-left)); }
 	.bubble-gameplay-page .bubble-canvas { max-height: calc(100dvh - 112px); }
 	.mobile-controls { position: absolute; inset: 0; display: block; pointer-events: none; }
+	.mobile-controls-editable { z-index: 6; }
 	.mobile-control-group { position: absolute; display: flex; gap: 8px; transform: translate(-50%, -50%); pointer-events: auto; touch-action: none; cursor: move; }
 	.mobile-shoot-control { display: block; }
 	.mobile-stick { position: relative; display: grid; place-items: center; width: 76px; height: 76px; border: 1px solid rgba(255, 200, 87, .8); border-radius: 50%; background: rgba(16, 24, 32, .82); pointer-events: auto; touch-action: none; cursor: ew-resize; }
 	.mobile-stick-knob { width: 34px; height: 34px; border: 1px solid #f5f0e8; border-radius: 50%; background: #ffc857; pointer-events: none; transform: translateX(calc(var(--stick-axis, 0) * 20px)); }
 	.mobile-controls button { width: 52px; height: 52px; padding: 0; border: 1px solid rgba(255, 200, 87, .8); color: #101820; background: rgba(255, 200, 87, .88); font-size: 1.1rem; pointer-events: auto; touch-action: none; }
-	.mobile-drag-handle { display: grid; place-items: center; width: 18px; color: #ffc857; background: rgba(16, 24, 32, .8); font-size: .9rem; line-height: 1; cursor: move; }
 }
