@@ -13,6 +13,3 @@ export function saveHighscore(entry: HighscoreEntry) {
   }).highscores['bubble-trouble']
 }
 
-export function formatHighscores(entries: HighscoreEntry[]) {
-  return entries.map((entry) => `${entry.name}\t${entry.score}`).join('\n')
-}

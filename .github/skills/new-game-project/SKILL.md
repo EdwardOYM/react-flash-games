@@ -25,6 +25,19 @@ Before editing, identify:
 
 If the game name or core loop is missing, ask for those details before creating folders.
 
+## Responsive and Input Requirements
+
+Every page and state must be usable on mobile and desktop, including start, tutorial, loading, gameplay, pause, game-over, victory, highscore, settings, and credits views.
+
+- Design for portrait and landscape mobile layouts. Prevent horizontal overflow and keep panels, forms, tables, buttons, canvas elements, and overlays inside the available safe area.
+- Test narrow portrait dimensions and short landscape dimensions. Do not rely only on a `max-width` media query when the game can be embedded in a fixed-size iframe.
+- Use a reusable virtual gamepad/controller for mobile input. Keep movement controls touch-friendly, support horizontal-only sticks when the game only needs left/right movement, and keep action controls reachable without covering important game content.
+- Allow mobile controller placement to be adjusted only through an explicit settings/remap flow. Do not show drag handles during normal gameplay or pause; provide Save and Exit without saving for temporary placement changes.
+- Use keyboard key bindings and remapping on desktop. Keep gameplay actions in the shared key-binding contract so each game can provide its own translated action list.
+- Determine the active input mode from capabilities and input activity, such as touch points/coarse pointer, `gamepadconnected`, and keyboard events. Do not use user-agent strings or viewport width as the sole device or input-mode detector.
+- Make controller visibility capability-driven so mobile controls still appear inside fixed embeds such as itch.io frames.
+- Hide desktop keyboard-remapping controls on mobile, and hide mobile controller-placement controls on desktop unless a connected gamepad explicitly requires them.
+
 ## Folder Contract
 
 For a game named `Example Game` with id `example-game`, create both folders:
@@ -66,6 +79,7 @@ Keep game-specific files inside those folders. Shared utilities belong in an exi
 13. Keep Three.js setup and cleanup local to the game. Dispose geometries, materials, textures, renderers, listeners, and animation frames during unmount or state teardown.
 14. Add or update focused tests when the game has non-trivial state transitions, scoring, persistence, or input mapping.
 15. Run the narrowest relevant validation after each implementation slice, then run the production build and locale-shape validation.
+16. Validate every page and state at mobile portrait, mobile landscape, and desktop dimensions. Confirm that fixed-size embeds do not hide capability-driven mobile controls.
 
 ## Quality Gates
 
@@ -75,6 +89,11 @@ Before finishing, verify:
 - Loading, pause, game over, victory, retry, exit, and highscore paths are reachable.
 - Saving a highscore returns to the game start page and shows the updated leaderboard.
 - Tutorial navigation works and does not require hardcoded copy.
+- All pages remain usable without horizontal overflow at narrow portrait and short landscape dimensions.
+- Mobile devices expose a usable virtual gamepad/controller, including in fixed-size embeds, while desktop devices expose keyboard key bindings.
+- Input mode detection uses touch/gamepad/keyboard capabilities and activity rather than user-agent strings alone.
+- Mobile controller placement is locked during normal play and can be changed only through the explicit remap, Save, and Exit flow.
+- Desktop settings show keyboard remapping; mobile settings do not show keyboard remapping.
 - Settings opens from the game start page and includes all new keybind actions.
 - Volume/music and highscore persistence do not crash when storage is unavailable or empty.
 - Default settings and highscores are represented in the project `.config` file, with browser persistence using the shared config store.

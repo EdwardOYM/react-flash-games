@@ -73,6 +73,7 @@ h1 em { color: #f18165; font-style: normal; }
 .name-field { display: grid; gap: 10px; margin-bottom: 24px; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .75rem; text-transform: uppercase; }
 .name-field input { padding: 13px; border: 1px solid #50676a; color: #f5f0e8; background: #101820; font: inherit; text-transform: none; }
 .saved-note { color: #79c2b0; font-family: 'DM Mono', monospace; font-size: .75rem; }
+.result-next-button { margin-top: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .settings-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px; background: rgba(6, 12, 16, .78); backdrop-filter: blur(8px); animation: fade-in .2s ease-out; }
 .settings-modal { position: relative; width: min(100%, 540px); max-height: calc(100dvh - 48px); overflow-y: auto; padding: 42px clamp(24px, 5vw, 52px) 44px; border: 1px solid #50676a; background: #17262d; box-shadow: 0 24px 80px rgba(0, 0, 0, .42); animation: modal-in .25s ease-out; overscroll-behavior: contain; }
@@ -115,8 +116,31 @@ h1 em { color: #f18165; font-style: normal; }
 	.game-row { padding: 9px 4px; }
 	.bubble-page { padding-top: max(12px, env(safe-area-inset-top)); padding-right: max(16px, env(safe-area-inset-right)); padding-bottom: max(12px, env(safe-area-inset-bottom)); padding-left: max(16px, env(safe-area-inset-left)); }
 	.bubble-gameplay-page .bubble-canvas { width: auto; max-width: 100%; height: min(calc(100dvh - 70px), calc(100vw * .5625)); max-height: none; }
+	.bubble-tutorial-page { padding: 12px 16px 20px; }
+	.bubble-tutorial-panel { margin-top: 14px; padding: 22px 28px; }
+	.bubble-tutorial-panel .tutorial-copy { margin: 14px 0 20px; font-size: .98rem; line-height: 1.45; }
+	.bubble-tutorial-panel .bubble-actions { gap: 8px; }
 }
 @media (max-width: 720px) {
 	.bubble-gameplay-page { padding-right: max(12px, env(safe-area-inset-right)); padding-left: max(12px, env(safe-area-inset-left)); }
 	.bubble-gameplay-page .bubble-canvas { max-height: calc(100dvh - 112px); }
+}
+@media (max-width: 520px) {
+	.bubble-tutorial-page { padding: 16px 14px 28px; }
+	.bubble-tutorial-panel { width: 100%; margin-top: 18px; padding: 24px 16px 22px; }
+	.bubble-tutorial-panel h1 { font-size: clamp(2.7rem, 14vw, 4.2rem); line-height: .9; }
+	.bubble-tutorial-panel .tutorial-copy { margin: 18px 0 26px; font-size: 1rem; line-height: 1.5; }
+	.bubble-tutorial-panel .bubble-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+	.bubble-tutorial-panel .bubble-actions button { width: 100%; }
+	.bubble-result-page { padding: 16px 14px 28px; }
+	.bubble-result-panel { width: 100%; margin-top: 18px; padding: 24px 16px 22px; }
+	.bubble-result-panel h1 { font-size: clamp(2.7rem, 14vw, 4.2rem); line-height: .9; overflow-wrap: anywhere; }
+	.bubble-result-panel .score-display { margin: 18px 0; }
+	.bubble-result-panel .highscore-table { margin: 22px 0 26px; }
+	.bubble-result-panel .highscore-table-head, .bubble-result-panel .highscore-row { grid-template-columns: 34px minmax(0, 1fr) 58px; gap: 8px; padding: 10px 0; font-size: .64rem; }
+	.bubble-result-panel .highscore-row strong { min-width: 0; font-size: .84rem; }
+	.bubble-result-panel .name-field { margin-bottom: 18px; }
+	.bubble-result-panel .name-field input { width: 100%; min-width: 0; padding: 12px; }
+	.bubble-result-panel .bubble-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+	.bubble-result-panel .bubble-actions button, .bubble-result-panel .result-next-button { width: 100%; }
 }

@@ -96,7 +96,6 @@ type BubbleTranslationKey =
   | 'namePlaceholder'
   | 'submitScore'
   | 'scoreSaved'
-  | 'downloadScore'
   | 'retry'
   | 'backToStart'
   | 'points'
