@@ -57,7 +57,14 @@ h1 em { color: #f18165; font-style: normal; }
 .bubble-gameplay-page { height: 100dvh; min-height: 0; padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); overflow: hidden; }
 .bubble-stage { position: relative; display: grid; place-items: center; min-height: 0; flex: 1; }
 .bubble-gameplay-page .bubble-hud { flex: 0 0 auto; }
-.mobile-controls { display: none; }
+.mobile-controls { display: none; position: absolute; inset: 0; pointer-events: none; }
+.mobile-controls-visible { display: block; }
+.mobile-controls-editable { z-index: 6; }
+.mobile-control-group { position: absolute; display: flex; gap: 8px; transform: translate(-50%, -50%); pointer-events: auto; touch-action: none; cursor: move; }
+.mobile-shoot-control { display: block; }
+.mobile-stick { position: relative; display: grid; place-items: center; width: 76px; height: 76px; border: 1px solid rgba(255, 200, 87, .8); border-radius: 50%; background: rgba(16, 24, 32, .82); pointer-events: auto; touch-action: none; cursor: ew-resize; }
+.mobile-stick-knob { width: 34px; height: 34px; border: 1px solid #f5f0e8; border-radius: 50%; background: #ffc857; pointer-events: none; transform: translateX(calc(var(--stick-axis, 0) * 20px)); }
+.mobile-controls button { width: 52px; height: 52px; padding: 0; border: 1px solid rgba(255, 200, 87, .8); color: #101820; background: rgba(255, 200, 87, .88); font-size: 1.1rem; pointer-events: auto; touch-action: none; }
 .bubble-pause-overlay { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: rgba(6, 12, 16, .58); backdrop-filter: blur(5px); pointer-events: none; }
 .bubble-pause-card { position: relative; z-index: 7; width: min(100%, 460px); padding: 42px; border: 1px solid #50676a; background: #17262d; pointer-events: auto; }
 .bubble-pause-card h2 { margin: -12px 0 28px; color: #f5f0e8; font-family: 'Space Grotesk', sans-serif; font-size: 2.5rem; }
@@ -112,11 +119,4 @@ h1 em { color: #f18165; font-style: normal; }
 @media (max-width: 720px) {
 	.bubble-gameplay-page { padding-right: max(12px, env(safe-area-inset-right)); padding-left: max(12px, env(safe-area-inset-left)); }
 	.bubble-gameplay-page .bubble-canvas { max-height: calc(100dvh - 112px); }
-	.mobile-controls { position: absolute; inset: 0; display: block; pointer-events: none; }
-	.mobile-controls-editable { z-index: 6; }
-	.mobile-control-group { position: absolute; display: flex; gap: 8px; transform: translate(-50%, -50%); pointer-events: auto; touch-action: none; cursor: move; }
-	.mobile-shoot-control { display: block; }
-	.mobile-stick { position: relative; display: grid; place-items: center; width: 76px; height: 76px; border: 1px solid rgba(255, 200, 87, .8); border-radius: 50%; background: rgba(16, 24, 32, .82); pointer-events: auto; touch-action: none; cursor: ew-resize; }
-	.mobile-stick-knob { width: 34px; height: 34px; border: 1px solid #f5f0e8; border-radius: 50%; background: #ffc857; pointer-events: none; transform: translateX(calc(var(--stick-axis, 0) * 20px)); }
-	.mobile-controls button { width: 52px; height: 52px; padding: 0; border: 1px solid rgba(255, 200, 87, .8); color: #101820; background: rgba(255, 200, 87, .88); font-size: 1.1rem; pointer-events: auto; touch-action: none; }
 }

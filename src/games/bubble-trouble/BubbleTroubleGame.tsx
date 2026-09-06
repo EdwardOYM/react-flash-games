@@ -25,7 +25,23 @@ const keyBindings: AdditionalKeyBinding[] = [
 function readKey(id: string, fallback: string) { return readConfig().settings.keybindings[id] ?? fallback }
 function randomDirection() { return Math.random() > 0.5 ? 1 : -1 }
 function createBalls(count: number, radius = 48, level = 0): Ball[] { return Array.from({ length: count }, (_, index) => ({ x: 150 + index * 150, y: 145 + index * 12, radius, velocityX: randomDirection() * (130 + level * 18), velocityY: 0, level })) }
+function hasControllerCapability() {
+  if (typeof navigator === 'undefined') return false
+  return navigator.maxTouchPoints > 0 || (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches) || Boolean(navigator.getGamepads?.().some((gamepad) => gamepad?.connected))
+}
+function useControllerVisibility() {
+  const [visible, setVisible] = useState(() => hasControllerCapability())
+  useEffect(() => {
+    const showControls = () => setVisible(true)
+    const handleTouch = (event: PointerEvent) => { if (event.pointerType === 'touch') showControls() }
+    window.addEventListener('gamepadconnected', showControls)
+    window.addEventListener('pointerdown', handleTouch)
+    return () => { window.removeEventListener('gamepadconnected', showControls); window.removeEventListener('pointerdown', handleTouch) }
+  }, [])
+  return visible
+}
 function GameCanvas({ view, runtime, gameBoardLabel, mobileLeftLabel, mobileRightLabel, mobileShootLabel, mobilePositions, allowRelocate, onMobilePositionsChange, onScore, onHealth, onClear, onGameOver, onPause }: { view: View; runtime: React.MutableRefObject<Runtime>; gameBoardLabel: string; mobileLeftLabel: string; mobileRightLabel: string; mobileShootLabel: string; mobilePositions: { movement: MobileControlPosition; shoot: MobileControlPosition }; allowRelocate: boolean; onMobilePositionsChange: (positions: { movement: MobileControlPosition; shoot: MobileControlPosition }) => void; onScore: (score: number) => void; onHealth: (health: number) => void; onClear: () => void; onGameOver: () => void; onPause: () => void }) {
+  const controllerVisible = useControllerVisibility()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pressedKeys = useRef(new Set<string>())
   const gamepadButtons = useRef({ shoot: false, pause: false })
@@ -169,7 +185,7 @@ function GameCanvas({ view, runtime, gameBoardLabel, mobileLeftLabel, mobileRigh
     return () => { cancelAnimationFrame(frame); window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp) }
   }, [onClear, onGameOver, onHealth, onPause, runtime, view])
 
-  return <div className="bubble-stage"><canvas className="bubble-canvas" ref={canvasRef} aria-label={gameBoardLabel} /><div className={`mobile-controls${allowRelocate ? ' mobile-controls-editable' : ''}`} aria-label={gameBoardLabel}><div className="mobile-control-group mobile-movement-control" style={{ left: `${mobilePositions.movement.x}%`, top: `${mobilePositions.movement.y}%` }} onPointerDown={(event) => startDragging('movement', event)} onPointerMove={dragControl} onPointerUp={stopDragging}><div className="mobile-stick" aria-label={`${mobileLeftLabel} / ${mobileRightLabel}`} onPointerDown={startAnalog} onPointerMove={allowRelocate ? dragControl : updateAnalogAxis} onPointerUp={stopAnalog} onPointerCancel={stopAnalog}><span className="mobile-stick-knob" /></div></div><div className="mobile-control-group mobile-shoot-control" style={{ left: `${mobilePositions.shoot.x}%`, top: `${mobilePositions.shoot.y}%` }} onPointerDown={(event) => startDragging('shoot', event)} onPointerMove={dragControl} onPointerUp={stopDragging}><button type="button" aria-label={mobileShootLabel} onPointerDown={(event) => { event.stopPropagation(); if (allowRelocate) startDragging('shoot', event); else { pressKey(readKey('bubble-shoot', 'ArrowUp')); if (runtime.current.strings.length === 0) runtime.current.strings.push({ x: runtime.current.playerX, top: PLAYER_Y }) } }} onPointerUp={(event) => { if (allowRelocate) stopDragging(event); else releaseKey(readKey('bubble-shoot', 'ArrowUp')) }} onPointerCancel={(event) => { if (allowRelocate) stopDragging(event); else releaseKey(readKey('bubble-shoot', 'ArrowUp')) }}>▲</button></div></div></div>
+  return <div className="bubble-stage"><canvas className="bubble-canvas" ref={canvasRef} aria-label={gameBoardLabel} /><div className={`mobile-controls${controllerVisible ? ' mobile-controls-visible' : ''}${allowRelocate ? ' mobile-controls-editable' : ''}`} aria-label={gameBoardLabel}><div className="mobile-control-group mobile-movement-control" style={{ left: `${mobilePositions.movement.x}%`, top: `${mobilePositions.movement.y}%` }} onPointerDown={(event) => startDragging('movement', event)} onPointerMove={dragControl} onPointerUp={stopDragging}><div className="mobile-stick" aria-label={`${mobileLeftLabel} / ${mobileRightLabel}`} onPointerDown={startAnalog} onPointerMove={allowRelocate ? dragControl : updateAnalogAxis} onPointerUp={stopAnalog} onPointerCancel={stopAnalog}><span className="mobile-stick-knob" /></div></div><div className="mobile-control-group mobile-shoot-control" style={{ left: `${mobilePositions.shoot.x}%`, top: `${mobilePositions.shoot.y}%` }} onPointerDown={(event) => startDragging('shoot', event)} onPointerMove={dragControl} onPointerUp={stopDragging}><button type="button" aria-label={mobileShootLabel} onPointerDown={(event) => { event.stopPropagation(); if (allowRelocate) startDragging('shoot', event); else { pressKey(readKey('bubble-shoot', 'ArrowUp')); if (runtime.current.strings.length === 0) runtime.current.strings.push({ x: runtime.current.playerX, top: PLAYER_Y }) } }} onPointerUp={(event) => { if (allowRelocate) stopDragging(event); else releaseKey(readKey('bubble-shoot', 'ArrowUp')) }} onPointerCancel={(event) => { if (allowRelocate) stopDragging(event); else releaseKey(readKey('bubble-shoot', 'ArrowUp')) }}>▲</button></div></div></div>
 }
 
 export function BubbleTroubleGame({ locale: providedLocale, onLocaleChange, onExit, t: providedTranslations }: BubbleTroubleProps) {
