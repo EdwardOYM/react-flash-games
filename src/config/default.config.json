@@ -5,7 +5,11 @@
     "locale": "en",
     "music": true,
     "primaryKey": "Space",
-    "keybindings": {}
+    "keybindings": {},
+    "mobileControls": {
+      "movement": { "x": 12, "y": 72 },
+      "shoot": { "x": 88, "y": 72 }
+    }
   },
   "highscores": {
     "bubble-trouble": []

@@ -2,6 +2,7 @@ import defaultConfigJson from './default.config.json'
 
 export type ConfigLocale = 'en' | 'ms' | 'zh'
 export type ConfigHighscore = { name: string; score: number }
+export type MobileControlPosition = { x: number; y: number }
 export type AppConfig = {
   version: number
   settings: {
@@ -10,6 +11,7 @@ export type AppConfig = {
     music: boolean
     primaryKey: string
     keybindings: Record<string, string>
+    mobileControls: { movement: MobileControlPosition; shoot: MobileControlPosition }
   }
   highscores: Record<string, ConfigHighscore[]>
 }
