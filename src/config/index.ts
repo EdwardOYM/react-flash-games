@@ -2,7 +2,7 @@ import defaultConfigJson from './default.config.json'
 
 export type ConfigLocale = 'en' | 'ms' | 'zh'
 export type ConfigHighscore = { name: string; score: number }
-export type MobileControlPosition = { x: number; y: number }
+export type MobileControlPosition = { x: number; y: number; scale: number }
 export type AppConfig = {
   version: number
   settings: {
@@ -24,10 +24,20 @@ const defaultConfig: AppConfig = {
 }
 
 function mergeConfig(value: Partial<AppConfig>): AppConfig {
+  const defaults = defaultConfig.settings.mobileControls
+  const storedControls = value.settings?.mobileControls
   return {
     ...defaultConfig,
     ...value,
-    settings: { ...defaultConfig.settings, ...value.settings, keybindings: { ...defaultConfig.settings.keybindings, ...value.settings?.keybindings } },
+    settings: {
+      ...defaultConfig.settings,
+      ...value.settings,
+      keybindings: { ...defaultConfig.settings.keybindings, ...value.settings?.keybindings },
+      mobileControls: {
+        movement: { ...defaults.movement, ...(storedControls?.movement ?? {}) },
+        shoot: { ...defaults.shoot, ...(storedControls?.shoot ?? {}) },
+      },
+    },
     highscores: { ...defaultConfig.highscores, ...value.highscores },
   }
 }

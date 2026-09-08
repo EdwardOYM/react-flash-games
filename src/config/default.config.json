@@ -7,8 +7,8 @@
     "primaryKey": "Space",
     "keybindings": {},
     "mobileControls": {
-      "movement": { "x": 12, "y": 72 },
-      "shoot": { "x": 88, "y": 72 }
+      "movement": { "x": 12, "y": 72, "scale": 1 },
+      "shoot": { "x": 88, "y": 72, "scale": 1 }
     }
   },
   "highscores": {
