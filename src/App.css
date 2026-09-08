@@ -24,7 +24,7 @@ h1 em { color: #f18165; font-style: normal; }
 .preview-label { position: absolute; right: 14%; bottom: 12%; padding: 6px 10px; color: #101820; background: #ffc857; font-family: 'DM Mono', monospace; font-size: .65rem; }
 .text-button { padding: 8px 0; border: 0; color: #aeb9b9; background: transparent; font-family: 'DM Mono', monospace; font-size: .7rem; text-transform: uppercase; cursor: pointer; }
 .text-button:hover { color: #ffc857; }
-.credits-page { min-height: 100dvh; padding: clamp(22px, 4vw, 40px) clamp(20px, 6vw, 72px) 48px; background: radial-gradient(circle at 72% 28%, #273d45 0, #101820 38%), #101820; overflow-y: auto; }
+.credits-page { height: 100dvh; min-height: 0; padding: clamp(22px, 4vw, 40px) clamp(20px, 6vw, 72px) 48px; color: #f5f0e8; background: radial-gradient(circle at 72% 28%, #273d45 0, #101820 38%), #101820; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
 .credits-header { display: flex; justify-content: space-between; align-items: center; max-width: 1180px; margin: auto; }
 .credits-content { max-width: 760px; margin: clamp(90px, 16vh, 170px) auto 0; }
 .credits-content h1 { margin-bottom: 24px; color: #f5f0e8; }
@@ -48,6 +48,8 @@ h1 em { color: #f18165; font-style: normal; }
 .bubble-menu, .bubble-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .bubble-menu button, .bubble-actions button, .bubble-hud button { padding: 12px 16px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .7rem; text-transform: uppercase; cursor: pointer; }
 .bubble-menu button:hover, .bubble-actions button:hover, .bubble-hud button:hover { border-color: #ffc857; color: #ffc857; }
+.bubble-menu button:focus, .bubble-menu button:focus-visible, .bubble-actions button:focus, .bubble-actions button:focus-visible, .bubble-hud button:focus, .bubble-hud button:focus-visible { color: #aeb9b9; outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.bubble-menu .bubble-primary:focus, .bubble-menu .bubble-primary:focus-visible, .bubble-actions .bubble-primary:focus, .bubble-actions .bubble-primary:focus-visible { color: #aeb9b9; }
 .bubble-menu .bubble-primary, .bubble-actions .bubble-primary { border-color: #ffc857; color: #101820; background: #ffc857; }
 .bubble-panel { max-width: 680px; padding: clamp(28px, 6vw, 64px); border: 1px solid #50676a; background: rgba(23, 38, 45, .9); }
 .tutorial-count { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .75rem; }
