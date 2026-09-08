@@ -97,6 +97,8 @@
     "retry": "再玩一次",
     "backToStart": "返回游戏开始",
     "points": "分",
+    "controls": "控制",
+    "back": "返回",
     "inspiredBy": "灵感来自 Miniclip 的 Bubble Trouble"
   },
   "games": {

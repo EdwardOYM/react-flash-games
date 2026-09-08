@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { getPreferredLocale, persistLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
 import { readConfig, updateConfig, type MobileControlPosition } from '../../config'
-import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
+import { SettingsModal, ControllerSettings, useControllerVisibility, type AdditionalKeyBinding } from '../../settings'
 import { HighscoreTable } from './HighscoreTable'
 import { readHighscores, saveHighscore } from './highscores'
 
-type View = 'start' | 'tutorial' | 'loading' | 'playing' | 'paused' | 'gameover' | 'victory' | 'highscore'
+type View = 'start' | 'tutorial' | 'loading' | 'playing' | 'paused' | 'remap' | 'gameover' | 'victory' | 'highscore'
 type Ball = { x: number; y: number; radius: number; velocityX: number; velocityY: number; level: number }
 type StringShot = { x: number; top: number }
 type Runtime = { playerX: number; balls: Ball[]; strings: StringShot[]; score: number; health: number; spawnCount: number; hitCooldown: number }
@@ -25,20 +25,20 @@ const keyBindings: AdditionalKeyBinding[] = [
 function readKey(id: string, fallback: string) { return readConfig().settings.keybindings[id] ?? fallback }
 function randomDirection() { return Math.random() > 0.5 ? 1 : -1 }
 function createBalls(count: number, radius = 48, level = 0): Ball[] { return Array.from({ length: count }, (_, index) => ({ x: 150 + index * 150, y: 145 + index * 12, radius, velocityX: randomDirection() * (130 + level * 18), velocityY: 0, level })) }
-function hasControllerCapability() {
-  if (typeof navigator === 'undefined') return false
-  return navigator.maxTouchPoints > 0 || (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches) || Boolean(navigator.getGamepads?.().some((gamepad) => gamepad?.connected))
-}
-function useControllerVisibility() {
-  const [visible, setVisible] = useState(() => hasControllerCapability())
-  useEffect(() => {
-    const showControls = () => setVisible(true)
-    const handleTouch = (event: PointerEvent) => { if (event.pointerType === 'touch') showControls() }
-    window.addEventListener('gamepadconnected', showControls)
-    window.addEventListener('pointerdown', handleTouch)
-    return () => { window.removeEventListener('gamepadconnected', showControls); window.removeEventListener('pointerdown', handleTouch) }
-  }, [])
-  return visible
+function drawStaticBoard(context: CanvasRenderingContext2D) {
+  context.fillStyle = '#101820'
+  context.fillRect(0, 0, WIDTH, HEIGHT)
+  context.fillStyle = '#273d45'
+  context.fillRect(0, PLAYER_Y + 12, WIDTH, HEIGHT - PLAYER_Y)
+  context.strokeStyle = '#385058'
+  context.beginPath()
+  context.moveTo(0, PLAYER_Y + 12)
+  context.lineTo(WIDTH, PLAYER_Y + 12)
+  context.stroke()
+  context.fillStyle = '#ffc857'
+  context.fillRect(WIDTH / 2 - 20, PLAYER_Y - 18, 40, 18)
+  context.fillStyle = '#f5f0e8'
+  context.fillRect(WIDTH / 2 - 3, PLAYER_Y - 30, 6, 12)
 }
 function GameCanvas({ view, runtime, gameBoardLabel, mobileLeftLabel, mobileRightLabel, mobileShootLabel, mobilePositions, allowRelocate, onMobilePositionsChange, onScore, onHealth, onClear, onGameOver, onPause }: { view: View; runtime: React.MutableRefObject<Runtime>; gameBoardLabel: string; mobileLeftLabel: string; mobileRightLabel: string; mobileShootLabel: string; mobilePositions: { movement: MobileControlPosition; shoot: MobileControlPosition }; allowRelocate: boolean; onMobilePositionsChange: (positions: { movement: MobileControlPosition; shoot: MobileControlPosition }) => void; onScore: (score: number) => void; onHealth: (health: number) => void; onClear: () => void; onGameOver: () => void; onPause: () => void }) {
   const controllerVisible = useControllerVisibility()
@@ -132,13 +132,14 @@ function GameCanvas({ view, runtime, gameBoardLabel, mobileLeftLabel, mobileRigh
   }
 
   useEffect(() => {
-    if (view !== 'playing') return
     const canvas = canvasRef.current
     if (!canvas) return
     const context = canvas.getContext('2d')
     if (!context) return
     canvas.width = WIDTH
     canvas.height = HEIGHT
+    if (view === 'remap') { drawStaticBoard(context); return }
+    if (view !== 'playing') return
     const handleKeyDown = (event: KeyboardEvent) => {
       pressedKeys.current.add(event.key)
       if (event.key === 'Escape') onPause()
@@ -233,6 +234,7 @@ export function BubbleTroubleGame({ locale: providedLocale, onLocaleChange, onEx
   const [mobilePositions, setMobilePositions] = useState(() => readConfig().settings.mobileControls)
   const [savedMobilePositions, setSavedMobilePositions] = useState(() => readConfig().settings.mobileControls)
   const [editingControls, setEditingControls] = useState(false)
+  const [controlsOpen, setControlsOpen] = useState(false)
   const runtime = useRef<Runtime>(defaultRuntime())
   const loadingTimer = useRef<number | null>(null)
   const tutorialKeys: TranslationKey[] = ['bubble.tutorialOne', 'bubble.tutorialTwo', 'bubble.tutorialThree']
@@ -248,15 +250,16 @@ export function BubbleTroubleGame({ locale: providedLocale, onLocaleChange, onEx
   const changeLocale = (nextLocale: Locale) => { setLocale(nextLocale); onLocaleChange?.(nextLocale); persistLocale(nextLocale) }
   const toggleMusic = () => { const next = !music; setMusic(next); updateConfig((config) => ({ ...config, settings: { ...config.settings, music: next } })) }
   const updateMobilePositions = (positions: typeof mobilePositions) => setMobilePositions(positions)
-  const beginControllerAdjustment = () => { setMobilePositions(savedMobilePositions); setEditingControls(true); setSettingsOpen(false) }
-  const saveControllerAdjustment = () => { updateConfig((config) => ({ ...config, settings: { ...config.settings, mobileControls: mobilePositions } })); setSavedMobilePositions(mobilePositions); setEditingControls(false) }
-  const exitControllerAdjustment = () => { setMobilePositions(savedMobilePositions); setEditingControls(false) }
+  const beginControllerAdjustment = () => { setMobilePositions(savedMobilePositions); setEditingControls(true); setSettingsOpen(false); setControlsOpen(false); if (view === 'start') setView('remap') }
+  const saveControllerAdjustment = () => { updateConfig((config) => ({ ...config, settings: { ...config.settings, mobileControls: mobilePositions } })); setSavedMobilePositions(mobilePositions); setEditingControls(false); if (view === 'remap') setView('start') }
+  const exitControllerAdjustment = () => { setMobilePositions(savedMobilePositions); setEditingControls(false); if (view === 'remap') setView('start') }
   const submitScore = () => { if (submitted) return; const entries = saveHighscore({ name: playerName.trim() || t('bubble.defaultPlayerName'), score }); setHighscores(entries); setSubmitted(false); setPlayerName(''); setView('start') }
-  const gameSettings = settingsOpen && <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} additionalBindings={keyBindings} onRemapController={view === 'paused' ? beginControllerAdjustment : undefined} musicEnabled={music} onMusicToggle={toggleMusic} />
+  const gameSettings = settingsOpen && <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} musicEnabled={music} onMusicToggle={toggleMusic} />
+  const controlsPanel = controlsOpen && <div className="bubble-controls-overlay"><div className="bubble-controls-card"><p className="eyebrow">{t('bubble.controls')}</p><h2>{t('bubble.controls')}</h2><ControllerSettings t={t} additionalBindings={keyBindings} onRemapController={beginControllerAdjustment} /><div className="bubble-actions"><button type="button" onClick={() => setControlsOpen(false)}>{t('bubble.back')}</button></div></div></div>
 
-  if (view === 'start') return <main className="bubble-page"><div className="bubble-shell"><p className="eyebrow">{t('bubble.title')}</p><h1>{t('bubble.title')}</h1><p className="bubble-description">{t('bubble.description')}</p><div className="bubble-menu"><button className="bubble-primary" type="button" onClick={startGame}>{t('bubble.startGame')}</button><button type="button" onClick={() => setView('tutorial')}>{t('bubble.tutorial')}</button><button type="button" onClick={openSettings}>{t('bubble.settings')}</button><button type="button" onClick={onExit}>{t('bubble.exit')}</button></div><section className="bubble-highscores"><p className="eyebrow">{t('bubble.highscore')}</p><HighscoreTable entries={highscores} t={t} /></section></div>{gameSettings}</main>
+  if (view === 'start') return <main className="bubble-page"><div className="bubble-shell"><p className="eyebrow">{t('bubble.title')}</p><h1>{t('bubble.title')}</h1><p className="bubble-description">{t('bubble.description')}</p><div className="bubble-menu"><button className="bubble-primary" type="button" onClick={startGame}>{t('bubble.startGame')}</button><button type="button" onClick={() => setView('tutorial')}>{t('bubble.tutorial')}</button><button type="button" onClick={() => setControlsOpen(true)}>{t('bubble.controls')}</button><button type="button" onClick={openSettings}>{t('bubble.settings')}</button><button type="button" onClick={onExit}>{t('bubble.exit')}</button></div><section className="bubble-highscores"><p className="eyebrow">{t('bubble.highscore')}</p><HighscoreTable entries={highscores} t={t} /></section></div>{gameSettings}{controlsPanel}</main>
   if (view === 'tutorial') return <main className="bubble-page bubble-tutorial-page"><div className="bubble-panel bubble-tutorial-panel"><p className="eyebrow">{t('bubble.tutorialTitle')}</p><h1>{t('bubble.tutorialTitle')}</h1><p className="tutorial-count">{tutorialSlide + 1} / {tutorialKeys.length}</p><p className="tutorial-copy">{t(tutorialKeys[tutorialSlide])}</p><div className="bubble-actions"><button type="button" disabled={tutorialSlide === 0} onClick={() => setTutorialSlide((current) => current - 1)}>{t('bubble.previous')}</button>{tutorialSlide === tutorialKeys.length - 1 ? <button className="bubble-primary" type="button" onClick={() => setView('start')}>{t('bubble.finish')}</button> : <button className="bubble-primary" type="button" onClick={() => setTutorialSlide((current) => current + 1)}>{t('bubble.next')}</button>}</div></div></main>
   if (view === 'loading') return <main className="bubble-page"><div className="bubble-panel"><div className="loading-orb" /><p className="eyebrow">{t('bubble.loading')}</p><h1>{t('bubble.loading')}</h1></div></main>
   if (view === 'highscore' || view === 'gameover' || view === 'victory') { const resultTitleKey: TranslationKey = view === 'highscore' ? 'bubble.highscore' : view === 'gameover' ? 'bubble.gameOver' : 'bubble.victory'; return <main className="bubble-page bubble-result-page"><div className="bubble-panel bubble-result-panel"><p className="eyebrow">{t(resultTitleKey)}</p><h1>{t(resultTitleKey)}</h1><p className="score-display">{t('bubble.score')}: {score} {t('bubble.points')}</p>{view !== 'highscore' && <button className="bubble-primary result-next-button" type="button" onClick={() => setView('highscore')}>{t('bubble.highscore')}</button>}{view === 'highscore' && <><HighscoreTable entries={highscores} t={t} /><label className="name-field" htmlFor="bubble-player-name">{t('bubble.playerName')}<input id="bubble-player-name" value={playerName} placeholder={t('bubble.namePlaceholder')} disabled={submitted} onChange={(event) => setPlayerName(event.target.value)} /></label><div className="bubble-actions"><button className="bubble-primary" type="button" onClick={submitScore} disabled={submitted}>{t('bubble.submitScore')}</button></div>{submitted && <p className="saved-note">{t('bubble.scoreSaved')}</p>}<div className="bubble-actions"><button type="button" onClick={startGame}>{t('bubble.retry')}</button><button type="button" onClick={backToStart}>{t('bubble.backToStart')}</button></div></>}</div></main> }
-  return <main className="bubble-page bubble-gameplay-page"><div className="bubble-hud"><span>{t('bubble.score')}: {score}</span><span>{t('bubble.health')}: {health}</span><button type="button" onClick={() => setView('paused')}>{t('bubble.pause')}</button></div><GameCanvas view={view} runtime={runtime} gameBoardLabel={t('bubble.gameBoardLabel')} mobileLeftLabel={t('bubble.mobileLeft')} mobileRightLabel={t('bubble.mobileRight')} mobileShootLabel={t('bubble.mobileShoot')} mobilePositions={mobilePositions} allowRelocate={editingControls} onMobilePositionsChange={updateMobilePositions} onScore={setScore} onHealth={setHealth} onClear={() => finishGame('victory')} onGameOver={() => finishGame('gameover')} onPause={() => setView('paused')} />{view === 'paused' && !settingsOpen && <div className="bubble-pause-overlay"><div className="bubble-pause-card"><p className="eyebrow">{t('bubble.paused')}</p><h2>{t('bubble.paused')}</h2><div className="bubble-actions">{editingControls ? <><button className="bubble-primary" type="button" onClick={saveControllerAdjustment}>{t('saveController')}</button><button type="button" onClick={exitControllerAdjustment}>{t('exitController')}</button></> : <><button className="bubble-primary" type="button" onClick={() => setView('playing')}>{t('bubble.resume')}</button><button type="button" onClick={openSettings}>{t('bubble.settings')}</button><button type="button" onClick={onExit}>{t('bubble.exit')}</button></>}</div></div></div>}{gameSettings}</main>
+  return <main className="bubble-page bubble-gameplay-page"><div className="bubble-hud"><span>{t('bubble.score')}: {score}</span><span>{t('bubble.health')}: {health}</span>{view !== 'remap' && <button type="button" onClick={() => setView('paused')}>{t('bubble.pause')}</button>}</div><GameCanvas view={view} runtime={runtime} gameBoardLabel={t('bubble.gameBoardLabel')} mobileLeftLabel={t('bubble.mobileLeft')} mobileRightLabel={t('bubble.mobileRight')} mobileShootLabel={t('bubble.mobileShoot')} mobilePositions={mobilePositions} allowRelocate={editingControls} onMobilePositionsChange={updateMobilePositions} onScore={setScore} onHealth={setHealth} onClear={() => finishGame('victory')} onGameOver={() => finishGame('gameover')} onPause={() => setView('paused')} />{(view === 'paused' || view === 'remap') && !settingsOpen && !controlsOpen && <div className="bubble-pause-overlay"><div className="bubble-pause-card"><p className="eyebrow">{t('bubble.paused')}</p><h2>{t('bubble.paused')}</h2><div className="bubble-actions">{editingControls ? <><button className="bubble-primary" type="button" onClick={saveControllerAdjustment}>{t('saveController')}</button><button type="button" onClick={exitControllerAdjustment}>{t('exitController')}</button></> : <><button className="bubble-primary" type="button" onClick={() => setView('playing')}>{t('bubble.resume')}</button><button type="button" onClick={() => setControlsOpen(true)}>{t('bubble.controls')}</button><button type="button" onClick={openSettings}>{t('bubble.settings')}</button><button type="button" onClick={onExit}>{t('bubble.exit')}</button></>}</div></div></div>}{gameSettings}{controlsPanel}</main>
 }

@@ -72,6 +72,8 @@ type BubbleTranslationKey =
   | 'next'
   | 'finish'
   | 'settings'
+  | 'controls'
+  | 'back'
   | 'musicOn'
   | 'musicOff'
   | 'exit'

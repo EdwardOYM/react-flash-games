@@ -97,6 +97,8 @@
     "retry": "Retry",
     "backToStart": "Back to game start",
     "points": "points",
+    "controls": "Controls",
+    "back": "Back",
     "inspiredBy": "Inspired by Bubble Trouble from Miniclip"
   },
   "games": {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import type { TranslationKey, useTranslations } from '../assets/languages'
 import { readConfig, updateConfig } from '../config'
 
@@ -8,29 +8,26 @@ export type AdditionalKeyBinding = {
   defaultKey: string
 }
 
+export type InputMode = 'keyboard' | 'gamepad'
+
 type KeyBindings = { primary: string }
 
-type GameInputSettingsProps = {
-  t: ReturnType<typeof useTranslations>
-  additionalBindings?: AdditionalKeyBinding[]
-  labelKey?: TranslationKey
-  onRemapController?: () => void
-}
-
-type InputMode = 'keyboard' | 'gamepad'
-
-function hasTouchInput() {
+export function hasTouchInput() {
   if (typeof navigator === 'undefined') return false
   return navigator.maxTouchPoints > 0 || (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
 }
 
-function hasConnectedGamepad() {
+export function hasConnectedGamepad() {
   if (typeof navigator === 'undefined' || !navigator.getGamepads) return false
   return Array.from(navigator.getGamepads()).some((gamepad) => gamepad?.connected)
 }
 
-function useInputMode() {
-  const [inputMode, setInputMode] = useState<InputMode>(() => hasTouchInput() || hasConnectedGamepad() ? 'gamepad' : 'keyboard')
+export function hasControllerCapability() {
+  return hasTouchInput() || hasConnectedGamepad()
+}
+
+export function useInputMode(): InputMode {
+  const [inputMode, setInputMode] = useState<InputMode>(() => hasControllerCapability() ? 'gamepad' : 'keyboard')
 
   useEffect(() => {
     const handleKeyDown = () => setInputMode('keyboard')
@@ -49,7 +46,31 @@ function useInputMode() {
   return inputMode
 }
 
-export function GameInputSettings({ t, additionalBindings = [], labelKey = 'keybinds', onRemapController }: GameInputSettingsProps) {
+export function useControllerVisibility() {
+  const [visible, setVisible] = useState(() => hasControllerCapability())
+
+  useEffect(() => {
+    const showControls = () => setVisible(true)
+    const handleTouch = (event: PointerEvent) => { if (event.pointerType === 'touch') showControls() }
+    window.addEventListener('gamepadconnected', showControls)
+    window.addEventListener('pointerdown', handleTouch)
+    return () => {
+      window.removeEventListener('gamepadconnected', showControls)
+      window.removeEventListener('pointerdown', handleTouch)
+    }
+  }, [])
+
+  return visible
+}
+
+type ControllerSettingsProps = {
+  t: ReturnType<typeof useTranslations>
+  additionalBindings?: AdditionalKeyBinding[]
+  labelKey?: TranslationKey
+  onRemapController?: () => void
+}
+
+export function ControllerSettings({ t, additionalBindings = [], labelKey = 'keybinds', onRemapController }: ControllerSettingsProps) {
   const inputMode = useInputMode()
   const isDesktop = inputMode === 'keyboard'
   const [bindings, setBindings] = useState<KeyBindings>(() => ({ primary: readConfig().settings.primaryKey }))
