@@ -25,6 +25,8 @@ You are the specialist agent for this React + Three.js flash-games project.
 - Store translation keys in game metadata; do not store localized display text in `src/games/`.
 - Keep technical identifiers, CSS classes, route paths, and Three.js values out of the translation dictionaries.
 - Run the narrowest relevant build, lint, or test command after edits.
+- Keep in mind addition of sound effects, music, and other media may be added in future to certain components such as buttons, and gameplay mechanics. Add inspiration/source credits to the credits page.
+- Keep controls and key bindings consistent with the existing settings contract, and add new actions to the contract for remapping. Controls have desktop and mobile variants. Music controls must also use translated labels.
 
 ## Localization Workflow
 1. Check the existing locale keys before adding new copy.
