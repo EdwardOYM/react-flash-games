@@ -1,5 +1,6 @@
 import type { useTranslations } from '../assets/languages'
 import { games } from '../games'
+import './CreditsPage.css'
 
 type CreditsPageProps = {
   onBack: () => void
