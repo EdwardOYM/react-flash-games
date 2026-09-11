@@ -57,8 +57,19 @@ export type TranslationKey =
   | 'keyNames.moveLeft'
   | 'keyNames.moveRight'
   | 'keyNames.shoot'
+  | 'keyNames.p1Up'
+  | 'keyNames.p1Down'
+  | 'keyNames.p1Left'
+  | 'keyNames.p1Right'
+  | 'keyNames.p2Up'
+  | 'keyNames.p2Down'
+  | 'keyNames.p2Left'
+  | 'keyNames.p2Right'
   | 'gameInspiration.bubbleTrouble'
+  | 'gameInspiration.tron'
+  | 'games.tron'
   | `bubble.${BubbleTranslationKey}`
+  | `tron.${TronTranslationKey}`
 type BubbleTranslationKey =
   | 'title'
   | 'description'
@@ -104,12 +115,64 @@ type BubbleTranslationKey =
   | 'points'
   | 'inspiredBy'
 
+type TronTranslationKey =
+  | 'title'
+  | 'description'
+  | 'startMatch'
+  | 'tutorial'
+  | 'tutorialTitle'
+  | 'tutorialTurnLeft'
+  | 'tutorialTurnRight'
+  | 'tutorialWall'
+  | 'tutorialComplete'
+  | 'tutorialSkip'
+  | 'finish'
+  | 'settings'
+  | 'controls'
+  | 'back'
+  | 'exit'
+  | 'loading'
+  | 'playing'
+  | 'paused'
+  | 'pause'
+  | 'resume'
+  | 'round'
+  | 'rounds'
+  | 'firstTo'
+  | 'roundWonBy'
+  | 'roundTie'
+  | 'p1'
+  | 'p2'
+  | 'ties'
+  | 'victory'
+  | 'gameOver'
+  | 'endMatch'
+  | 'highscore'
+  | 'score'
+  | 'rank'
+  | 'noScores'
+  | 'playerName'
+  | 'defaultPlayerName'
+  | 'namePlaceholder'
+  | 'submitScore'
+  | 'scoreSaved'
+  | 'retry'
+  | 'backToStart'
+  | 'roundsToWin'
+  | 'playerColor'
+  | 'player1Color'
+  | 'player2Color'
+  | 'mobileP1Stick'
+  | 'mobileP2Stick'
+  | 'gameBoardLabel'
+  | 'inspiredBy'
+
 const dictionaries: Record<Locale, TranslationDictionary> = { en, ms, zh }
 
 function readTranslation(dictionary: TranslationDictionary, key: TranslationKey): string {
   const [group, value] = key.split('.')
   if (value) {
-    return dictionary[group as 'gameStatus' | 'games' | 'languageNames' | 'keyNames' | 'gameInspiration' | 'bubble'][value as never]
+    return dictionary[group as 'gameStatus' | 'games' | 'languageNames' | 'keyNames' | 'gameInspiration' | 'bubble' | 'tron'][value as never]
   }
   return dictionary[key as keyof TranslationDictionary] as string
 }
