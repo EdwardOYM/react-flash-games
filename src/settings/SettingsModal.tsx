@@ -2,6 +2,7 @@
 import type { Locale, useTranslations } from '../assets/languages'
 import { readConfig, updateConfig } from '../config'
 import { ControllerSettings, type AdditionalKeyBinding } from './ControllerSettings'
+import './SettingsModal.css'
 
 type SettingsModalProps = {
   locale: Locale

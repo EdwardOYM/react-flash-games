@@ -64,24 +64,11 @@
 .saved-note { color: #79c2b0; font-family: 'DM Mono', monospace; font-size: .75rem; }
 .result-next-button { margin-top: 8px; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.settings-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px; background: rgba(6, 12, 16, .78); backdrop-filter: blur(8px); animation: fade-in .2s ease-out; }
-.settings-modal { position: relative; width: min(100%, 540px); max-height: calc(100dvh - 48px); overflow-y: auto; padding: 42px clamp(24px, 5vw, 52px) 44px; border: 1px solid #50676a; background: #17262d; box-shadow: 0 24px 80px rgba(0, 0, 0, .42); animation: modal-in .25s ease-out; overscroll-behavior: contain; }
-.settings-modal h2 { margin: -12px 0 34px; color: #f5f0e8; font-family: 'Space Grotesk', sans-serif; font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -.05em; }
-.settings-close { position: absolute; top: 14px; right: 16px; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 1px solid #50676a; border-radius: 50%; color: #aeb9b9; background: transparent; font-size: 1.5rem; line-height: 1; cursor: pointer; }
-.settings-close:hover { border-color: #f18165; color: #f18165; }
-.setting-control { padding: 20px 0; border-top: 1px solid #385058; }
-.setting-control label, .setting-label { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 14px; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .75rem; text-transform: uppercase; }
-.setting-control output { color: #ffc857; }
-.setting-control input[type='range'] { width: 100%; accent-color: #ffc857; cursor: pointer; }
-.setting-control select { width: 100%; padding: 12px; border: 1px solid #50676a; border-radius: 0; color: #f5f0e8; background: #101820; font: inherit; cursor: pointer; }
-.music-toggle { padding: 10px 14px; border: 1px solid #ffc857; color: #101820; background: #ffc857; font-family: 'DM Mono', monospace; font-size: .7rem; text-transform: uppercase; cursor: pointer; }
 .keybind-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; color: #aeb9b9; font-size: .9rem; }
 .keybind-row kbd { min-width: 76px; padding: 8px 10px; border: 1px solid #50676a; color: #ffc857; background: #101820; font-family: 'DM Mono', monospace; font-size: .7rem; text-align: center; }
 .keybind-row button { padding: 8px 10px; border: 1px solid #f18165; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .65rem; text-transform: uppercase; cursor: pointer; }
 .keybind-row button:hover { color: #101820; background: #f18165; }
 .keybind-row .reset-button { border-color: #50676a; color: #aeb9b9; }
-@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes modal-in { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (max-width: 720px) { .bubble-page { padding: 22px 24px 40px; } .bubble-shell, .bubble-panel { margin-top: 56px; } }
 @media (max-width: 520px) { .keybind-row { grid-template-columns: 1fr 1fr; } .keybind-row span { grid-column: 1 / -1; } .keybind-row kbd { min-width: 0; } }
 @media (max-width: 720px) { .bubble-hud { gap: 10px; flex-wrap: wrap; } .bubble-hud button { margin-left: auto; } }
