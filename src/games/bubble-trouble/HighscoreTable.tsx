@@ -1,5 +1,6 @@
 import type { useTranslations } from '../../assets/languages'
 import type { HighscoreEntry } from './highscores'
+import './HighscoreTable.css'
 
 type HighscoreTableProps = {
   entries: HighscoreEntry[]

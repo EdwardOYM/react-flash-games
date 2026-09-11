@@ -1,0 +1,7 @@
+.highscore-table { border-top: 1px solid #385058; font-family: 'DM Mono', monospace; }
+.highscore-table-head, .highscore-row { display: grid; grid-template-columns: 64px 1fr 100px; gap: 16px; align-items: center; padding: 12px 0; border-bottom: 1px solid #385058; font-size: .72rem; }
+.highscore-table-head { color: #74888b; text-transform: uppercase; }
+.highscore-row { color: #aeb9b9; }
+.highscore-row strong { overflow: hidden; color: #f5f0e8; font-family: 'Space Grotesk', sans-serif; font-size: .95rem; font-weight: 500; text-overflow: ellipsis; }
+.highscore-row span:last-child, .highscore-table-head span:last-child { text-align: right; }
+.no-scores { padding: 16px 0; color: #74888b; font-family: 'DM Mono', monospace; font-size: .75rem; }
