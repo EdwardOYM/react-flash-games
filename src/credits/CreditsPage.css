@@ -12,3 +12,7 @@
   .credits-page { padding: 22px 24px 40px; }
   .credits-content { margin-top: 90px; }
 }
+@media (orientation: landscape) and (max-height: 600px) {
+  .credits-page { padding-top: max(12px, env(safe-area-inset-top)); padding-right: max(20px, env(safe-area-inset-right)); padding-bottom: max(12px, env(safe-area-inset-bottom)); padding-left: max(20px, env(safe-area-inset-left)); }
+  .credits-content { margin-top: 24px; }
+}

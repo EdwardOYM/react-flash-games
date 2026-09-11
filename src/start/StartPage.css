@@ -37,10 +37,10 @@
 }
 
 @media (orientation: landscape) and (max-height: 600px) {
-  .start-page { height: 100dvh; min-height: 0; padding: 14px max(20px, env(safe-area-inset-right)) 14px max(20px, env(safe-area-inset-left)); overflow: hidden; }
-  .intro { grid-template-columns: minmax(0, 1fr) minmax(220px, 38vw); gap: clamp(20px, 5vw, 64px); margin-top: 18px; }
-  .preview { width: min(100%, 280px); justify-self: center; }
-  h1 { font-size: clamp(2.8rem, 7vw, 4.8rem); }
-  .lede { margin: 14px 0 18px; font-size: .88rem; }
-  .game-row { padding: 9px 4px; }
+  .start-page { height: 100dvh; min-height: 0; padding: 14px max(20px, env(safe-area-inset-right)) 14px max(20px, env(safe-area-inset-left)); overflow-x: hidden; overflow-y: auto; }
+  .intro { grid-template-columns: minmax(0, 1fr) minmax(220px, 38vw); gap: clamp(20px, 5vw, 64px); margin-top: 14px; }
+  .preview { width: min(100%, 260px); justify-self: center; }
+  h1 { font-size: clamp(2.4rem, 6.5vw, 4.4rem); }
+  .lede { margin: 10px 0 14px; font-size: .85rem; }
+  .game-row { padding: 8px 4px; }
 }
