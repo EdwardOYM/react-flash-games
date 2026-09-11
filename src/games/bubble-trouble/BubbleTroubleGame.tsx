@@ -4,6 +4,7 @@ import { readConfig, updateConfig, type MobileControlPosition } from '../../conf
 import { SettingsModal, ControllerSettings, useControllerVisibility, useInputMode, type AdditionalKeyBinding } from '../../settings'
 import { HighscoreTable } from './HighscoreTable'
 import { readHighscores, saveHighscore } from './highscores'
+import './BubbleTroubleGame.css'
 
 type View = 'start' | 'tutorial' | 'loading' | 'playing' | 'paused' | 'remap' | 'gameover' | 'victory' | 'highscore'
 type Ball = { x: number; y: number; radius: number; velocityX: number; velocityY: number; level: number }
