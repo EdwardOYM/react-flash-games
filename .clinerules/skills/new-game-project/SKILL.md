@@ -79,7 +79,8 @@ Keep game-specific files inside those folders. Shared utilities belong in an exi
 13. Keep Three.js setup and cleanup local to the game. Dispose geometries, materials, textures, renderers, listeners, and animation frames during unmount or state teardown.
 14. Add or update focused tests when the game has non-trivial state transitions, scoring, persistence, or input mapping.
 15. Run the narrowest relevant validation after each implementation slice, then run the production build and locale-shape validation.
-16. Validate every page and state at mobile portrait, mobile landscape, and desktop dimensions. Confirm that fixed-size embeds do not hide capability-driven mobile controls.
+16. Co-locate one `<Component>.css` per component and import it in the component; keep global element/base rules and shared primitives in `src/index.css`, reuse another component's primitives by importing its stylesheet, and keep media queries and scoped overrides in the owning component's CSS.
+17. Validate every page and state at mobile portrait, mobile landscape, and desktop dimensions. Confirm that fixed-size embeds do not hide capability-driven mobile controls.
 
 ## Quality Gates
 
@@ -100,6 +101,7 @@ Before finishing, verify:
 - All three locale dictionaries contain matching keys for the new feature.
 - The credits page includes the new game's inspiration/source entry.
 - No player-facing literal strings remain in the new game UI or metadata.
+- Every component imports its own co-located stylesheet; no centralized `App.css` exists, and no rule is defined in more than one file.
 - `npm run build` passes.
 - Relevant diagnostics, tests, or lint checks pass; report any environment-only blockers.
 

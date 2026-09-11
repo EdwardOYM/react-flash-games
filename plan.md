@@ -27,7 +27,7 @@ A previous session died with `SocketError: other side closed` while executing th
 - [x] Step 7 — BubbleTroubleGame.css
 - [x] Step 8 — Remove src/App.css
 - [x] Step 9 — Codify rule (01 + agent mirror)
-- [ ] Step 10 — Consistency sync (skills + terminal rules)
+- [x] Step 10 — Consistency sync (skills + terminal rules)
 - [ ] Step 11 — Final validation
 - [ ] Step 12 — Fix pre-existing lint findings
 

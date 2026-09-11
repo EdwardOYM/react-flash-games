@@ -37,7 +37,7 @@ git --no-pager status --short
 git --no-pager diff --stat; Write-Output '---done---'
 Get-ChildItem -Force | Format-Table Name, Mode
 Get-Content package.json -TotalCount 30; Write-Output '---done---'
-Select-String -Path 'src/App.css' -Pattern 'bubble-tutorial' | Select-Object -First 10
+Select-String -Path 'src/start/StartPage.css' -Pattern 'game-row' | Select-Object -First 10
 npm run build
 ```
 
@@ -48,6 +48,6 @@ git log                 # pager, hangs at (END)
 git diff                # pager, hangs at (END)
 dir /B                  # CMD syntax, fails in PowerShell
 type package.json       # use Get-Content instead
-less src/App.css        # interactive, never exits
+less src/start/StartPage.css   # interactive, never exits
 npm run dev             # long-running server, never exits
 ```
