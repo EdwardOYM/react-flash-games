@@ -2,6 +2,9 @@
 import type { TranslationKey, useTranslations } from '../assets/languages'
 import { readConfig, updateConfig } from '../config'
 
+import './SettingsModal.css'
+import './ControllerSettings.css'
+
 export type AdditionalKeyBinding = {
   id: string
   labelKey: TranslationKey

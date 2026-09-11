@@ -1,0 +1,11 @@
+.keybind-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 8px; align-items: center; color: #aeb9b9; font-size: .9rem; }
+.keybind-row kbd { min-width: 76px; padding: 8px 10px; border: 1px solid #50676a; color: #ffc857; background: #101820; font-family: 'DM Mono', monospace; font-size: .7rem; text-align: center; }
+.keybind-row button { padding: 8px 10px; border: 1px solid #f18165; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .65rem; text-transform: uppercase; cursor: pointer; }
+.keybind-row button:hover { color: #101820; background: #f18165; }
+.keybind-row .reset-button { border-color: #50676a; color: #aeb9b9; }
+
+@media (max-width: 520px) {
+  .keybind-row { grid-template-columns: 1fr 1fr; }
+  .keybind-row span { grid-column: 1 / -1; }
+  .keybind-row kbd { min-width: 0; }
+}
