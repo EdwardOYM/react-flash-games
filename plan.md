@@ -28,8 +28,8 @@ A previous session died with `SocketError: other side closed` while executing th
 - [x] Step 8 — Remove src/App.css
 - [x] Step 9 — Codify rule (01 + agent mirror)
 - [x] Step 10 — Consistency sync (skills + terminal rules)
-- [ ] Step 11 — Final validation
-- [ ] Step 12 — Fix pre-existing lint findings
+- [x] Step 11 — Final validation
+- [x] Step 12 — Fix pre-existing lint findings
 
 ## Hard rules for every step
 

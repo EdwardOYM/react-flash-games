@@ -252,14 +252,15 @@ function GameCanvas({ view, runtime, gameBoardLabel, mobileLeftLabel, mobileRigh
     }
     frame = requestAnimationFrame(draw)
     return () => { cancelAnimationFrame(frame); window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp) }
-  }, [onClear, onGameOver, onHealth, onPause, onTutorialGoal, runtime, tutorialGoal, view])
+  }, [onClear, onGameOver, onHealth, onPause, onScore, onTutorialGoal, runtime, tutorialGoal, view])
 
   return <div className="bubble-stage"><canvas className="bubble-canvas" ref={canvasRef} aria-label={gameBoardLabel} /><div className={`mobile-controls${controllerVisible ? ' mobile-controls-visible' : ''}${allowRelocate ? ' mobile-controls-editable' : ''}`} aria-label={gameBoardLabel}><div className="mobile-control-group mobile-movement-control" style={({ left: `${mobilePositions.movement.x}%`, top: `${mobilePositions.movement.y}%`, '--control-scale': mobilePositions.movement.scale, '--control-half': '38px' } as React.CSSProperties)} onPointerDown={(event) => startDragging('movement', event)} onPointerMove={dragControl} onPointerUp={stopDragging}><div className="mobile-stick" aria-label={`${mobileLeftLabel} / ${mobileRightLabel}`} style={{ transform: `scale(${mobilePositions.movement.scale})` }} onPointerDown={startAnalog} onPointerMove={allowRelocate ? dragControl : updateAnalogAxis} onPointerUp={stopAnalog} onPointerCancel={stopAnalog}><span className="mobile-stick-knob" /></div><div className="mobile-control-resize" onPointerDown={(event) => startResizing('movement', event)} onPointerMove={resizeControl} onPointerUp={stopResizing} onPointerCancel={stopResizing} /></div>{tutorialControls !== 'movement' && <div className="mobile-control-group mobile-shoot-control" style={({ left: `${mobilePositions.shoot.x}%`, top: `${mobilePositions.shoot.y}%`, '--control-scale': mobilePositions.shoot.scale, '--control-half': '26px' } as React.CSSProperties)} onPointerDown={(event) => startDragging('shoot', event)} onPointerMove={dragControl} onPointerUp={stopDragging}><button type="button" aria-label={mobileShootLabel} style={{ transform: `scale(${mobilePositions.shoot.scale})` }} onPointerDown={(event) => { event.stopPropagation(); if (allowRelocate) startDragging('shoot', event); else { pressKey(readKey('bubble-shoot', 'ArrowUp')); if (runtime.current.strings.length === 0) runtime.current.strings.push({ x: runtime.current.playerX, top: PLAYER_Y }) } }} onPointerUp={(event) => { if (allowRelocate) stopDragging(event); else releaseKey(readKey('bubble-shoot', 'ArrowUp')) }} onPointerCancel={(event) => { if (allowRelocate) stopDragging(event); else releaseKey(readKey('bubble-shoot', 'ArrowUp')) }}>▲</button><div className="mobile-control-resize" onPointerDown={(event) => startResizing('shoot', event)} onPointerMove={resizeControl} onPointerUp={stopResizing} onPointerCancel={stopResizing} /></div>}</div></div>
 }
 
 export function BubbleTroubleGame({ locale: providedLocale, onLocaleChange, onExit, t: providedTranslations }: BubbleTroubleProps) {
   const [locale, setLocale] = useState<Locale>(providedLocale ?? getPreferredLocale())
-  const t = providedTranslations ?? useTranslations(locale)
+  const translations = useTranslations(locale)
+  const t = providedTranslations ?? translations
   const inputMode = useInputMode()
   const [view, setView] = useState<View>('start')
   const [tutorialStep, setTutorialStep] = useState(0)
@@ -284,7 +285,6 @@ export function BubbleTroubleGame({ locale: providedLocale, onLocaleChange, onEx
   ]
 
   useEffect(() => () => { if (loadingTimer.current) window.clearTimeout(loadingTimer.current) }, [])
-  useEffect(() => { if (!providedLocale) setLocale(getPreferredLocale()) }, [providedLocale])
 
   const [settingsOpen, setSettingsOpen] = useState(false)
   const openSettings = () => setSettingsOpen(true)

@@ -1,4 +1,5 @@
 ﻿export { SettingsModal } from './SettingsModal'
 export { ControllerSettings } from './ControllerSettings'
-export { useInputMode, useControllerVisibility, hasControllerCapability, hasTouchInput, hasConnectedGamepad } from './ControllerSettings'
-export type { AdditionalKeyBinding, InputMode } from './ControllerSettings'
+export { useInputMode, useControllerVisibility, hasControllerCapability, hasTouchInput, hasConnectedGamepad } from './input-mode'
+export type { AdditionalKeyBinding } from './ControllerSettings'
+export type { InputMode } from './input-mode'
