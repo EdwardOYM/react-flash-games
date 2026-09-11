@@ -4,6 +4,7 @@ import { BubbleTroubleGame, games } from '../games'
 import { getPreferredLocale, persistLocale, type Locale, useTranslations } from '../assets/languages'
 import { CreditsPage } from '../credits'
 import { SettingsModal } from '../settings'
+import './StartPage.css'
 
 function ScenePreview({ previewAlt }: { previewAlt: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
