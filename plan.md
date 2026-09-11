@@ -19,16 +19,17 @@ A previous session died with `SocketError: other side closed` while executing th
 ## Progress
 
 - [x] Step 1 — Global base → src/index.css
-- [ ] Step 2 — src/start/StartPage.css
-- [ ] Step 3 — src/credits/CreditsPage.css
-- [ ] Step 4 — src/settings/SettingsModal.css
-- [ ] Step 5 — src/settings/ControllerSettings.css
-- [ ] Step 6 — HighscoreTable.css
-- [ ] Step 7 — BubbleTroubleGame.css
-- [ ] Step 8 — Remove src/App.css
-- [ ] Step 9 — Codify rule (01 + agent mirror)
+- [x] Step 2 — src/start/StartPage.css
+- [x] Step 3 — src/credits/CreditsPage.css
+- [x] Step 4 — src/settings/SettingsModal.css
+- [x] Step 5 — src/settings/ControllerSettings.css
+- [x] Step 6 — HighscoreTable.css
+- [x] Step 7 — BubbleTroubleGame.css
+- [x] Step 8 — Remove src/App.css
+- [x] Step 9 — Codify rule (01 + agent mirror)
 - [ ] Step 10 — Consistency sync (skills + terminal rules)
 - [ ] Step 11 — Final validation
+- [ ] Step 12 — Fix pre-existing lint findings
 
 ## Hard rules for every step
 
@@ -82,9 +83,16 @@ Validate + checkpoint.
 Validate + checkpoint.
 
 ### Step 11 — Final validation
-- `npm run build` and `npm run lint` both pass.
-- No `App.css` references under `src/`; every component imports its own CSS.
+- `npm run build` passes; no `App.css` references under `src/`; every component imports its own CSS.
 - Spot-check the start page, credits, settings, and bubble-trouble views.
+- Lint is finalized in Step 12 (the findings predate this plan and are unrelated to the CSS refactor).
+
+### Step 12 — Fix pre-existing lint findings
+Make `npm run lint` exit 0 by resolving the findings that predate this plan (confirmed identical on pristine `HEAD`):
+- Fix the blocking `react-hooks(rules-of-hooks)` error in `BubbleTroubleGame.tsx` — `useTranslations` is called conditionally behind `providedTranslations ??`.
+- Resolve the remaining warnings where safe: `react(set-state-in-effect)` + `react-hooks(exhaustive-deps)` in `BubbleTroubleGame.tsx`, and `react(only-export-components)` in `ControllerSettings.tsx` (may require moving exported helpers to a non-component module and updating `src/settings/index.ts` re-exports).
+
+Validate + checkpoint (both `npm run build` and `npm run lint` must be green).
 
 ## Class → file ownership map
 

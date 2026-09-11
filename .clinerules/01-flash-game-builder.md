@@ -20,6 +20,8 @@ This project is a React + Three.js flash-games website. You are building this pr
 - When adding copy, add the same key to `src/assets/languages/en.json`, `src/assets/languages/ms.json`, and `src/assets/languages/zh.json` before consuming it.
 - Store translation keys in game metadata; do not store localized display text in `src/games/`.
 - Keep technical identifiers, CSS classes, route paths, and Three.js values out of the translation dictionaries.
+- One co-located `<Component>.css` per component; no central global `App.css`.
+- Reuse another component's primitives only by importing its stylesheet; never re-declare.
 - Run the narrowest relevant build, lint, or test command after edits.
 - Keep in mind sound effects, music, and other media may be added in future to certain components such as buttons and gameplay mechanics. Add inspiration/source credits to the credits page.
 - Keep controls and key bindings consistent with the existing settings contract, and add new actions to the contract for remapping. Controls have desktop and mobile variants. Music controls must also use translated labels.
@@ -30,6 +32,14 @@ This project is a React + Three.js flash-games website. You are building this pr
 2. Add or update the key in all three locale dictionaries.
 3. Use the translation method in React components and pass translated strings to accessible labels.
 4. Verify that locale dictionaries have matching key shapes.
+
+## Styling Workflow
+
+- One co-located `<Component>.css` per component; no central global App stylesheet.
+- Only global element/base rules plus shared primitives live in `src/index.css`.
+- Reuse another component's primitives only by importing its stylesheet; never re-declare.
+- Media queries and scoped overrides live in the owning component's CSS so cascade order never depends on import order.
+- Check existing per-component CSS before adding rules; run the narrowest build/lint.
 
 ## Output
 
