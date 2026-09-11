@@ -29,8 +29,10 @@ If the game name or core loop is missing, ask for those details before creating 
 
 Every page and state must be usable on mobile and desktop, including start, tutorial, loading, gameplay, pause, game-over, victory, highscore, settings, and credits views.
 
+- Conform every page and state to the shared `960x540` (16:9) embed scale: author the game stage and canvas at 960x540, cap widths with `min(100%, 960px)`, and scale down for smaller embeds (`960x540` is also the recommended itch.io embed size). Never require horizontal scrolling.
 - Design for portrait and landscape mobile layouts. Prevent horizontal overflow and keep panels, forms, tables, buttons, canvas elements, and overlays inside the available safe area.
 - Test narrow portrait dimensions and short landscape dimensions. Do not rely only on a `max-width` media query when the game can be embedded in a fixed-size iframe.
+- Handle mobile landscape viewports with `@media (orientation: landscape) and (max-height: 600px)` in the owning component CSS: switch to a fixed `100dvh` page with hidden overflow, apply `env(safe-area-inset-*)` padding, and fit the 16:9 stage to the shorter dimension (for example `height: min(calc(100dvh - 70px), calc(100vw * .5625))`) so the HUD, stage, and mobile controls stay visible.
 - Use a reusable virtual gamepad/controller for mobile input. Keep movement controls touch-friendly, support horizontal-only sticks when the game only needs left/right movement, and keep action controls reachable without covering important game content.
 - Allow mobile controller placement to be adjusted only through an explicit settings/remap flow. Do not show drag handles during normal gameplay or pause; provide Save and Exit without saving for temporary placement changes.
 - Use keyboard key bindings and remapping on desktop. Keep gameplay actions in the shared key-binding contract so each game can provide its own translated action list.
@@ -80,7 +82,7 @@ Keep game-specific files inside those folders. Shared utilities belong in an exi
 14. Add or update focused tests when the game has non-trivial state transitions, scoring, persistence, or input mapping.
 15. Run the narrowest relevant validation after each implementation slice, then run the production build and locale-shape validation.
 16. Co-locate one `<Component>.css` per component and import it in the component; keep global element/base rules and shared primitives in `src/index.css`, reuse another component's primitives by importing its stylesheet, and keep media queries and scoped overrides in the owning component's CSS.
-17. Validate every page and state at mobile portrait, mobile landscape, and desktop dimensions. Confirm that fixed-size embeds do not hide capability-driven mobile controls.
+17. Validate every page and state at the `960x540` reference embed and at mobile portrait, mobile landscape, and desktop dimensions. Confirm that fixed-size embeds do not hide capability-driven mobile controls.
 
 ## Quality Gates
 
@@ -90,7 +92,7 @@ Before finishing, verify:
 - Loading, pause, game over, victory, retry, exit, and highscore paths are reachable.
 - Saving a highscore returns to the game start page and shows the updated leaderboard.
 - Tutorial navigation works and does not require hardcoded copy.
-- All pages remain usable without horizontal overflow at narrow portrait and short landscape dimensions.
+- All pages remain usable without horizontal overflow at narrow portrait and short landscape dimensions and conform to the `960x540` (16:9) embed scale.
 - Mobile devices expose a usable virtual gamepad/controller, including in fixed-size embeds, while desktop devices expose keyboard key bindings.
 - Input mode detection uses touch/gamepad/keyboard capabilities and activity rather than user-agent strings alone.
 - Mobile controller placement is locked during normal play and can be changed only through the explicit remap, Save, and Exit flow.
