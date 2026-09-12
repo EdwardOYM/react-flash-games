@@ -27,7 +27,7 @@ A previous session in this repository died mid-execution (SocketError) while a l
 - [x] Step 7 - Mobile controls + remap flow
 - [x] Step 8 - Tutorial flow
 - [x] Step 9 - Victory / gameover / highscore + shared HighscoreTable
-- [ ] Step 10 - Settings wiring + generic music labels
+- [x] Step 10 - Settings wiring + generic music labels
 - [ ] Step 11 - Bot architecture seams (future scope)
 - [ ] Step 12 - Responsive pass (960x540 / portrait / mobile landscape)
 - [ ] Step 13 - Credits entry check

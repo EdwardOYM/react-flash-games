@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
-import { getPreferredLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
+import { getPreferredLocale, persistLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
 import { readConfig, updateConfig, type MobileControlPosition } from '../../config'
-import { ControllerSettings, useControllerVisibility, useInputMode, type AdditionalKeyBinding } from '../../settings'
+import { ControllerSettings, SettingsModal, useControllerVisibility, useInputMode, type AdditionalKeyBinding } from '../../settings'
 import {
   bufferTurn,
   continueAfterRound,
@@ -277,8 +277,8 @@ function MobileSticks({ visible, editable, showP2 = true, p1Label, p2Label, posi
 }
 
 export function TronGame(props: TronProps) {
-  const { locale: providedLocale, onExit, t: providedTranslations } = props
-  const [locale] = useState<Locale>(providedLocale ?? getPreferredLocale())
+  const { locale: providedLocale, onExit, onLocaleChange, t: providedTranslations } = props
+  const [locale, setLocale] = useState<Locale>(providedLocale ?? getPreferredLocale())
   const translations = useTranslations(locale)
   const t = providedTranslations ?? translations
   const inputMode = useInputMode()
@@ -302,11 +302,27 @@ export function TronGame(props: TronProps) {
   const [tutorialDone, setTutorialDone] = useState(false)
   const [highscores, setHighscores] = useState(() => readHighscores())
   const [playerName, setPlayerName] = useState('')
+  const [music, setMusic] = useState(() => readConfig().settings.music)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const tutorialStepRef = useRef(0)
 
   useEffect(() => { viewRef.current = view }, [view])
 
   useEffect(() => { tutorialStepRef.current = tutorialStep }, [tutorialStep])
+
+  const changeLocale = useCallback((nextLocale: Locale) => {
+    setLocale(nextLocale)
+    onLocaleChange?.(nextLocale)
+    persistLocale(nextLocale)
+  }, [onLocaleChange])
+
+  const toggleMusic = useCallback(() => {
+    setMusic((current) => {
+      const next = !current
+      updateConfig((config) => ({ ...config, settings: { ...config.settings, music: next } }))
+      return next
+    })
+  }, [])
 
   useEffect(() => {
     if (view !== 'loading') return
@@ -522,6 +538,10 @@ export function TronGame(props: TronProps) {
     </div>
   )
 
+  const gameSettings = settingsOpen && (
+    <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} additionalBindings={tronKeyBindings} musicEnabled={music} onMusicToggle={toggleMusic} />
+  )
+
   if (view === 'start') {
     return (
       <main className="tron-page" style={accentVars}>
@@ -556,9 +576,13 @@ export function TronGame(props: TronProps) {
           <div className="tron-menu">
             <button className="tron-primary" type="button" onClick={startMatch}>{t('tron.startMatch')}</button>
             <button type="button" onClick={startTutorial}>{t('tron.tutorial')}</button>
+            <button type="button" onClick={() => setControlsOpen(true)}>{t('tron.controls')}</button>
+            <button type="button" onClick={() => setSettingsOpen(true)}>{t('settings')}</button>
             <button type="button" onClick={onExit}>{t('tron.exit')}</button>
           </div>
         </div>
+        {gameSettings}
+        {controlsPanel}
       </main>
     )
   }
@@ -679,7 +703,7 @@ export function TronGame(props: TronProps) {
             </div>
           </div>
         )}
-        {view === 'paused' && (
+        {view === 'paused' && !settingsOpen && !controlsOpen && (
           <div className="tron-pause-overlay">
             <div className="tron-round-card">
               <p className="eyebrow">{t('games.tron')}</p>
@@ -694,6 +718,7 @@ export function TronGame(props: TronProps) {
                   <>
                     <button className="tron-primary" type="button" onClick={handleResume}>{t('tron.resume')}</button>
                     <button type="button" onClick={() => setControlsOpen(true)}>{t('tron.controls')}</button>
+                    <button type="button" onClick={() => setSettingsOpen(true)}>{t('settings')}</button>
                     <button type="button" onClick={handleForfeit}>{t('tron.endMatch')}</button>
                     <button type="button" onClick={handleExitToStart}>{t('tron.exit')}</button>
                   </>
@@ -703,6 +728,7 @@ export function TronGame(props: TronProps) {
           </div>
         )}
       </div>
+      {gameSettings}
       {controlsPanel}
     </main>
   )
