@@ -59,6 +59,11 @@
 .tron-tutorial-copy { margin: 0 0 4px; color: #8fb3c9; font-size: .95rem; line-height: 1.5; }
 .tron-tutorial-card .tron-actions { margin-top: 10px; justify-content: center; }
 .tron-tutorial-page .tron-canvas { width: min(100%, 960px, calc((100dvh - 210px) * 1.7778)); }
+.tron-result-page { overflow-y: auto; }
+.tron-result-panel { margin-top: clamp(70px, 13vh, 150px); }
+.tron-result-panel h1 { font-size: clamp(2.2rem, 6vw, 4rem); line-height: .95; overflow-wrap: anywhere; }
+.tron-panel .highscore-table { margin: 28px 0 34px; }
+.tron-result-panel .score-display { color: var(--tron-p1, #22d3ee); }
 
 @media (max-width: 720px) {
   .tron-page { padding: 22px 24px 40px; }
@@ -73,6 +78,15 @@
   .tron-tutorial-card { padding: 12px 14px; }
   .tron-tutorial-card .tron-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
   .tron-tutorial-card .tron-actions button { width: 100%; }
+  .tron-result-panel { margin-top: 18px; }
+  .tron-result-panel h1 { font-size: clamp(2.7rem, 14vw, 4.2rem); line-height: .9; }
+  .tron-result-panel .highscore-table { margin: 22px 0 26px; }
+  .tron-result-panel .highscore-table-head, .tron-result-panel .highscore-row { grid-template-columns: 34px minmax(0, 1fr) 58px; gap: 8px; padding: 10px 0; font-size: .64rem; }
+  .tron-result-panel .highscore-row strong { min-width: 0; font-size: .84rem; }
+  .tron-result-panel .name-field { margin-bottom: 18px; }
+  .tron-result-panel .name-field input { width: 100%; min-width: 0; padding: 12px; }
+  .tron-result-panel .tron-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .tron-result-panel .tron-actions button, .tron-result-panel .result-next-button { width: 100%; }
   .tron-menu, .tron-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
   .tron-menu button, .tron-actions button { width: 100%; }
   .tron-round-card { padding: 24px 18px 26px; }

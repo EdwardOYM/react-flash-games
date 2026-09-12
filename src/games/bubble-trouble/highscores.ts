@@ -1,6 +1,7 @@
 import { readConfig, updateConfig } from '../../config'
+import type { HighscoreEntry } from '../highscore/HighscoreTable'
 
-export type HighscoreEntry = { name: string; score: number }
+export type { HighscoreEntry }
 
 export function readHighscores(): HighscoreEntry[] {
   return readConfig().highscores['bubble-trouble']?.slice(0, 10) ?? []

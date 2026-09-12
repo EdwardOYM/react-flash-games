@@ -24,10 +24,12 @@ import {
   type Turn,
 } from './game-core'
 import '../bubble-trouble/BubbleTroubleGame.css' // reuse the shared .mobile-controls primitives
+import { HighscoreTable } from '../highscore/HighscoreTable'
+import { readHighscores, saveHighscore } from './highscores'
 import './TronGame.css'
 
 type TronProps = { locale?: Locale; onLocaleChange?: (locale: Locale) => void; onExit: () => void; t?: ReturnType<typeof useTranslations> }
-type View = 'start' | 'tutorial' | 'loading' | 'playing' | 'paused'
+type View = 'start' | 'tutorial' | 'loading' | 'playing' | 'paused' | 'gameover' | 'victory' | 'highscore'
 
 const WIDTH = GRID_COLS * CELL_PX
 const HEIGHT = GRID_ROWS * CELL_PX
@@ -298,6 +300,8 @@ export function TronGame(props: TronProps) {
   const [controlsOpen, setControlsOpen] = useState(false)
   const [tutorialStep, setTutorialStep] = useState(0)
   const [tutorialDone, setTutorialDone] = useState(false)
+  const [highscores, setHighscores] = useState(() => readHighscores())
+  const [playerName, setPlayerName] = useState('')
   const tutorialStepRef = useRef(0)
 
   useEffect(() => { viewRef.current = view }, [view])
@@ -336,7 +340,7 @@ export function TronGame(props: TronProps) {
     const next = forfeitMatch(state)
     stateRef.current = next
     setSnapshot(next)
-    setView('playing')
+    setView('gameover')
   }, [])
 
   const handleContinue = useCallback(() => {
@@ -384,6 +388,16 @@ export function TronGame(props: TronProps) {
   const handleTutorialTurn = useCallback((turn: Turn) => {
     setTutorialStep((step) => (turn === 'left' && step === 0 ? 1 : turn === 'right' && step === 1 ? 2 : step))
   }, [])
+
+  const submitScore = useCallback(() => {
+    const state = stateRef.current
+    if (!state) return
+    const score = state.matchResult?.roundsWon || Math.max(state.totals.p1, state.totals.p2)
+    const entries = saveHighscore({ name: playerName.trim() || t('tron.defaultPlayerName'), score })
+    setHighscores(entries ?? [])
+    setPlayerName('')
+    setView('start')
+  }, [playerName, t])
 
   const applyTurn = useCallback((player: PlayerId, desired: Direction): Turn | null => {
     const state = stateRef.current
@@ -442,6 +456,7 @@ export function TronGame(props: TronProps) {
             stateRef.current = next
             render(0)
             if (next.phase !== 'playing') setSnapshot(next)
+            if (next.phase === 'matchOver') setView('victory')
           } else {
             render(Math.min((now - lastTickRef.current) / TICK_MS, 1))
           }
@@ -587,14 +602,51 @@ export function TronGame(props: TronProps) {
     )
   }
 
+  if (view === 'victory' || view === 'gameover') {
+    const banner = snapshot ? matchBanner(snapshot, t) : { text: t('tron.gameOver'), tone: 'neutral' as const }
+    const resultScore = snapshot ? snapshot.matchResult?.roundsWon || Math.max(snapshot.totals.p1, snapshot.totals.p2) : 0
+    return (
+      <main className="tron-page tron-result-page" style={accentVars}>
+        <div className="tron-panel tron-result-panel">
+          <p className="eyebrow">{view === 'victory' ? t('tron.match') : t('games.tron')}</p>
+          <h1 className={`tron-banner-${banner.tone}`}>{banner.text}</h1>
+          <p className="score-display">{t('tron.score')}: {resultScore} {t('tron.rounds')}</p>
+          <div className="tron-actions">
+            <button className="tron-primary result-next-button" type="button" onClick={() => setView('highscore')}>{t('tron.highscore')}</button>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (view === 'highscore') {
+    return (
+      <main className="tron-page tron-result-page" style={accentVars}>
+        <div className="tron-panel tron-result-panel">
+          <p className="eyebrow">{t('tron.highscore')}</p>
+          <h1>{t('tron.highscore')}</h1>
+          <HighscoreTable entries={highscores} labels={{ rank: t('tron.rank'), playerName: t('tron.playerName'), score: t('tron.score'), noScores: t('tron.noScores') }} />
+          <label className="name-field" htmlFor="tron-player-name">
+            {t('tron.playerName')}
+            <input id="tron-player-name" value={playerName} placeholder={t('tron.namePlaceholder')} onChange={(event) => setPlayerName(event.target.value)} />
+          </label>
+          <div className="tron-actions">
+            <button className="tron-primary" type="button" onClick={submitScore}>{t('tron.submitScore')}</button>
+          </div>
+          <div className="tron-actions">
+            <button type="button" onClick={startMatch}>{t('tron.retry')}</button>
+            <button type="button" onClick={handleExitToStart}>{t('tron.backToStart')}</button>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   const state = snapshot
   const showRoundOverlay = view === 'playing' && state?.phase === 'roundOver'
-  const showMatchOverlay = view === 'playing' && state?.phase === 'matchOver'
   const banner = state?.phase === 'roundOver' && state.roundResult
     ? roundBanner(state.roundResult.outcome, t)
-    : state
-      ? matchBanner(state, t)
-      : null
+    : null
 
   return (
     <main className="tron-page tron-gameplay-page" style={accentVars}>
@@ -616,20 +668,13 @@ export function TronGame(props: TronProps) {
       <div className="tron-stage">
         <canvas ref={canvasRef} className="tron-canvas" width={WIDTH} height={HEIGHT} role="img" aria-label={t('tron.gameBoardLabel')} />
         <MobileSticks visible={controllerVisible} editable={editingControls} p1Label={t('tron.mobileP1Stick')} p2Label={t('tron.mobileP2Stick')} positions={mobilePositions} onPositionsChange={updateMobilePositions} onTurn={applyTurn} />
-        {(showRoundOverlay || showMatchOverlay) && banner && (
+        {showRoundOverlay && banner && (
           <div className="tron-round-overlay">
             <div className="tron-round-card">
-              <p className="eyebrow">{showMatchOverlay ? t('tron.match') : `${t('tron.round')} ${state?.round ?? 1}`}</p>
+              <p className="eyebrow">{`${t('tron.round')} ${state?.round ?? 1}`}</p>
               <h2 className={`tron-banner-${banner.tone}`}>{banner.text}</h2>
               <div className="tron-actions">
-                {showMatchOverlay ? (
-                  <>
-                    <button className="tron-primary" type="button" onClick={startMatch}>{t('tron.retry')}</button>
-                    <button type="button" onClick={handleExitToStart}>{t('tron.backToStart')}</button>
-                  </>
-                ) : (
-                  <button className="tron-primary" type="button" onClick={handleContinue}>{t('tron.continue')}</button>
-                )}
+                <button className="tron-primary" type="button" onClick={handleContinue}>{t('tron.continue')}</button>
               </div>
             </div>
           </div>
