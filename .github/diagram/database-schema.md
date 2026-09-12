@@ -16,7 +16,7 @@ AppConfig
 │   ├── locale: 'en' | 'ms' | 'zh'
 │   ├── music: boolean
 │   ├── primaryKey: string                                 (default "Space")
-│   ├── keybindings: Record<string, string>                (e.g. bubble-shoot → ArrowUp)
+│   ├── keybindings: Record<string, string>                (e.g. bubble-shoot → ArrowUp, tron-p1-up → w)
 │   └── mobileControls
 │       ├── movement: { x, y, scale }                      (percent pos + 0.5–2.5 scale)
 │       └── shoot: { x, y, scale }
@@ -61,14 +61,14 @@ erDiagram
     }
 
     GAME_CATALOG {
-        string id PK "currently: bubble-trouble"
-        string titleKey "games.bubbleTrouble"
+        string id PK "currently: bubble-trouble, tron"
+        string titleKey "games.bubbleTrouble, games.tron"
         string statusKey "ready | comingSoon"
     }
     GAME_CATALOG ||--o| HIGHSCORE_BUCKETS : "game.id = bucket key"
 
     HIGHSCORE_BUCKETS {
-        string gameId PK "e.g. bubble-trouble"
+        string gameId PK "e.g. bubble-trouble, tron"
     }
     HIGHSCORE_BUCKETS ||--o{ HIGHSCORE_ENTRY : "holds top-10"
     HIGHSCORE_ENTRY {
@@ -94,4 +94,4 @@ erDiagram
 | **Persistence API** | `src/config/index.ts` | `readConfig()` / `writeConfig()` / `updateConfig()` + `mergeConfig()` deep-merge over defaults |
 | **Persisted document** | `localStorage['flash-games.config']` | Single `AppConfig` record: settings + per-game highscores |
 | **Static data** | `games/index.ts`, `assets/languages/*.json` | Game registry (read-only), en/ms/zh translation dictionaries |
-| **Ephemeral state** | `BubbleTroubleGame.tsx` | Per-session `Runtime`, `Ball`, `StringShot` + view state machine (never persisted) |
+| **Ephemeral state** | `BubbleTroubleGame.tsx`, `tron/TronGame.tsx` | Per-session runtimes + view state machines (never persisted); Tron adds session-only match options (rounds-to-win 1-9, per-player colors) that deliberately stay out of `AppConfig` |

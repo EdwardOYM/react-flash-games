@@ -17,32 +17,50 @@ flowchart TD
         start --> settingsModal["SettingsModal.tsx"]
         start --> registry["games/index.ts — GameDefinition[]"]
         registry --> bubble["bubble-trouble/BubbleTroubleGame.tsx"]
+        registry --> tron["tron/TronGame.tsx"]
     end
 
     subgraph GAME_LOOP["Bubble Trouble runtime"]
         bubble --> canvas["GameCanvas — canvas rAF loop"]
         canvas -->|"onScore / onHealth / onGameOver / onClear"| bubble
-        bubble --> hsTable["HighscoreTable.tsx"]
+        bubble --> hsTable["HighscoreTable.tsx (shared games/highscore)"]
         bubble --> ctrlSettings["ControllerSettings.tsx"]
+    end
+
+    subgraph TRON_LOOP["Tron runtime"]
+        tron --> tronCanvas["TronGame canvas rAF loop (960x540, 100ms ticks)"]
+        tronCanvas -->|"step() / bufferTurn() / continueAfterRound()"| core["tron/game-core.ts — pure grid / round / match logic"]
+        core -->|"roundOver overlay (sub-state of playing)"| tron
+        tron --> sticks["MobileSticks — two 2D analog sticks (movement = P1, shoot = P2)"]
+        sticks -->|"turnToward()"| core
+        tron --> bots["tron/bots.ts — TurnSource / BotController seam (future PvBot)"]
+        bots -.->|"decide() returns TurnCommand -> bufferTurn()"| core
+        tron --> tronHs["tron/highscores.ts"]
     end
 
     subgraph STATE["View state machine"]
         bubble -->|"View union"| views["start / tutorial / loading / playing / paused / remap / gameover / victory / highscore"]
+        tron -->|"View union"| tronViews["start / tutorial / loading / playing / paused / gameover / victory / highscore (round-over is an overlay sub-state of playing; stick remap is an in-pause overlay, not a view)"]
     end
 
     subgraph PERSIST["Data & persistence layer"]
         cfg["config/index.ts<br/>readConfig / updateConfig / mergeConfig"]
         defaults["config/default.config.json — immutable seed"]
         highscores["bubble-trouble/highscores.ts"]
+        tronHs["tron/highscores.ts"]
         l10n["assets/languages/index.ts"]
         defaults --> cfg
         highscores --> cfg
+        tronHs --> cfg
         l10n --> cfg
         settingsModal -->|"volume / locale / keys / music"| cfg
         ctrlSettings -->|"keybindings / primaryKey / mobileControls"| cfg
         bubble -->|"persistLocale()"| l10n
         bubble -->|"saveHighscore()"| highscores
         highscores -->|"readHighscores()"| hsTable
+        tron -->|"persistLocale()"| l10n
+        tron -->|"saveHighscore()"| tronHs
+        tronHs -->|"readHighscores()"| tron
         l10nD["locale JSON files (en / ms / zh)"] --> l10n
         cfg --> ls[("localStorage<br/>flash-games.config")]
     end
@@ -69,6 +87,31 @@ flowchart LR
     HIGHSCORE -->|"submitScore() -> saveHighscore()"| START
 ```
 
+## Tron view state machine (ephemeral runtime flow)
+
+The round-over banner is an **overlay sub-state of `playing`**, not a separate
+view; stick remapping happens inside the pause overlay (Save controller /
+Exit without saving), also not a separate view.
+
+```mermaid
+flowchart LR
+    TSTART["view: start"] --> TTUTORIAL["tutorial"]
+    TTUTORIAL -->|"finish / skip"| TSTART
+    TSTART -->|"startMatch()"| TLOADING["loading (500ms)"]
+    TLOADING --> TPLAYING["playing"]
+    TPLAYING -->|pause| TPAUSED["paused"]
+    TPAUSED -->|resume| TPLAYING
+    TPAUSED -->|"forfeit (End match)"| TGAMEOVER["gameover"]
+    TPLAYING -->|"round ends (win / tie)"| ROUNDOVER["roundOver overlay — sub-state of playing"]
+    ROUNDOVER -->|continue| TPLAYING
+    TPLAYING -->|"a player reaches roundsToWin"| TVICTORY["victory"]
+    TGAMEOVER -->|highscores| THIGHSCORE["highscore"]
+    TVICTORY -->|highscores| THIGHSCORE
+    THIGHSCORE -->|retry| TLOADING
+    THIGHSCORE -->|backToStart| TSTART
+    THIGHSCORE -->|"submitScore() -> saveHighscore()"| TSTART
+```
+
 ## Persistence call sites
 
 | Caller | Operation | Effect on `flash-games.config` |
@@ -79,3 +122,7 @@ flowchart LR
 | `ControllerSettings` (remap/reset) | `updateConfig(...)` | `settings.primaryKey`, `settings.keybindings` |
 | `BubbleTroubleGame.saveControllerAdjustment` | `updateConfig(...)` | `settings.mobileControls` |
 | `highscores.saveHighscore` | `updateConfig(...)` | `highscores['bubble-trouble']` (top-10, desc) |
+| `TronGame.toggleMusic` | `updateConfig(...)` | `settings.music` |
+| `TronGame.changeLocale` | `persistLocale()` → `updateConfig(...)` | `settings.locale` |
+| `TronGame.saveControllerAdjustment` | `updateConfig(...)` | `settings.mobileControls` |
+| `tron/highscores.saveHighscore` | `updateConfig(...)` | `highscores['tron']` (top-10, desc) |
