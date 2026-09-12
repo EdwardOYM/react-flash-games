@@ -24,7 +24,7 @@ A previous session in this repository died mid-execution (SocketError) while a l
 - [x] Step 4 - Skeleton component + registry + StartPage branch
 - [x] Step 5 - Desktop gameplay (canvas loop, input, HUD, round overlay)
 - [x] Step 6 - Match setup UI (rounds + colors)
-- [ ] Step 7 - Mobile controls + remap flow
+- [x] Step 7 - Mobile controls + remap flow
 - [ ] Step 8 - Tutorial flow
 - [ ] Step 9 - Victory / gameover / highscore + shared HighscoreTable
 - [ ] Step 10 - Settings wiring + generic music labels

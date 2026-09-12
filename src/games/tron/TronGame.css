@@ -42,6 +42,16 @@
 .tron-banner-p1 { color: var(--tron-p1, #22d3ee); }
 .tron-banner-p2 { color: var(--tron-p2, #fb7185); }
 .tron-banner-neutral { color: #e6fbff; }
+.tron-pause-overlay { z-index: 5; pointer-events: none; }
+.tron-pause-overlay .tron-round-card { pointer-events: auto; }
+.tron-controls-overlay { position: fixed; inset: 0; z-index: 5; display: grid; place-items: center; padding: 24px; background: rgba(5, 10, 18, .58); backdrop-filter: blur(5px); pointer-events: none; }
+.tron-controls-card { position: relative; z-index: 7; width: min(100%, 460px); max-height: 86dvh; overflow-y: auto; padding: 34px 42px 42px; border: 1px solid #274b66; background: #0a1524; pointer-events: auto; }
+.tron-controls-card h2 { margin: -12px 0 28px; font-family: 'Space Grotesk', sans-serif; font-size: 2.5rem; }
+.tron-controls-card .tron-actions { margin-top: 24px; }
+.tron-gameplay-page .mobile-stick { border-color: rgba(39, 75, 102, .9); background: rgba(5, 10, 18, .85); cursor: pointer; }
+.tron-gameplay-page .mobile-stick-knob { border-color: #e6fbff; background: var(--tron-p1, #22d3ee); transform: translate(calc(var(--stick-axis-x, 0) * 22px), calc(var(--stick-axis-y, 0) * 22px)); }
+.tron-gameplay-page .tron-p2-stick-group .mobile-stick-knob { background: var(--tron-p2, #fb7185); }
+.tron-gameplay-page .mobile-control-resize { box-shadow: 0 0 0 1px var(--tron-p1, #22d3ee); }
 
 @media (max-width: 720px) {
   .tron-page { padding: 22px 24px 40px; }

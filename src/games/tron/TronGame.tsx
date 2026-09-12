@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { getPreferredLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
-import { readConfig } from '../../config'
-import { useInputMode } from '../../settings'
+import { readConfig, updateConfig, type MobileControlPosition } from '../../config'
+import { ControllerSettings, useControllerVisibility, useInputMode, type AdditionalKeyBinding } from '../../settings'
 import {
   bufferTurn,
   continueAfterRound,
@@ -18,8 +18,10 @@ import {
   type CycleState,
   type Direction,
   type GameState,
+  type PlayerId,
   type RoundOutcome,
 } from './game-core'
+import '../bubble-trouble/BubbleTroubleGame.css' // reuse the shared .mobile-controls primitives
 import './TronGame.css'
 
 type TronProps = { locale?: Locale; onLocaleChange?: (locale: Locale) => void; onExit: () => void; t?: ReturnType<typeof useTranslations> }
@@ -47,6 +49,11 @@ const HEAD_DELTAS: Record<Direction, { dx: number; dy: number }> = {
   down: { dx: 0, dy: 1 },
   left: { dx: -1, dy: 0 },
 }
+
+const tronKeyBindings: AdditionalKeyBinding[] = DIRECTION_BINDINGS.map(({ id, labelKey, defaultKey }) => ({ id, labelKey, defaultKey }))
+
+type StickSlot = 'movement' | 'shoot'
+type StickPositions = { movement: MobileControlPosition; shoot: MobileControlPosition }
 
 function playerOf(id: string) { return id.startsWith('tron-p1') ? 'p1' as const : 'p2' as const }
 
@@ -141,12 +148,129 @@ function KeybindGroup({ player, label }: { player: 'p1' | 'p2'; label: string })
   )
 }
 
+function MobileSticks({ visible, editable, p1Label, p2Label, positions, onPositionsChange, onTurn }: { visible: boolean; editable: boolean; p1Label: string; p2Label: string; positions: StickPositions; onPositionsChange: (positions: StickPositions) => void; onTurn: (player: PlayerId, desired: Direction) => void }) {
+  const dragRef = useRef<{ slot: StickSlot; offsetX: number; offsetY: number } | null>(null)
+  const resizeRef = useRef<{ slot: StickSlot; startScale: number; baseDistance: number } | null>(null)
+  const engagedRef = useRef<{ p1: Direction | null; p2: Direction | null }>({ p1: null, p2: null })
+
+  const stageOf = (element: HTMLElement) => element.closest('.mobile-controls')?.parentElement
+
+  const startDragging = (slot: StickSlot, event: React.PointerEvent<HTMLElement>) => {
+    if (!editable) return
+    const stage = stageOf(event.currentTarget)
+    if (!stage) return
+    const rect = stage.getBoundingClientRect()
+    const position = positions[slot]
+    dragRef.current = { slot, offsetX: event.clientX - (rect.left + rect.width * position.x / 100), offsetY: event.clientY - (rect.top + rect.height * position.y / 100) }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+  const dragControl = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current
+    const stage = stageOf(event.currentTarget)
+    if (!drag || !stage) return
+    const rect = stage.getBoundingClientRect()
+    const x = Math.max(2, Math.min(92, ((event.clientX - rect.left - drag.offsetX) / rect.width) * 100))
+    const y = Math.max(4, Math.min(84, ((event.clientY - rect.top - drag.offsetY) / rect.height) * 100))
+    onPositionsChange({ ...positions, [drag.slot]: { ...positions[drag.slot], x, y } })
+  }
+  const stopDragging = (event: React.PointerEvent<HTMLElement>) => {
+    if (!dragRef.current) return
+    dragRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    onPositionsChange(positions)
+  }
+  const startResizing = (slot: StickSlot, event: React.PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    if (!editable) return
+    const stage = stageOf(event.currentTarget)
+    if (!stage) return
+    const rect = stage.getBoundingClientRect()
+    const position = positions[slot]
+    const centerX = rect.left + rect.width * position.x / 100
+    const centerY = rect.top + rect.height * position.y / 100
+    resizeRef.current = { slot, startScale: position.scale, baseDistance: Math.max(1, Math.hypot(event.clientX - centerX, event.clientY - centerY)) }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+  const resizeControl = (event: React.PointerEvent<HTMLDivElement>) => {
+    const resize = resizeRef.current
+    const stage = stageOf(event.currentTarget)
+    if (!resize || !stage) return
+    const rect = stage.getBoundingClientRect()
+    const position = positions[resize.slot]
+    const centerX = rect.left + rect.width * position.x / 100
+    const centerY = rect.top + rect.height * position.y / 100
+    const distance = Math.max(1, Math.hypot(event.clientX - centerX, event.clientY - centerY))
+    const scale = Math.max(0.5, Math.min(2.5, resize.startScale * (distance / resize.baseDistance)))
+    onPositionsChange({ ...positions, [resize.slot]: { ...position, scale } })
+  }
+  const stopResizing = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!resizeRef.current) return
+    resizeRef.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    onPositionsChange(positions)
+  }
+  const updateAnalog = (player: PlayerId, event: React.PointerEvent<HTMLDivElement>) => {
+    const element = event.currentTarget
+    const rect = element.getBoundingClientRect()
+    const x = Math.max(-1, Math.min(1, (event.clientX - (rect.left + rect.width / 2)) / (rect.width / 2)))
+    const y = Math.max(-1, Math.min(1, (event.clientY - (rect.top + rect.height / 2)) / (rect.height / 2)))
+    element.style.setProperty('--stick-axis-x', x.toFixed(2))
+    element.style.setProperty('--stick-axis-y', y.toFixed(2))
+    if (Math.hypot(x, y) < 0.3) {
+      engagedRef.current[player] = null
+      return
+    }
+    if (engagedRef.current[player]) return
+    const desired: Direction = Math.abs(x) >= Math.abs(y) ? (x > 0 ? 'right' : 'left') : (y > 0 ? 'down' : 'up')
+    engagedRef.current[player] = desired
+    onTurn(player, desired)
+  }
+  const startAnalog = (player: PlayerId, slot: StickSlot, event: React.PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    if (editable) {
+      startDragging(slot, event)
+      return
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    updateAnalog(player, event)
+  }
+  const stopAnalog = (player: PlayerId, event: React.PointerEvent<HTMLDivElement>) => {
+    event.stopPropagation()
+    if (editable) {
+      stopDragging(event)
+      return
+    }
+    engagedRef.current[player] = null
+    event.currentTarget.style.setProperty('--stick-axis-x', '0')
+    event.currentTarget.style.setProperty('--stick-axis-y', '0')
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+
+  return (
+    <div className={`mobile-controls${visible ? ' mobile-controls-visible' : ''}${editable ? ' mobile-controls-editable' : ''}`}>
+      <div className="mobile-control-group mobile-movement-control tron-p1-stick-group" style={({ left: `${positions.movement.x}%`, top: `${positions.movement.y}%`, '--control-scale': positions.movement.scale, '--control-half': '38px' } as CSSProperties)} onPointerDown={(event) => startDragging('movement', event)} onPointerMove={dragControl} onPointerUp={stopDragging}>
+        <div className="mobile-stick" aria-label={p1Label} style={{ transform: `scale(${positions.movement.scale})` }} onPointerDown={(event) => startAnalog('p1', 'movement', event)} onPointerMove={editable ? dragControl : (event) => updateAnalog('p1', event)} onPointerUp={(event) => stopAnalog('p1', event)} onPointerCancel={(event) => stopAnalog('p1', event)}>
+          <span className="mobile-stick-knob" />
+        </div>
+        <div className="mobile-control-resize" onPointerDown={(event) => startResizing('movement', event)} onPointerMove={resizeControl} onPointerUp={stopResizing} onPointerCancel={stopResizing} />
+      </div>
+      <div className="mobile-control-group mobile-shoot-control tron-p2-stick-group" style={({ left: `${positions.shoot.x}%`, top: `${positions.shoot.y}%`, '--control-scale': positions.shoot.scale, '--control-half': '38px' } as CSSProperties)} onPointerDown={(event) => startDragging('shoot', event)} onPointerMove={dragControl} onPointerUp={stopDragging}>
+        <div className="mobile-stick" aria-label={p2Label} style={{ transform: `scale(${positions.shoot.scale})` }} onPointerDown={(event) => startAnalog('p2', 'shoot', event)} onPointerMove={editable ? dragControl : (event) => updateAnalog('p2', event)} onPointerUp={(event) => stopAnalog('p2', event)} onPointerCancel={(event) => stopAnalog('p2', event)}>
+          <span className="mobile-stick-knob" />
+        </div>
+        <div className="mobile-control-resize" onPointerDown={(event) => startResizing('shoot', event)} onPointerMove={resizeControl} onPointerUp={stopResizing} onPointerCancel={stopResizing} />
+      </div>
+    </div>
+  )
+}
+
 export function TronGame(props: TronProps) {
   const { locale: providedLocale, onExit, t: providedTranslations } = props
   const [locale] = useState<Locale>(providedLocale ?? getPreferredLocale())
   const translations = useTranslations(locale)
   const t = providedTranslations ?? translations
   const inputMode = useInputMode()
+  const controllerVisible = useControllerVisibility()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const stateRef = useRef<GameState | null>(null)
   const lastTickRef = useRef(0)
@@ -158,6 +282,10 @@ export function TronGame(props: TronProps) {
   const [p1Color, setP1Color] = useState(P1_COLOR)
   const [p2Color, setP2Color] = useState(P2_COLOR)
   const [snapshot, setSnapshot] = useState<GameState | null>(null)
+  const [mobilePositions, setMobilePositions] = useState<StickPositions>(() => readConfig().settings.mobileControls)
+  const [savedMobilePositions, setSavedMobilePositions] = useState<StickPositions>(() => readConfig().settings.mobileControls)
+  const [editingControls, setEditingControls] = useState(false)
+  const [controlsOpen, setControlsOpen] = useState(false)
 
   useEffect(() => { viewRef.current = view }, [view])
 
@@ -207,6 +335,34 @@ export function TronGame(props: TronProps) {
     }
   }, [])
 
+  const updateMobilePositions = useCallback((positions: StickPositions) => setMobilePositions(positions), [])
+
+  const beginControllerAdjustment = useCallback(() => {
+    setMobilePositions(savedMobilePositions)
+    setEditingControls(true)
+    setControlsOpen(false)
+    setView('paused')
+  }, [savedMobilePositions])
+
+  const saveControllerAdjustment = useCallback(() => {
+    updateConfig((config) => ({ ...config, settings: { ...config.settings, mobileControls: mobilePositions } }))
+    setSavedMobilePositions(mobilePositions)
+    setEditingControls(false)
+  }, [mobilePositions])
+
+  const exitControllerAdjustment = useCallback(() => {
+    setMobilePositions(savedMobilePositions)
+    setEditingControls(false)
+  }, [savedMobilePositions])
+
+  const applyTurn = useCallback((player: PlayerId, desired: Direction) => {
+    const state = stateRef.current
+    if (!state || state.phase !== 'playing') return
+    const cycle = player === 'p1' ? state.p1 : state.p2
+    const turn = turnToward(cycle.direction, desired)
+    if (turn) stateRef.current = bufferTurn(state, player, turn)
+  }, [])
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return
@@ -217,13 +373,7 @@ export function TronGame(props: TronProps) {
       event.preventDefault()
       if (pressedKeysRef.current.has(binding.id)) return
       pressedKeysRef.current.add(binding.id)
-      const state = stateRef.current
-      if (!state || state.phase !== 'playing') return
-      const player = playerOf(binding.id)
-      const cycle = player === 'p1' ? state.p1 : state.p2
-      const turn = turnToward(cycle.direction, binding.direction)
-      if (!turn) return
-      stateRef.current = bufferTurn(state, player, turn)
+      applyTurn(playerOf(binding.id), binding.direction)
     }
     const handleKeyUp = (event: KeyboardEvent) => {
       const key = normalizeKey(event.key)
@@ -236,7 +386,7 @@ export function TronGame(props: TronProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [])
+  }, [applyTurn])
 
   useEffect(() => {
     if (view !== 'playing') return
@@ -275,6 +425,19 @@ export function TronGame(props: TronProps) {
   }, [view, p1Color, p2Color])
 
   const accentVars = { '--tron-p1': p1Color, '--tron-p2': p2Color } as CSSProperties
+
+  const controlsPanel = controlsOpen && (
+    <div className="tron-controls-overlay">
+      <div className="tron-controls-card">
+        <p className="eyebrow">{t('tron.controls')}</p>
+        <h2>{t('tron.controls')}</h2>
+        <ControllerSettings t={t} additionalBindings={tronKeyBindings} onRemapController={beginControllerAdjustment} />
+        <div className="tron-actions">
+          <button type="button" onClick={() => setControlsOpen(false)}>{t('tron.back')}</button>
+        </div>
+      </div>
+    </div>
+  )
 
   if (view === 'start') {
     return (
@@ -352,10 +515,11 @@ export function TronGame(props: TronProps) {
             <KeybindGroup player="p2" label="" />
           </span>
         )}
-        {state?.phase === 'playing' && <button type="button" onClick={handlePause}>{t('tron.pause')}</button>}
+        {state?.phase === 'playing' && !editingControls && <button type="button" onClick={handlePause}>{t('tron.pause')}</button>}
       </div>
       <div className="tron-stage">
         <canvas ref={canvasRef} className="tron-canvas" width={WIDTH} height={HEIGHT} role="img" aria-label={t('tron.gameBoardLabel')} />
+        <MobileSticks visible={controllerVisible} editable={editingControls} p1Label={t('tron.mobileP1Stick')} p2Label={t('tron.mobileP2Stick')} positions={mobilePositions} onPositionsChange={updateMobilePositions} onTurn={applyTurn} />
         {(showRoundOverlay || showMatchOverlay) && banner && (
           <div className="tron-round-overlay">
             <div className="tron-round-card">
@@ -380,14 +544,25 @@ export function TronGame(props: TronProps) {
               <p className="eyebrow">{t('games.tron')}</p>
               <h2 className="tron-banner-neutral">{t('tron.paused')}</h2>
               <div className="tron-actions">
-                <button className="tron-primary" type="button" onClick={handleResume}>{t('tron.resume')}</button>
-                <button type="button" onClick={handleForfeit}>{t('tron.endMatch')}</button>
-                <button type="button" onClick={handleExitToStart}>{t('tron.exit')}</button>
+                {editingControls ? (
+                  <>
+                    <button className="tron-primary" type="button" onClick={saveControllerAdjustment}>{t('saveController')}</button>
+                    <button type="button" onClick={exitControllerAdjustment}>{t('exitController')}</button>
+                  </>
+                ) : (
+                  <>
+                    <button className="tron-primary" type="button" onClick={handleResume}>{t('tron.resume')}</button>
+                    <button type="button" onClick={() => setControlsOpen(true)}>{t('tron.controls')}</button>
+                    <button type="button" onClick={handleForfeit}>{t('tron.endMatch')}</button>
+                    <button type="button" onClick={handleExitToStart}>{t('tron.exit')}</button>
+                  </>
+                )}
               </div>
             </div>
           </div>
         )}
       </div>
+      {controlsPanel}
     </main>
   )
 }
