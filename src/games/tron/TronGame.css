@@ -65,6 +65,10 @@
 .tron-panel .highscore-table { margin: 28px 0 34px; }
 .tron-result-panel .score-display { color: var(--tron-p1, #22d3ee); }
 
+@media (max-height: 600px) {
+  .tron-tutorial-page .tron-canvas { width: auto; max-width: 100%; height: min(calc(100dvh - 220px), calc(100vw * .5625)); }
+}
+
 @media (max-width: 720px) {
   .tron-page { padding: 22px 24px 40px; }
   .tron-shell, .tron-panel { margin-top: 56px; }
@@ -75,6 +79,7 @@
 @media (max-width: 520px) {
   .tron-panel { width: 100%; margin-top: 18px; padding: 24px 16px 22px; }
   .tron-setup { gap: 14px 24px; margin-bottom: 28px; }
+  .tron-controls-card { padding: 24px 20px 28px; }
   .tron-tutorial-card { padding: 12px 14px; }
   .tron-tutorial-card .tron-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
   .tron-tutorial-card .tron-actions button { width: 100%; }
