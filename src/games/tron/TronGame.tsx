@@ -1,65 +1,376 @@
-import { useState } from 'react'
-import { getPreferredLocale, type Locale, useTranslations } from '../../assets/languages'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { getPreferredLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
 import { readConfig } from '../../config'
 import { useInputMode } from '../../settings'
+import {
+  bufferTurn,
+  continueAfterRound,
+  forfeitMatch,
+  startRound,
+  step,
+  turnToward,
+  CELL_PX,
+  GRID_COLS,
+  GRID_ROWS,
+  P1_COLOR,
+  P2_COLOR,
+  TICK_MS,
+  type CycleState,
+  type Direction,
+  type GameState,
+  type RoundOutcome,
+} from './game-core'
 import './TronGame.css'
 
 type TronProps = { locale?: Locale; onLocaleChange?: (locale: Locale) => void; onExit: () => void; t?: ReturnType<typeof useTranslations> }
+type View = 'start' | 'loading' | 'playing' | 'paused'
 
-function readKey(id: string) {
-  const defaults: Record<string, string> = {
-    'tron-p1-up': 'w',
-    'tron-p1-down': 's',
-    'tron-p1-left': 'a',
-    'tron-p1-right': 'd',
-    'tron-p2-up': 'ArrowUp',
-    'tron-p2-down': 'ArrowDown',
-    'tron-p2-left': 'ArrowLeft',
-    'tron-p2-right': 'ArrowRight',
-  }
-  return readConfig().settings.keybindings[id] ?? defaults[id] ?? ''
+const WIDTH = GRID_COLS * CELL_PX
+const HEIGHT = GRID_ROWS * CELL_PX
+
+type DirectionBinding = { id: string; direction: Direction; labelKey: TranslationKey; defaultKey: string }
+
+const DIRECTION_BINDINGS: DirectionBinding[] = [
+  { id: 'tron-p1-up', direction: 'up', labelKey: 'keyNames.p1Up', defaultKey: 'w' },
+  { id: 'tron-p1-down', direction: 'down', labelKey: 'keyNames.p1Down', defaultKey: 's' },
+  { id: 'tron-p1-left', direction: 'left', labelKey: 'keyNames.p1Left', defaultKey: 'a' },
+  { id: 'tron-p1-right', direction: 'right', labelKey: 'keyNames.p1Right', defaultKey: 'd' },
+  { id: 'tron-p2-up', direction: 'up', labelKey: 'keyNames.p2Up', defaultKey: 'ArrowUp' },
+  { id: 'tron-p2-down', direction: 'down', labelKey: 'keyNames.p2Down', defaultKey: 'ArrowDown' },
+  { id: 'tron-p2-left', direction: 'left', labelKey: 'keyNames.p2Left', defaultKey: 'ArrowLeft' },
+  { id: 'tron-p2-right', direction: 'right', labelKey: 'keyNames.p2Right', defaultKey: 'ArrowRight' },
+]
+
+const HEAD_DELTAS: Record<Direction, { dx: number; dy: number }> = {
+  up: { dx: 0, dy: -1 },
+  right: { dx: 1, dy: 0 },
+  down: { dx: 0, dy: 1 },
+  left: { dx: -1, dy: 0 },
 }
 
-export function TronGame({ locale: providedLocale, onExit, t: providedTranslations }: TronProps) {
+function playerOf(id: string) { return id.startsWith('tron-p1') ? 'p1' as const : 'p2' as const }
+
+function readKey(id: string) {
+  const binding = DIRECTION_BINDINGS.find((candidate) => candidate.id === id)
+  return readConfig().settings.keybindings[id] ?? binding?.defaultKey ?? ''
+}
+
+function normalizeKey(key: string) { return key.length === 1 ? key.toLowerCase() : key }
+
+function displayKey(id: string) {
+  const key = readKey(id)
+  return key.length === 1 ? key.toUpperCase() : key
+}
+
+function substituteParams(template: string, params: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, name) => params[name] ?? `{${name}}`)
+}
+
+function playerLabel(player: 'p1' | 'p2', t: (key: TranslationKey) => string) {
+  return t(player === 'p1' ? 'tron.p1' : 'tron.p2')
+}
+
+function roundBanner(outcome: RoundOutcome, t: (key: TranslationKey) => string) {
+  if (outcome === 'tie') return { text: t('tron.roundTie'), tone: 'neutral' as const }
+  return { text: substituteParams(t('tron.roundWonBy'), { player: playerLabel(outcome, t) }), tone: outcome }
+}
+
+function matchBanner(state: GameState, t: (key: TranslationKey) => string) {
+  const winner = state.matchResult?.winner
+  if (!winner) return { text: t('tron.gameOver'), tone: 'neutral' as const }
+  return { text: substituteParams(t('tron.victory'), { player: playerLabel(winner, t) }), tone: winner }
+}
+
+function drawBoard(context: CanvasRenderingContext2D, state: GameState | null, fraction: number, p1Color: string, p2Color: string) {
+  context.fillStyle = '#050a12'
+  context.fillRect(0, 0, WIDTH, HEIGHT)
+
+  context.strokeStyle = 'rgba(39, 75, 102, 0.28)'
+  context.lineWidth = 1
+  context.beginPath()
+  for (let col = 1; col < GRID_COLS; col++) {
+    context.moveTo(col * CELL_PX + 0.5, 0)
+    context.lineTo(col * CELL_PX + 0.5, HEIGHT)
+  }
+  for (let row = 1; row < GRID_ROWS; row++) {
+    context.moveTo(0, row * CELL_PX + 0.5)
+    context.lineTo(WIDTH, row * CELL_PX + 0.5)
+  }
+  context.stroke()
+
+  if (!state) return
+
+  for (let index = 0; index < state.grid.length; index++) {
+    const owner = state.grid[index]
+    if (owner === 0) continue
+    const col = index % GRID_COLS
+    const row = Math.floor(index / GRID_COLS)
+    context.fillStyle = owner === 1 ? p1Color : p2Color
+    context.globalAlpha = 0.82
+    context.fillRect(col * CELL_PX + 1, row * CELL_PX + 1, CELL_PX - 2, CELL_PX - 2)
+    context.globalAlpha = 1
+  }
+
+  const drawHead = (cycle: CycleState, color: string) => {
+    if (!cycle.alive) return
+    const delta = HEAD_DELTAS[cycle.direction]
+    const x = (cycle.col - delta.dx + fraction * delta.dx) * CELL_PX
+    const y = (cycle.row - delta.dy + fraction * delta.dy) * CELL_PX
+    context.save()
+    context.shadowColor = color
+    context.shadowBlur = 14
+    context.fillStyle = color
+    context.fillRect(x + 1, y + 1, CELL_PX - 2, CELL_PX - 2)
+    context.shadowBlur = 0
+    context.fillStyle = '#f5fdff'
+    context.fillRect(x + 5, y + 5, CELL_PX - 10, CELL_PX - 10)
+    context.restore()
+  }
+
+  drawHead(state.p1, p1Color)
+  drawHead(state.p2, p2Color)
+}
+
+function KeybindGroup({ player, label }: { player: 'p1' | 'p2'; label: string }) {
+  const ids = DIRECTION_BINDINGS.filter((binding) => playerOf(binding.id) === player).map((binding) => binding.id)
+  return (
+    <span className={`tron-keybind-group tron-keybind-${player}`}>
+      {label ? <span className="tron-keybind-label">{label}</span> : null}
+      {ids.map((id) => <kbd key={id}>{displayKey(id)}</kbd>)}
+    </span>
+  )
+}
+
+export function TronGame(props: TronProps) {
+  const { locale: providedLocale, onExit, t: providedTranslations } = props
   const [locale] = useState<Locale>(providedLocale ?? getPreferredLocale())
   const translations = useTranslations(locale)
   const t = providedTranslations ?? translations
   const inputMode = useInputMode()
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const stateRef = useRef<GameState | null>(null)
+  const lastTickRef = useRef(0)
+  const viewRef = useRef<View>('start')
+  const pressedKeysRef = useRef<Set<string>>(new Set())
 
-  // Skeleton step: the menu is rendered through t(); players navigate with the
-  // Exit button. Gameplay (Step 5), match setup (Step 6), mobile remap (Step 7),
-  // tutorial (Step 8), and settings wiring (Step 10) land in later steps.
-  const startMatch = () => {}
-  const startTutorial = () => {}
-  const openControls = () => {}
-  const openSettings = () => {}
+  const [view, setView] = useState<View>('start')
+  const [roundsToWin] = useState(5)
+  const [snapshot, setSnapshot] = useState<GameState | null>(null)
+
+  useEffect(() => { viewRef.current = view }, [view])
+
+  useEffect(() => {
+    if (view !== 'loading') return
+    const timer = window.setTimeout(() => setView('playing'), 500)
+    return () => window.clearTimeout(timer)
+  }, [view])
+
+  const startMatch = useCallback(() => {
+    const next = startRound(null, roundsToWin)
+    stateRef.current = next
+    setSnapshot(next)
+    setView('loading')
+  }, [roundsToWin])
+
+  const handleExitToStart = useCallback(() => {
+    stateRef.current = null
+    setSnapshot(null)
+    setView('start')
+  }, [])
+
+  const handlePause = useCallback(() => setView('paused'), [])
+
+  const handleResume = useCallback(() => {
+    lastTickRef.current = performance.now()
+    setView('playing')
+  }, [])
+
+  const handleForfeit = useCallback(() => {
+    const state = stateRef.current
+    if (!state || state.phase === 'matchOver') return
+    const next = forfeitMatch(state)
+    stateRef.current = next
+    setSnapshot(next)
+    setView('playing')
+  }, [])
+
+  const handleContinue = useCallback(() => {
+    const state = stateRef.current
+    if (!state) return
+    if (state.phase === 'roundOver') {
+      const next = continueAfterRound(state)
+      stateRef.current = next
+      setSnapshot(next)
+      lastTickRef.current = performance.now()
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat) return
+      const key = normalizeKey(event.key)
+      const binding = DIRECTION_BINDINGS.find((candidate) => normalizeKey(readKey(candidate.id)) === key)
+      if (!binding) return
+      if (viewRef.current !== 'playing') return
+      event.preventDefault()
+      if (pressedKeysRef.current.has(binding.id)) return
+      pressedKeysRef.current.add(binding.id)
+      const state = stateRef.current
+      if (!state || state.phase !== 'playing') return
+      const player = playerOf(binding.id)
+      const cycle = player === 'p1' ? state.p1 : state.p2
+      const turn = turnToward(cycle.direction, binding.direction)
+      if (!turn) return
+      stateRef.current = bufferTurn(state, player, turn)
+    }
+    const handleKeyUp = (event: KeyboardEvent) => {
+      const key = normalizeKey(event.key)
+      const binding = DIRECTION_BINDINGS.find((candidate) => normalizeKey(readKey(candidate.id)) === key)
+      if (binding) pressedKeysRef.current.delete(binding.id)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (view !== 'playing') return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const context = canvas.getContext('2d')
+    if (!context) return
+
+    const render = (fraction: number) => drawBoard(context, stateRef.current, fraction, P1_COLOR, P2_COLOR)
+
+    let frame = 0
+    const loop = () => {
+      const state = stateRef.current
+      if (state) {
+        if (state.phase === 'playing') {
+          const now = performance.now()
+          if (now - lastTickRef.current >= TICK_MS) {
+            lastTickRef.current = now
+            const next = step(state)
+            stateRef.current = next
+            render(0)
+            if (next.phase !== 'playing') setSnapshot(next)
+          } else {
+            render(Math.min((now - lastTickRef.current) / TICK_MS, 1))
+          }
+        } else {
+          render(1)
+        }
+      }
+      frame = requestAnimationFrame(loop)
+    }
+
+    lastTickRef.current = performance.now()
+    frame = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(frame)
+  }, [view])
+
+  const accentVars = { '--tron-p1': P1_COLOR, '--tron-p2': P2_COLOR } as CSSProperties
+
+  if (view === 'start') {
+    return (
+      <main className="tron-page" style={accentVars}>
+        <div className="tron-shell">
+          <p className="eyebrow">{t('games.tron')}</p>
+          <h1>{t('tron.title')}</h1>
+          <p className="tron-description">{t('tron.description')}</p>
+          {inputMode === 'keyboard' && (
+            <div className="tron-keybinds" aria-label={t('keybinds')}>
+              <KeybindGroup player="p1" label={t('tron.p1')} />
+              <KeybindGroup player="p2" label={t('tron.p2')} />
+            </div>
+          )}
+          <div className="tron-menu">
+            <button className="tron-primary" type="button" onClick={startMatch}>{t('tron.startMatch')}</button>
+            <button type="button" onClick={onExit}>{t('tron.exit')}</button>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (view === 'loading') {
+    return (
+      <main className="tron-page" style={accentVars}>
+        <div className="tron-panel">
+          <div className="tron-loading-orb" />
+          <p className="eyebrow">{t('games.tron')}</p>
+          <h1>{t('tron.loading')}</h1>
+        </div>
+      </main>
+    )
+  }
+
+  const state = snapshot
+  const showRoundOverlay = view === 'playing' && state?.phase === 'roundOver'
+  const showMatchOverlay = view === 'playing' && state?.phase === 'matchOver'
+  const banner = state?.phase === 'roundOver' && state.roundResult
+    ? roundBanner(state.roundResult.outcome, t)
+    : state
+      ? matchBanner(state, t)
+      : null
 
   return (
-    <main className="tron-page">
-      <div className="tron-shell">
-        <p className="eyebrow">{t('tron.title')}</p>
-        <h1>{t('tron.title')}</h1>
-        <p className="tron-description">{t('tron.description')}</p>
+    <main className="tron-page tron-gameplay-page" style={accentVars}>
+      <div className="tron-hud">
+        <span>{t('tron.round')} {state?.round ?? 1}</span>
+        <span>{t('tron.firstTo')} {roundsToWin}</span>
+        <span className="tron-score-p1">{t('tron.p1')} {state?.totals.p1 ?? 0}</span>
+        <span className="tron-score-p2">{t('tron.p2')} {state?.totals.p2 ?? 0}</span>
+        <span>{t('tron.ties')} {state?.totals.ties ?? 0}</span>
         {inputMode === 'keyboard' && (
-          <div className="tron-keybinds" aria-label={t('keybinds')}>
-            <span className="tron-keybind">
-              <span className="tron-keybind-label">{t('keyNames.p1Left')} / {t('keyNames.p1Up')} / {t('keyNames.p1Down')} / {t('keyNames.p1Right')}</span>
-              <kbd>{readKey('tron-p1-left')}</kbd><span aria-hidden="true">+</span><kbd>{readKey('tron-p1-up')}</kbd><span aria-hidden="true">+</span><kbd>{readKey('tron-p1-down')}</kbd><span aria-hidden="true">+</span><kbd>{readKey('tron-p1-right')}</kbd>
-            </span>
-            <span className="tron-keybind">
-              <span className="tron-keybind-label">{t('keyNames.p2Left')} / {t('keyNames.p2Up')} / {t('keyNames.p2Down')} / {t('keyNames.p2Right')}</span>
-              <kbd>{readKey('tron-p2-left')}</kbd><span aria-hidden="true">+</span><kbd>{readKey('tron-p2-up')}</kbd><span aria-hidden="true">+</span><kbd>{readKey('tron-p2-down')}</kbd><span aria-hidden="true">+</span><kbd>{readKey('tron-p2-right')}</kbd>
-            </span>
+          <span className="tron-hud-keybinds" aria-label={t('keybinds')}>
+            <KeybindGroup player="p1" label="" />
+            <span aria-hidden="true">·</span>
+            <KeybindGroup player="p2" label="" />
+          </span>
+        )}
+        {state?.phase === 'playing' && <button type="button" onClick={handlePause}>{t('tron.pause')}</button>}
+      </div>
+      <div className="tron-stage">
+        <canvas ref={canvasRef} className="tron-canvas" width={WIDTH} height={HEIGHT} role="img" aria-label={t('tron.gameBoardLabel')} />
+        {(showRoundOverlay || showMatchOverlay) && banner && (
+          <div className="tron-round-overlay">
+            <div className="tron-round-card">
+              <p className="eyebrow">{showMatchOverlay ? t('tron.match') : `${t('tron.round')} ${state?.round ?? 1}`}</p>
+              <h2 className={`tron-banner-${banner.tone}`}>{banner.text}</h2>
+              <div className="tron-actions">
+                {showMatchOverlay ? (
+                  <>
+                    <button className="tron-primary" type="button" onClick={startMatch}>{t('tron.retry')}</button>
+                    <button type="button" onClick={handleExitToStart}>{t('tron.backToStart')}</button>
+                  </>
+                ) : (
+                  <button className="tron-primary" type="button" onClick={handleContinue}>{t('tron.continue')}</button>
+                )}
+              </div>
+            </div>
           </div>
         )}
-        <div className="tron-menu">
-          <button className="tron-primary" type="button" onClick={startMatch}>{t('tron.startMatch')}</button>
-          <button type="button" onClick={startTutorial}>{t('tron.tutorial')}</button>
-          <button type="button" onClick={openControls}>{t('tron.controls')}</button>
-          <button type="button" onClick={openSettings}>{t('tron.settings')}</button>
-          <button type="button" onClick={onExit}>{t('tron.exit')}</button>
-        </div>
+        {view === 'paused' && (
+          <div className="tron-pause-overlay">
+            <div className="tron-round-card">
+              <p className="eyebrow">{t('games.tron')}</p>
+              <h2 className="tron-banner-neutral">{t('tron.paused')}</h2>
+              <div className="tron-actions">
+                <button className="tron-primary" type="button" onClick={handleResume}>{t('tron.resume')}</button>
+                <button type="button" onClick={handleForfeit}>{t('tron.endMatch')}</button>
+                <button type="button" onClick={handleExitToStart}>{t('tron.exit')}</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )
 }
+
+
+

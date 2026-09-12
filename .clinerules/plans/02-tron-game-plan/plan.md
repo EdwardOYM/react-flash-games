@@ -21,8 +21,8 @@ A previous session in this repository died mid-execution (SocketError) while a l
 - [x] Step 1 - Folders + config seed
 - [x] Step 2 - Translation dictionaries + type unions
 - [x] Step 3 - Game core module
-- [ ] Step 4 - Skeleton component + registry + StartPage branch
-- [ ] Step 5 - Desktop gameplay (canvas loop, input, HUD, round overlay)
+- [x] Step 4 - Skeleton component + registry + StartPage branch
+- [x] Step 5 - Desktop gameplay (canvas loop, input, HUD, round overlay)
 - [ ] Step 6 - Match setup UI (rounds + colors)
 - [ ] Step 7 - Mobile controls + remap flow
 - [ ] Step 8 - Tutorial flow

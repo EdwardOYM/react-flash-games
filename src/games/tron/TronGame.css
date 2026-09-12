@@ -1,15 +1,55 @@
-.tron-page { height: 100dvh; min-height: 0; padding: clamp(22px, 4vw, 40px) clamp(20px, 6vw, 72px) 48px; color: #f5f0e8; background: radial-gradient(circle at 70% 20%, #14213a 0, #0a0f1a 42%), #0a0f1a; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; --tron-p1: #22d3ee; --tron-p2: #fb7185; }
-.tron-shell { width: min(100%, 960px); margin: clamp(70px, 13vh, 150px) auto 0; }
-.tron-shell h1 { color: #f5f0e8; }
-.tron-description { max-width: 540px; margin: 28px 0 40px; color: #aeb9b9; font-size: 1.1rem; line-height: 1.6; }
-.tron-keybinds { display: flex; flex-wrap: wrap; gap: 10px 28px; align-items: center; margin: -8px 0 34px; }
-.tron-keybind { display: inline-flex; align-items: center; gap: 6px; color: #74888b; font-family: 'DM Mono', monospace; font-size: .66rem; text-transform: uppercase; }
-.tron-keybind kbd { min-width: 34px; padding: 5px 9px; border: 1px solid #50676a; color: #ffc857; background: #101820; font-family: 'DM Mono', monospace; font-size: .68rem; text-align: center; }
-.tron-keybind > span[aria-hidden] { color: #74888b; }
-.tron-keybind-label { color: #74888b; }
-.tron-menu { display: flex; flex-wrap: wrap; gap: 12px; }
-.tron-menu button { padding: 12px 16px; border: 1px solid var(--tron-p1); color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .7rem; text-transform: uppercase; cursor: pointer; }
-.tron-menu button:hover { border-color: var(--tron-p1); color: var(--tron-p1); }
-.tron-menu button:focus, .tron-menu button:focus-visible { color: #aeb9b9; outline: 2px solid #f5f0e8; outline-offset: 2px; }
-.tron-menu .tron-primary:focus, .tron-menu .tron-primary:focus-visible { color: #aeb9b9; }
-.tron-menu .tron-primary { border-color: var(--tron-p1); color: #0a0f1a; background: var(--tron-p1); }
+.tron-page { height: 100dvh; min-height: 0; padding: clamp(22px, 4vw, 40px) clamp(20px, 6vw, 72px) 48px; color: #e6fbff; background: radial-gradient(circle at 50% 0%, #10263a 0, #050a12 55%), #050a12; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+.tron-shell, .tron-panel { width: min(100%, 760px); margin: clamp(70px, 13vh, 150px) auto 0; }
+.tron-shell h1, .tron-panel h1 { color: #e6fbff; }
+.tron-description { max-width: 540px; margin: 28px 0 32px; color: #8fb3c9; font-size: 1.1rem; line-height: 1.6; }
+.tron-menu, .tron-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.tron-menu button, .tron-actions button, .tron-hud button { padding: 12px 16px; border: 1px solid #274b66; color: #e6fbff; background: transparent; font-family: 'DM Mono', monospace; font-size: .7rem; text-transform: uppercase; cursor: pointer; }
+.tron-menu button:hover, .tron-actions button:hover, .tron-hud button:hover { border-color: var(--tron-p1, #22d3ee); color: var(--tron-p1, #22d3ee); }
+.tron-menu button:focus, .tron-menu button:focus-visible, .tron-actions button:focus, .tron-actions button:focus-visible, .tron-hud button:focus, .tron-hud button:focus-visible { color: #8fb3c9; outline: 2px solid #e6fbff; outline-offset: 2px; }
+.tron-menu .tron-primary, .tron-actions .tron-primary { border-color: var(--tron-p1, #22d3ee); color: #050a12; background: var(--tron-p1, #22d3ee); }
+.tron-panel { max-width: 680px; padding: clamp(28px, 6vw, 64px); border: 1px solid #274b66; background: rgba(10, 21, 36, .92); }
+.tron-loading-orb { width: 68px; height: 68px; margin-bottom: 36px; border: 8px solid #274b66; border-top-color: var(--tron-p1, #22d3ee); border-radius: 50%; animation: tron-spin 1s linear infinite; }
+@keyframes tron-spin { to { transform: rotate(360deg); } }
+.tron-keybinds { display: inline-flex; flex-wrap: wrap; gap: 10px 28px; align-items: center; margin: 0 0 34px; }
+.tron-keybind-group { display: inline-flex; align-items: center; gap: 5px; }
+.tron-keybind-label { margin-right: 6px; color: #8fb3c9; font-family: 'DM Mono', monospace; font-size: .66rem; text-transform: uppercase; }
+.tron-keybinds kbd, .tron-hud-keybinds kbd { min-width: 26px; padding: 4px 8px; border: 1px solid #274b66; background: #050a12; font-family: 'DM Mono', monospace; font-size: .66rem; text-align: center; }
+.tron-keybind-p1 kbd { color: var(--tron-p1, #22d3ee); }
+.tron-keybind-p2 kbd { color: var(--tron-p2, #fb7185); }
+.tron-hud { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 18px; width: min(100%, 960px); margin: 0 auto 14px; color: #8fb3c9; font-family: 'DM Mono', monospace; font-size: .75rem; text-transform: uppercase; }
+.tron-score-p1 { color: var(--tron-p1, #22d3ee); }
+.tron-score-p2 { color: var(--tron-p2, #fb7185); }
+.tron-hud-keybinds { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: .66rem; }
+.tron-gameplay-page { display: flex; flex-direction: column; height: 100dvh; min-height: 0; padding-top: max(12px, env(safe-area-inset-top)); padding-right: max(12px, env(safe-area-inset-right)); padding-bottom: max(12px, env(safe-area-inset-bottom)); padding-left: max(12px, env(safe-area-inset-left)); overflow: hidden; touch-action: none; }
+.tron-stage { position: relative; display: grid; place-items: center; flex: 1; min-height: 0; }
+.tron-canvas { display: block; width: min(100%, 960px, calc((100dvh - 90px) * 1.7778)); height: auto; aspect-ratio: 16 / 9; border: 1px solid #274b66; background: #050a12; }
+.tron-round-overlay, .tron-pause-overlay { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; background: rgba(5, 10, 18, .8); }
+.tron-round-card { width: min(100%, 440px); max-height: 86%; overflow-y: auto; padding: 34px 42px 38px; border: 1px solid #274b66; background: #0a1524; text-align: center; }
+.tron-round-card .eyebrow { margin-bottom: 14px; }
+.tron-round-card h2 { margin: 0 0 26px; font-family: 'Space Grotesk', sans-serif; font-size: clamp(1.8rem, 4vw, 2.6rem); line-height: 1.05; overflow-wrap: anywhere; }
+.tron-round-card .tron-actions { justify-content: center; }
+.tron-banner-p1 { color: var(--tron-p1, #22d3ee); }
+.tron-banner-p2 { color: var(--tron-p2, #fb7185); }
+.tron-banner-neutral { color: #e6fbff; }
+
+@media (max-width: 720px) {
+  .tron-page { padding: 22px 24px 40px; }
+  .tron-shell, .tron-panel { margin-top: 56px; }
+  .tron-hud { gap: 6px 12px; font-size: .68rem; }
+  .tron-hud-keybinds { display: none; }
+}
+
+@media (max-width: 520px) {
+  .tron-panel { width: 100%; margin-top: 18px; padding: 24px 16px 22px; }
+  .tron-menu, .tron-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .tron-menu button, .tron-actions button { width: 100%; }
+  .tron-round-card { padding: 24px 18px 26px; }
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .tron-page { padding-top: max(12px, env(safe-area-inset-top)); padding-right: max(16px, env(safe-area-inset-right)); padding-bottom: max(12px, env(safe-area-inset-bottom)); padding-left: max(16px, env(safe-area-inset-left)); }
+  .tron-gameplay-page .tron-canvas { width: auto; max-width: 100%; height: min(calc(100dvh - 70px), calc(100vw * .5625)); }
+  .tron-round-card { padding: 16px 22px 20px; }
+  .tron-round-card h2 { margin-bottom: 16px; font-size: 1.5rem; }
+}
+

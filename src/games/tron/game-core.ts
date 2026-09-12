@@ -100,6 +100,18 @@ export function turnDirection(direction: Direction, turn: Turn): Direction {
   return ORDER[(index + step + ORDER.length) % ORDER.length]
 }
 
+/**
+ * The buffered turn (if any) that steers a cycle toward an absolute direction:
+ * 90 degrees away returns 'left'/'right'; the current heading or its reverse
+ * returns null (no turn, reversals are impossible).
+ */
+export function turnToward(current: Direction, desired: Direction): Turn | null {
+  const diff = (ORDER.indexOf(desired) - ORDER.indexOf(current) + ORDER.length) % ORDER.length
+  if (diff === 1) return 'right'
+  if (diff === 3) return 'left'
+  return null
+}
+
 /** Flat index into the grid for a cell. */
 export function indexOf(col: number, row: number): number {
   return row * GRID_COLS + col

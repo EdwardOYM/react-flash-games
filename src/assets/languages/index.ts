@@ -141,6 +141,8 @@ type TronTranslationKey =
   | 'firstTo'
   | 'roundWonBy'
   | 'roundTie'
+  | 'continue'
+  | 'match'
   | 'p1'
   | 'p2'
   | 'ties'
