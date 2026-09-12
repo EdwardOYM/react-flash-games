@@ -163,7 +163,9 @@
     "mobileP1Stick": "Kayu pemain 1",
     "mobileP2Stick": "Kayu pemain 2",
     "gameBoardLabel": "Papan permainan Tron",
-    "inspiredBy": "Diilhamkan oleh genre siklus cahaya Tron (failim 1982)"
+    "inspiredBy": "Diilhamkan oleh genre siklus cahaya Tron (failim 1982)",
+    "stepperDecrease": "Lebih sedikit perlawan",
+    "stepperIncrease": "Lebih banyak perlawan"
   },
   "games": {
     "orbit": "Tangkap Orbit",

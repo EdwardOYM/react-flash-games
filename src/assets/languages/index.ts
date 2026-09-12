@@ -162,6 +162,8 @@ type TronTranslationKey =
   | 'backToStart'
   | 'roundsToWin'
   | 'playerColor'
+  | 'stepperDecrease'
+  | 'stepperIncrease'
   | 'player1Color'
   | 'player2Color'
   | 'mobileP1Stick'

@@ -154,7 +154,9 @@ export function TronGame(props: TronProps) {
   const pressedKeysRef = useRef<Set<string>>(new Set())
 
   const [view, setView] = useState<View>('start')
-  const [roundsToWin] = useState(5)
+  const [roundsToWin, setRoundsToWin] = useState(5)
+  const [p1Color, setP1Color] = useState(P1_COLOR)
+  const [p2Color, setP2Color] = useState(P2_COLOR)
   const [snapshot, setSnapshot] = useState<GameState | null>(null)
 
   useEffect(() => { viewRef.current = view }, [view])
@@ -243,7 +245,7 @@ export function TronGame(props: TronProps) {
     const context = canvas.getContext('2d')
     if (!context) return
 
-    const render = (fraction: number) => drawBoard(context, stateRef.current, fraction, P1_COLOR, P2_COLOR)
+    const render = (fraction: number) => drawBoard(context, stateRef.current, fraction, p1Color, p2Color)
 
     let frame = 0
     const loop = () => {
@@ -270,9 +272,9 @@ export function TronGame(props: TronProps) {
     lastTickRef.current = performance.now()
     frame = requestAnimationFrame(loop)
     return () => cancelAnimationFrame(frame)
-  }, [view])
+  }, [view, p1Color, p2Color])
 
-  const accentVars = { '--tron-p1': P1_COLOR, '--tron-p2': P2_COLOR } as CSSProperties
+  const accentVars = { '--tron-p1': p1Color, '--tron-p2': p2Color } as CSSProperties
 
   if (view === 'start') {
     return (
@@ -287,6 +289,24 @@ export function TronGame(props: TronProps) {
               <KeybindGroup player="p2" label={t('tron.p2')} />
             </div>
           )}
+          <div className="tron-setup">
+            <div className="tron-setup-field">
+              <span className="tron-field-label" id="tron-rounds-label">{t('tron.roundsToWin')}</span>
+              <div className="tron-stepper" role="group" aria-labelledby="tron-rounds-label">
+                <button type="button" aria-label={t('tron.stepperDecrease')} disabled={roundsToWin <= 1} onClick={() => setRoundsToWin((rounds) => Math.max(1, rounds - 1))}>−</button>
+                <span className="tron-stepper-value" aria-live="polite">{roundsToWin}</span>
+                <button type="button" aria-label={t('tron.stepperIncrease')} disabled={roundsToWin >= 9} onClick={() => setRoundsToWin((rounds) => Math.min(9, rounds + 1))}>+</button>
+              </div>
+            </div>
+            <label className="tron-setup-field">
+              <span className="tron-field-label">{t('tron.player1Color')}</span>
+              <input type="color" value={p1Color} onChange={(event) => setP1Color(event.target.value)} />
+            </label>
+            <label className="tron-setup-field">
+              <span className="tron-field-label">{t('tron.player2Color')}</span>
+              <input type="color" value={p2Color} onChange={(event) => setP2Color(event.target.value)} />
+            </label>
+          </div>
           <div className="tron-menu">
             <button className="tron-primary" type="button" onClick={startMatch}>{t('tron.startMatch')}</button>
             <button type="button" onClick={onExit}>{t('tron.exit')}</button>

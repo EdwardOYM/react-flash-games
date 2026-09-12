@@ -163,7 +163,9 @@
     "mobileP1Stick": "玩家 1 摇杆",
     "mobileP2Stick": "玩家 2 摇杆",
     "gameBoardLabel": "光轮游戏棋盘",
-    "inspiredBy": "灵感来自光轮赛车题材（1982 年电影）"
+    "inspiredBy": "灵感来自光轮赛车题材（1982 年电影）",
+    "stepperDecrease": "减少回合",
+    "stepperIncrease": "增加回合"
   },
   "games": {
     "orbit": "轨道捕捉",
