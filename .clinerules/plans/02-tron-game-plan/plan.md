@@ -30,7 +30,7 @@ A previous session in this repository died mid-execution (SocketError) while a l
 - [x] Step 10 - Settings wiring + generic music labels
 - [x] Step 11 - Bot architecture seams (future scope)
 - [x] Step 12 - Responsive pass (960x540 / portrait / mobile landscape)
-- [ ] Step 13 - Credits entry check
+- [x] Step 13 - Credits entry check
 - [ ] Step 14 - Diagrams in sync
 - [ ] Step 15 - Final validation
 
