@@ -8,6 +8,7 @@ import {
   forfeitMatch,
   startRound,
   step,
+  stepTutorial,
   turnToward,
   CELL_PX,
   GRID_COLS,
@@ -20,12 +21,13 @@ import {
   type GameState,
   type PlayerId,
   type RoundOutcome,
+  type Turn,
 } from './game-core'
 import '../bubble-trouble/BubbleTroubleGame.css' // reuse the shared .mobile-controls primitives
 import './TronGame.css'
 
 type TronProps = { locale?: Locale; onLocaleChange?: (locale: Locale) => void; onExit: () => void; t?: ReturnType<typeof useTranslations> }
-type View = 'start' | 'loading' | 'playing' | 'paused'
+type View = 'start' | 'tutorial' | 'loading' | 'playing' | 'paused'
 
 const WIDTH = GRID_COLS * CELL_PX
 const HEIGHT = GRID_ROWS * CELL_PX
@@ -54,6 +56,14 @@ const tronKeyBindings: AdditionalKeyBinding[] = DIRECTION_BINDINGS.map(({ id, la
 
 type StickSlot = 'movement' | 'shoot'
 type StickPositions = { movement: MobileControlPosition; shoot: MobileControlPosition }
+
+type TutorialGoal = 'left' | 'right' | 'wall'
+const TUTORIAL_STEPS: { goal: TutorialGoal; copyKey: TranslationKey }[] = [
+  { goal: 'left', copyKey: 'tron.tutorialTurnLeft' },
+  { goal: 'right', copyKey: 'tron.tutorialTurnRight' },
+  { goal: 'wall', copyKey: 'tron.tutorialWall' },
+]
+const WALL_GOAL_TICKS = 12
 
 function playerOf(id: string) { return id.startsWith('tron-p1') ? 'p1' as const : 'p2' as const }
 
@@ -148,7 +158,7 @@ function KeybindGroup({ player, label }: { player: 'p1' | 'p2'; label: string })
   )
 }
 
-function MobileSticks({ visible, editable, p1Label, p2Label, positions, onPositionsChange, onTurn }: { visible: boolean; editable: boolean; p1Label: string; p2Label: string; positions: StickPositions; onPositionsChange: (positions: StickPositions) => void; onTurn: (player: PlayerId, desired: Direction) => void }) {
+function MobileSticks({ visible, editable, showP2 = true, p1Label, p2Label, positions, onPositionsChange, onTurn }: { visible: boolean; editable: boolean; showP2?: boolean; p1Label: string; p2Label: string; positions: StickPositions; onPositionsChange: (positions: StickPositions) => void; onTurn: (player: PlayerId, desired: Direction) => void }) {
   const dragRef = useRef<{ slot: StickSlot; offsetX: number; offsetY: number } | null>(null)
   const resizeRef = useRef<{ slot: StickSlot; startScale: number; baseDistance: number } | null>(null)
   const engagedRef = useRef<{ p1: Direction | null; p2: Direction | null }>({ p1: null, p2: null })
@@ -255,10 +265,10 @@ function MobileSticks({ visible, editable, p1Label, p2Label, positions, onPositi
         <div className="mobile-control-resize" onPointerDown={(event) => startResizing('movement', event)} onPointerMove={resizeControl} onPointerUp={stopResizing} onPointerCancel={stopResizing} />
       </div>
       <div className="mobile-control-group mobile-shoot-control tron-p2-stick-group" style={({ left: `${positions.shoot.x}%`, top: `${positions.shoot.y}%`, '--control-scale': positions.shoot.scale, '--control-half': '38px' } as CSSProperties)} onPointerDown={(event) => startDragging('shoot', event)} onPointerMove={dragControl} onPointerUp={stopDragging}>
-        <div className="mobile-stick" aria-label={p2Label} style={{ transform: `scale(${positions.shoot.scale})` }} onPointerDown={(event) => startAnalog('p2', 'shoot', event)} onPointerMove={editable ? dragControl : (event) => updateAnalog('p2', event)} onPointerUp={(event) => stopAnalog('p2', event)} onPointerCancel={(event) => stopAnalog('p2', event)}>
+        {showP2 && <div className="mobile-stick" aria-label={p2Label} style={{ transform: `scale(${positions.shoot.scale})` }} onPointerDown={(event) => startAnalog('p2', 'shoot', event)} onPointerMove={editable ? dragControl : (event) => updateAnalog('p2', event)} onPointerUp={(event) => stopAnalog('p2', event)} onPointerCancel={(event) => stopAnalog('p2', event)}>
           <span className="mobile-stick-knob" />
-        </div>
-        <div className="mobile-control-resize" onPointerDown={(event) => startResizing('shoot', event)} onPointerMove={resizeControl} onPointerUp={stopResizing} onPointerCancel={stopResizing} />
+        </div>}
+        {showP2 && <div className="mobile-control-resize" onPointerDown={(event) => startResizing('shoot', event)} onPointerMove={resizeControl} onPointerUp={stopResizing} onPointerCancel={stopResizing} />}
       </div>
     </div>
   )
@@ -286,8 +296,13 @@ export function TronGame(props: TronProps) {
   const [savedMobilePositions, setSavedMobilePositions] = useState<StickPositions>(() => readConfig().settings.mobileControls)
   const [editingControls, setEditingControls] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
+  const [tutorialStep, setTutorialStep] = useState(0)
+  const [tutorialDone, setTutorialDone] = useState(false)
+  const tutorialStepRef = useRef(0)
 
   useEffect(() => { viewRef.current = view }, [view])
+
+  useEffect(() => { tutorialStepRef.current = tutorialStep }, [tutorialStep])
 
   useEffect(() => {
     if (view !== 'loading') return
@@ -355,12 +370,29 @@ export function TronGame(props: TronProps) {
     setEditingControls(false)
   }, [savedMobilePositions])
 
-  const applyTurn = useCallback((player: PlayerId, desired: Direction) => {
+  const startTutorial = useCallback(() => {
+    const state = startRound(null, roundsToWin)
+    // Park P2 safely in a corner, facing away from the arena.
+    stateRef.current = { ...state, p2: { col: GRID_COLS - 2, row: 1, direction: 'up', alive: true, path: [] } }
+    setSnapshot(stateRef.current)
+    setTutorialStep(0)
+    tutorialStepRef.current = 0
+    setTutorialDone(false)
+    setView('tutorial')
+  }, [roundsToWin])
+
+  const handleTutorialTurn = useCallback((turn: Turn) => {
+    setTutorialStep((step) => (turn === 'left' && step === 0 ? 1 : turn === 'right' && step === 1 ? 2 : step))
+  }, [])
+
+  const applyTurn = useCallback((player: PlayerId, desired: Direction): Turn | null => {
     const state = stateRef.current
-    if (!state || state.phase !== 'playing') return
+    if (!state || state.phase !== 'playing') return null
     const cycle = player === 'p1' ? state.p1 : state.p2
     const turn = turnToward(cycle.direction, desired)
-    if (turn) stateRef.current = bufferTurn(state, player, turn)
+    if (!turn) return null
+    stateRef.current = bufferTurn(state, player, turn)
+    return turn
   }, [])
 
   useEffect(() => {
@@ -369,11 +401,12 @@ export function TronGame(props: TronProps) {
       const key = normalizeKey(event.key)
       const binding = DIRECTION_BINDINGS.find((candidate) => normalizeKey(readKey(candidate.id)) === key)
       if (!binding) return
-      if (viewRef.current !== 'playing') return
+      if (viewRef.current !== 'playing' && viewRef.current !== 'tutorial') return
       event.preventDefault()
       if (pressedKeysRef.current.has(binding.id)) return
       pressedKeysRef.current.add(binding.id)
-      applyTurn(playerOf(binding.id), binding.direction)
+      const applied = applyTurn(playerOf(binding.id), binding.direction)
+      if (viewRef.current === 'tutorial' && applied) handleTutorialTurn(applied)
     }
     const handleKeyUp = (event: KeyboardEvent) => {
       const key = normalizeKey(event.key)
@@ -386,7 +419,7 @@ export function TronGame(props: TronProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [applyTurn])
+  }, [applyTurn, handleTutorialTurn])
 
   useEffect(() => {
     if (view !== 'playing') return
@@ -414,6 +447,41 @@ export function TronGame(props: TronProps) {
           }
         } else {
           render(1)
+        }
+      }
+      frame = requestAnimationFrame(loop)
+    }
+
+    lastTickRef.current = performance.now()
+    frame = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(frame)
+  }, [view, p1Color, p2Color])
+
+  useEffect(() => {
+    if (view !== 'tutorial') return
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const context = canvas.getContext('2d')
+    if (!context) return
+
+    const render = (fraction: number) => drawBoard(context, stateRef.current, fraction, p1Color, p2Color)
+
+    let frame = 0
+    const loop = () => {
+      const state = stateRef.current
+      if (state) {
+        const now = performance.now()
+        if (now - lastTickRef.current >= TICK_MS) {
+          lastTickRef.current = now
+          const next = stepTutorial(state)
+          stateRef.current = next
+          render(0)
+          if (tutorialStepRef.current === 2 && next.tick >= WALL_GOAL_TICKS) {
+            setTutorialStep(3)
+            setTutorialDone(true)
+          }
+        } else {
+          render(Math.min((now - lastTickRef.current) / TICK_MS, 1))
         }
       }
       frame = requestAnimationFrame(loop)
@@ -472,8 +540,36 @@ export function TronGame(props: TronProps) {
           </div>
           <div className="tron-menu">
             <button className="tron-primary" type="button" onClick={startMatch}>{t('tron.startMatch')}</button>
+            <button type="button" onClick={startTutorial}>{t('tron.tutorial')}</button>
             <button type="button" onClick={onExit}>{t('tron.exit')}</button>
           </div>
+        </div>
+      </main>
+    )
+  }
+
+  if (view === 'tutorial') {
+    const step = TUTORIAL_STEPS[Math.min(tutorialStep, TUTORIAL_STEPS.length - 1)]
+    return (
+      <main className="tron-page tron-gameplay-page tron-tutorial-page" style={accentVars}>
+        <div className="tron-hud">
+          <span>{t('tron.tutorialTitle')}: {tutorialDone ? TUTORIAL_STEPS.length : tutorialStep + 1} / {TUTORIAL_STEPS.length}</span>
+          <button type="button" onClick={handleExitToStart}>{t('tron.tutorialSkip')}</button>
+        </div>
+        <div className="tron-stage">
+          <canvas ref={canvasRef} className="tron-canvas" width={WIDTH} height={HEIGHT} role="img" aria-label={t('tron.gameBoardLabel')} />
+          <MobileSticks visible={controllerVisible} editable={false} showP2={false} p1Label={t('tron.mobileP1Stick')} p2Label={t('tron.mobileP2Stick')} positions={mobilePositions} onPositionsChange={updateMobilePositions} onTurn={(player, desired) => { const applied = applyTurn(player, desired); if (applied) handleTutorialTurn(applied) }} />
+        </div>
+        <div className="tron-tutorial-card" aria-live="polite" aria-label={t('tron.tutorialTitle')}>
+          <div className="tron-tutorial-steps" aria-hidden="true">
+            {TUTORIAL_STEPS.map((entry, index) => <span key={entry.goal} className={index <= (tutorialDone ? TUTORIAL_STEPS.length - 1 : tutorialStep) ? 'tron-tutorial-step-done' : ''} />)}
+          </div>
+          <p className="tron-tutorial-copy">{t(tutorialDone ? 'tron.tutorialComplete' : step.copyKey)}</p>
+          {tutorialDone && (
+            <div className="tron-actions">
+              <button className="tron-primary" type="button" onClick={handleExitToStart}>{t('tron.finish')}</button>
+            </div>
+          )}
         </div>
       </main>
     )

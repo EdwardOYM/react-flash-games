@@ -208,6 +208,30 @@ export function step(state: GameState): GameState {
   return finishRound(next, p1Crash ? 'p2' : 'p1')
 }
 
+/**
+ * Tutorial variant of step(): only player 1 moves and can crash; player 2
+ * stays parked (frozen in place, its cell remains solid). A crash silently
+ * restarts the practice run with a fresh grid and tick counter while the
+ * parked cycle stays where it is.
+ */
+export function stepTutorial(state: GameState): GameState {
+  if (state.phase !== 'playing') return state
+  const p1Dir = state.p1Turn ? turnDirection(state.p1.direction, state.p1Turn) : state.p1.direction
+  const p1Next = advance(state.p1, p1Dir)
+  if (crashed(state.grid, p1Next, state.p2)) {
+    return { ...startRound(null, state.roundsToWin), p2: state.p2 }
+  }
+  const grid = state.grid.slice()
+  grid[indexOf(state.p1.col, state.p1.row)] = 1
+  return {
+    ...state,
+    grid,
+    p1: { col: p1Next.col, row: p1Next.row, direction: p1Dir, alive: true, path: [...state.p1.path, { col: state.p1.col, row: state.p1.row, direction: p1Dir }] },
+    p1Turn: null,
+    tick: state.tick + 1,
+  }
+}
+
 function finishRound(state: GameState, outcome: RoundOutcome): GameState {
   const totals = { ...state.totals }
   if (outcome === 'p1') totals.p1 += 1

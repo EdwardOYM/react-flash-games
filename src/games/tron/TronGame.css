@@ -52,6 +52,13 @@
 .tron-gameplay-page .mobile-stick-knob { border-color: #e6fbff; background: var(--tron-p1, #22d3ee); transform: translate(calc(var(--stick-axis-x, 0) * 22px), calc(var(--stick-axis-y, 0) * 22px)); }
 .tron-gameplay-page .tron-p2-stick-group .mobile-stick-knob { background: var(--tron-p2, #fb7185); }
 .tron-gameplay-page .mobile-control-resize { box-shadow: 0 0 0 1px var(--tron-p1, #22d3ee); }
+.tron-tutorial-card { width: min(100%, 960px); margin: 12px auto 0; padding: 14px 18px 16px; border: 1px solid #274b66; border-radius: 14px; background: rgba(10, 21, 36, .55); }
+.tron-tutorial-steps { display: flex; gap: 8px; margin-bottom: 10px; }
+.tron-tutorial-steps span { flex: 1; height: 4px; border-radius: 2px; background: #274b66; }
+.tron-tutorial-steps span.tron-tutorial-step-done { background: var(--tron-p1, #22d3ee); }
+.tron-tutorial-copy { margin: 0 0 4px; color: #8fb3c9; font-size: .95rem; line-height: 1.5; }
+.tron-tutorial-card .tron-actions { margin-top: 10px; justify-content: center; }
+.tron-tutorial-page .tron-canvas { width: min(100%, 960px, calc((100dvh - 210px) * 1.7778)); }
 
 @media (max-width: 720px) {
   .tron-page { padding: 22px 24px 40px; }
@@ -63,6 +70,9 @@
 @media (max-width: 520px) {
   .tron-panel { width: 100%; margin-top: 18px; padding: 24px 16px 22px; }
   .tron-setup { gap: 14px 24px; margin-bottom: 28px; }
+  .tron-tutorial-card { padding: 12px 14px; }
+  .tron-tutorial-card .tron-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+  .tron-tutorial-card .tron-actions button { width: 100%; }
   .tron-menu, .tron-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
   .tron-menu button, .tron-actions button { width: 100%; }
   .tron-round-card { padding: 24px 18px 26px; }
@@ -71,6 +81,10 @@
 @media (orientation: landscape) and (max-height: 600px) {
   .tron-page { padding-top: max(12px, env(safe-area-inset-top)); padding-right: max(16px, env(safe-area-inset-right)); padding-bottom: max(12px, env(safe-area-inset-bottom)); padding-left: max(16px, env(safe-area-inset-left)); }
   .tron-gameplay-page .tron-canvas { width: auto; max-width: 100%; height: min(calc(100dvh - 70px), calc(100vw * .5625)); }
+  .tron-tutorial-page .tron-canvas { width: auto; max-width: 100%; height: min(calc(100dvh - 150px), calc(100vw * .5625)); }
+  .tron-tutorial-page { padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  .tron-tutorial-page .tron-tutorial-card { margin-top: 8px; padding: 10px 14px 12px; }
+  .tron-tutorial-page .tron-tutorial-copy { margin: 0 0 4px; font-size: .9rem; }
   .tron-round-card { padding: 16px 22px 20px; }
   .tron-round-card h2 { margin-bottom: 16px; font-size: 1.5rem; }
 }

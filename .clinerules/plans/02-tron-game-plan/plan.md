@@ -25,7 +25,7 @@ A previous session in this repository died mid-execution (SocketError) while a l
 - [x] Step 5 - Desktop gameplay (canvas loop, input, HUD, round overlay)
 - [x] Step 6 - Match setup UI (rounds + colors)
 - [x] Step 7 - Mobile controls + remap flow
-- [ ] Step 8 - Tutorial flow
+- [x] Step 8 - Tutorial flow
 - [ ] Step 9 - Victory / gameover / highscore + shared HighscoreTable
 - [ ] Step 10 - Settings wiring + generic music labels
 - [ ] Step 11 - Bot architecture seams (future scope)
