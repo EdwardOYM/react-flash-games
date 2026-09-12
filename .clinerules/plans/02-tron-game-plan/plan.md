@@ -28,7 +28,7 @@ A previous session in this repository died mid-execution (SocketError) while a l
 - [x] Step 8 - Tutorial flow
 - [x] Step 9 - Victory / gameover / highscore + shared HighscoreTable
 - [x] Step 10 - Settings wiring + generic music labels
-- [ ] Step 11 - Bot architecture seams (future scope)
+- [x] Step 11 - Bot architecture seams (future scope)
 - [ ] Step 12 - Responsive pass (960x540 / portrait / mobile landscape)
 - [ ] Step 13 - Credits entry check
 - [ ] Step 14 - Diagrams in sync
