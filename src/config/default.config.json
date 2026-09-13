@@ -1,9 +1,12 @@
 {
   "version": 1,
   "settings": {
-    "volume": 70,
-    "locale": "en",
     "music": true,
+    "musicVolume": 70,
+    "sfx": true,
+    "sfxVolume": 70,
+    "muted": false,
+    "locale": "en",
     "primaryKey": "Space",
     "keybindings": {},
     "mobileControls": {

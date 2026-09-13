@@ -6,9 +6,12 @@ export type MobileControlPosition = { x: number; y: number; scale: number }
 export type AppConfig = {
   version: number
   settings: {
-    volume: number
-    locale: ConfigLocale
     music: boolean
+    musicVolume: number
+    sfx: boolean
+    sfxVolume: number
+    muted: boolean
+    locale: ConfigLocale
     primaryKey: string
     keybindings: Record<string, string>
     mobileControls: { movement: MobileControlPosition; shoot: MobileControlPosition }
@@ -26,12 +29,17 @@ const defaultConfig: AppConfig = {
 function mergeConfig(value: Partial<AppConfig>): AppConfig {
   const defaults = defaultConfig.settings.mobileControls
   const storedControls = value.settings?.mobileControls
+  // Legacy stored configs may still carry the old single `volume` setting.
+  const { volume: legacyVolume, ...storedSettings } = (value.settings ?? {}) as Partial<AppConfig['settings']> & { volume?: number }
+  const fallbackVolume = typeof legacyVolume === 'number' ? legacyVolume : defaultConfig.settings.musicVolume
   return {
     ...defaultConfig,
     ...value,
     settings: {
       ...defaultConfig.settings,
-      ...value.settings,
+      ...storedSettings,
+      musicVolume: value.settings?.musicVolume ?? fallbackVolume,
+      sfxVolume: value.settings?.sfxVolume ?? fallbackVolume,
       keybindings: { ...defaultConfig.settings.keybindings, ...value.settings?.keybindings },
       mobileControls: {
         movement: { ...defaults.movement, ...(storedControls?.movement ?? {}) },

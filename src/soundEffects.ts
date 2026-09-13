@@ -6,14 +6,18 @@ let clickAudio: HTMLAudioElement | null = null
 let audioContext: AudioContext | null = null
 let popBuffer: AudioBuffer | null = null
 
-function configuredVolume(): number {
-  return Math.min(1, Math.max(0, readConfig().settings.volume / 100))
+/** Sound effects play only when the SFX channel is on and global mute is off. */
+function sfxSettings(): { allowed: boolean; volume: number } {
+  const { sfx, muted, sfxVolume } = readConfig().settings
+  return { allowed: sfx && !muted, volume: Math.min(1, Math.max(0, sfxVolume / 100)) }
 }
 
-/** Play the UI button-click sound effect at the configured audio volume. */
+/** Play the UI button-click sound effect at the configured SFX volume. */
 export function playUiClick() {
+  const sfx = sfxSettings()
+  if (!sfx.allowed) return
   clickAudio ??= new Audio(buttonClickUrl)
-  clickAudio.volume = configuredVolume()
+  clickAudio.volume = sfx.volume
   clickAudio.currentTime = 0
   clickAudio.play().catch(() => undefined)
 }
@@ -51,12 +55,13 @@ async function ensurePopBuffer(): Promise<AudioBuffer | null> {
  */
 export function playBubblePop(rate: number) {
   void ensurePopBuffer().then((buffer) => {
-    if (!buffer || !audioContext) return
+    const sfx = sfxSettings()
+    if (!buffer || !audioContext || !sfx.allowed) return
     const source = audioContext.createBufferSource()
     source.buffer = buffer
     source.playbackRate.value = Math.max(0.25, rate)
     const gain = audioContext.createGain()
-    gain.gain.value = configuredVolume()
+    gain.gain.value = sfx.volume
     source.connect(gain)
     gain.connect(audioContext.destination)
     source.start()

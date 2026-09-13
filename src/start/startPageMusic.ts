@@ -34,10 +34,10 @@ export function useStartPageMusic(suspended: boolean) {
     }
 
     const sync = () => {
-      const { music, volume } = readConfig().settings
-      audio.volume = Math.min(1, Math.max(0, volume / 100))
+      const { music, muted, musicVolume } = readConfig().settings
+      audio.volume = Math.min(1, Math.max(0, musicVolume / 100))
       removeUnlockListeners()
-      if (!music || suspendedRef.current) {
+      if (!music || muted || suspendedRef.current) {
         audio.pause()
         return
       }
