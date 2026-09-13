@@ -28,6 +28,8 @@
 .tron-setup-field input[type='color'] { width: 56px; height: 38px; padding: 3px; border: 1px solid #274b66; background: #050a12; cursor: pointer; }
 .tron-setup-field input[type='color']::-webkit-color-swatch-wrapper { padding: 0; }
 .tron-setup-field input[type='color']::-webkit-color-swatch { border: none; }
+.tron-setup-field input[type='text'] { min-width: 180px; padding: 10px 12px; border: 1px solid #274b66; background: #050a12; color: #e6fbff; font-family: 'DM Mono', monospace; font-size: .85rem; }
+.tron-setup-field input[type='text']:focus { border-color: var(--tron-p1, #22d3ee); outline: 2px solid #e6fbff; outline-offset: 2px; }
 .tron-hud { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 18px; width: min(100%, 960px); margin: 0 auto 14px; color: #8fb3c9; font-family: 'DM Mono', monospace; font-size: .75rem; text-transform: uppercase; }
 .tron-score-p1 { color: var(--tron-p1, #22d3ee); }
 .tron-score-p2 { color: var(--tron-p2, #fb7185); }
@@ -89,8 +91,7 @@
   .tron-result-panel .highscore-table { margin: 22px 0 26px; }
   .tron-result-panel .highscore-table-head, .tron-result-panel .highscore-row { grid-template-columns: 34px minmax(0, 1fr) 58px; gap: 8px; padding: 10px 0; font-size: .64rem; }
   .tron-result-panel .highscore-row strong { min-width: 0; font-size: .84rem; }
-  .tron-result-panel .name-field { margin-bottom: 18px; }
-  .tron-result-panel .name-field input { width: 100%; min-width: 0; padding: 12px; }
+  .tron-setup-field input[type='text'] { width: 100%; min-width: 0; padding: 12px; }
   .tron-result-panel .tron-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
   .tron-result-panel .tron-actions button, .tron-result-panel .result-next-button { width: 100%; }
   .tron-menu, .tron-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }

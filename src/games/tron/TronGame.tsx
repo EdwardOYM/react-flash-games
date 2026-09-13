@@ -25,7 +25,7 @@ import {
 } from './game-core'
 import '../bubble-trouble/BubbleTroubleGame.css' // reuse the shared .mobile-controls primitives
 import { HighscoreTable } from '../highscore/HighscoreTable'
-import { readHighscores, saveHighscore } from './highscores'
+import { readHighscores, recordMatchWin } from './highscores'
 import './TronGame.css'
 
 type TronProps = { locale?: Locale; onLocaleChange?: (locale: Locale) => void; onExit: () => void; t?: ReturnType<typeof useTranslations> }
@@ -85,19 +85,22 @@ function substituteParams(template: string, params: Record<string, string>): str
   return template.replace(/\{(\w+)\}/g, (_, name) => params[name] ?? `{${name}}`)
 }
 
-function playerLabel(player: 'p1' | 'p2', t: (key: TranslationKey) => string) {
-  return t(player === 'p1' ? 'tron.p1' : 'tron.p2')
+type PlayerNames = { p1: string; p2: string }
+
+/** Display label for a player: their set name, or the localized default. */
+function playerLabel(player: PlayerId, names: PlayerNames, t: (key: TranslationKey) => string) {
+  return names[player].trim() || t(player === 'p1' ? 'tron.p1' : 'tron.p2')
 }
 
-function roundBanner(outcome: RoundOutcome, t: (key: TranslationKey) => string) {
+function roundBanner(outcome: RoundOutcome, names: PlayerNames, t: (key: TranslationKey) => string) {
   if (outcome === 'tie') return { text: t('tron.roundTie'), tone: 'neutral' as const }
-  return { text: substituteParams(t('tron.roundWonBy'), { player: playerLabel(outcome, t) }), tone: outcome }
+  return { text: substituteParams(t('tron.roundWonBy'), { player: playerLabel(outcome, names, t) }), tone: outcome }
 }
 
-function matchBanner(state: GameState, t: (key: TranslationKey) => string) {
+function matchBanner(state: GameState, names: PlayerNames, t: (key: TranslationKey) => string) {
   const winner = state.matchResult?.winner
   if (!winner) return { text: t('tron.gameOver'), tone: 'neutral' as const }
-  return { text: substituteParams(t('tron.victory'), { player: playerLabel(winner, t) }), tone: winner }
+  return { text: substituteParams(t('tron.victory'), { player: playerLabel(winner, names, t) }), tone: winner }
 }
 
 function drawBoard(context: CanvasRenderingContext2D, state: GameState | null, fraction: number, p1Color: string, p2Color: string) {
@@ -163,7 +166,6 @@ function KeybindGroup({ player, label }: { player: 'p1' | 'p2'; label: string })
 function MobileSticks({ visible, editable, showP2 = true, p1Label, p2Label, positions, onPositionsChange, onTurn }: { visible: boolean; editable: boolean; showP2?: boolean; p1Label: string; p2Label: string; positions: StickPositions; onPositionsChange: (positions: StickPositions) => void; onTurn: (player: PlayerId, desired: Direction) => void }) {
   const dragRef = useRef<{ slot: StickSlot; offsetX: number; offsetY: number } | null>(null)
   const resizeRef = useRef<{ slot: StickSlot; startScale: number; baseDistance: number } | null>(null)
-  const engagedRef = useRef<{ p1: Direction | null; p2: Direction | null }>({ p1: null, p2: null })
 
   const stageOf = (element: HTMLElement) => element.closest('.mobile-controls')?.parentElement
 
@@ -221,6 +223,10 @@ function MobileSticks({ visible, editable, showP2 = true, p1Label, p2Label, posi
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     onPositionsChange(positions)
   }
+  // Absolute steering: the stick points where the cycle should travel (push up
+  // = travel up). It fires on every move past the dead zone so a held stick
+  // keeps steering; applyTurn/turnToward ignore same-heading and reverse
+  // (180-degree) inputs, so the cycle can never drive backwards.
   const updateAnalog = (player: PlayerId, event: React.PointerEvent<HTMLDivElement>) => {
     const element = event.currentTarget
     const rect = element.getBoundingClientRect()
@@ -228,13 +234,8 @@ function MobileSticks({ visible, editable, showP2 = true, p1Label, p2Label, posi
     const y = Math.max(-1, Math.min(1, (event.clientY - (rect.top + rect.height / 2)) / (rect.height / 2)))
     element.style.setProperty('--stick-axis-x', x.toFixed(2))
     element.style.setProperty('--stick-axis-y', y.toFixed(2))
-    if (Math.hypot(x, y) < 0.3) {
-      engagedRef.current[player] = null
-      return
-    }
-    if (engagedRef.current[player]) return
+    if (Math.hypot(x, y) < 0.3) return
     const desired: Direction = Math.abs(x) >= Math.abs(y) ? (x > 0 ? 'right' : 'left') : (y > 0 ? 'down' : 'up')
-    engagedRef.current[player] = desired
     onTurn(player, desired)
   }
   const startAnalog = (player: PlayerId, slot: StickSlot, event: React.PointerEvent<HTMLDivElement>) => {
@@ -246,13 +247,12 @@ function MobileSticks({ visible, editable, showP2 = true, p1Label, p2Label, posi
     event.currentTarget.setPointerCapture(event.pointerId)
     updateAnalog(player, event)
   }
-  const stopAnalog = (player: PlayerId, event: React.PointerEvent<HTMLDivElement>) => {
+  const stopAnalog = (event: React.PointerEvent<HTMLDivElement>) => {
     event.stopPropagation()
     if (editable) {
       stopDragging(event)
       return
     }
-    engagedRef.current[player] = null
     event.currentTarget.style.setProperty('--stick-axis-x', '0')
     event.currentTarget.style.setProperty('--stick-axis-y', '0')
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
@@ -261,13 +261,13 @@ function MobileSticks({ visible, editable, showP2 = true, p1Label, p2Label, posi
   return (
     <div className={`mobile-controls${visible ? ' mobile-controls-visible' : ''}${editable ? ' mobile-controls-editable' : ''}`}>
       <div className="mobile-control-group mobile-movement-control tron-p1-stick-group" style={({ left: `${positions.movement.x}%`, top: `${positions.movement.y}%`, '--control-scale': positions.movement.scale, '--control-half': '38px' } as CSSProperties)} onPointerDown={(event) => startDragging('movement', event)} onPointerMove={dragControl} onPointerUp={stopDragging}>
-        <div className="mobile-stick" aria-label={p1Label} style={{ transform: `scale(${positions.movement.scale})` }} onPointerDown={(event) => startAnalog('p1', 'movement', event)} onPointerMove={editable ? dragControl : (event) => updateAnalog('p1', event)} onPointerUp={(event) => stopAnalog('p1', event)} onPointerCancel={(event) => stopAnalog('p1', event)}>
+        <div className="mobile-stick" aria-label={p1Label} style={{ transform: `scale(${positions.movement.scale})` }} onPointerDown={(event) => startAnalog('p1', 'movement', event)} onPointerMove={editable ? dragControl : (event) => updateAnalog('p1', event)} onPointerUp={stopAnalog} onPointerCancel={stopAnalog}>
           <span className="mobile-stick-knob" />
         </div>
         <div className="mobile-control-resize" onPointerDown={(event) => startResizing('movement', event)} onPointerMove={resizeControl} onPointerUp={stopResizing} onPointerCancel={stopResizing} />
       </div>
       <div className="mobile-control-group mobile-shoot-control tron-p2-stick-group" style={({ left: `${positions.shoot.x}%`, top: `${positions.shoot.y}%`, '--control-scale': positions.shoot.scale, '--control-half': '38px' } as CSSProperties)} onPointerDown={(event) => startDragging('shoot', event)} onPointerMove={dragControl} onPointerUp={stopDragging}>
-        {showP2 && <div className="mobile-stick" aria-label={p2Label} style={{ transform: `scale(${positions.shoot.scale})` }} onPointerDown={(event) => startAnalog('p2', 'shoot', event)} onPointerMove={editable ? dragControl : (event) => updateAnalog('p2', event)} onPointerUp={(event) => stopAnalog('p2', event)} onPointerCancel={(event) => stopAnalog('p2', event)}>
+        {showP2 && <div className="mobile-stick" aria-label={p2Label} style={{ transform: `scale(${positions.shoot.scale})` }} onPointerDown={(event) => startAnalog('p2', 'shoot', event)} onPointerMove={editable ? dragControl : (event) => updateAnalog('p2', event)} onPointerUp={stopAnalog} onPointerCancel={stopAnalog}>
           <span className="mobile-stick-knob" />
         </div>}
         {showP2 && <div className="mobile-control-resize" onPointerDown={(event) => startResizing('shoot', event)} onPointerMove={resizeControl} onPointerUp={stopResizing} onPointerCancel={stopResizing} />}
@@ -301,9 +301,11 @@ export function TronGame(props: TronProps) {
   const [tutorialStep, setTutorialStep] = useState(0)
   const [tutorialDone, setTutorialDone] = useState(false)
   const [highscores, setHighscores] = useState(() => readHighscores())
-  const [playerName, setPlayerName] = useState('')
+  const [playerNames, setPlayerNames] = useState<PlayerNames>({ p1: '', p2: '' })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const tutorialStepRef = useRef(0)
+  // Guards the one-time win record for the current match.
+  const recordedMatchRef = useRef(false)
 
   useEffect(() => { viewRef.current = view }, [view])
 
@@ -322,6 +324,7 @@ export function TronGame(props: TronProps) {
   }, [view])
 
   const startMatch = useCallback(() => {
+    recordedMatchRef.current = false
     const next = startRound(null, roundsToWin)
     stateRef.current = next
     setSnapshot(next)
@@ -396,22 +399,29 @@ export function TronGame(props: TronProps) {
     setTutorialStep((step) => (turn === 'left' && step === 0 ? 1 : turn === 'right' && step === 1 ? 2 : step))
   }, [])
 
-  const submitScore = useCallback(() => {
+  // A decisive match win is recorded once per match, under the winner's name.
+  // Forfeits and ties record nothing.
+  useEffect(() => {
+    if (view !== 'victory') return
     const state = stateRef.current
-    if (!state) return
-    const score = state.matchResult?.roundsWon || Math.max(state.totals.p1, state.totals.p2)
-    const entries = saveHighscore({ name: playerName.trim() || t('tron.defaultPlayerName'), score })
+    const winner = state?.matchResult?.winner
+    if (!winner || recordedMatchRef.current) return
+    recordedMatchRef.current = true
+    const entries = recordMatchWin(playerLabel(winner, playerNames, t))
     setHighscores(entries ?? [])
-    setPlayerName('')
-    setView('start')
-  }, [playerName, t])
-
+  }, [view, playerNames, t])
+  // `desired` is an absolute travel direction (stick up = travel up, key
+  // binding up = travel up). turnToward() converts it to the single buffered
+  // 90-degree turn and returns null for the current heading or its reverse,
+  // so a cycle can never drive backwards.
   const applyTurn = useCallback((player: PlayerId, desired: Direction): Turn | null => {
     const state = stateRef.current
     if (!state || state.phase !== 'playing') return null
     const cycle = player === 'p1' ? state.p1 : state.p2
     const turn = turnToward(cycle.direction, desired)
     if (!turn) return null
+    const pending = player === 'p1' ? state.p1Turn : state.p2Turn
+    if (pending === turn) return turn // already queued; skip redundant buffering
     stateRef.current = bufferTurn(state, player, turn)
     return turn
   }, [])
@@ -542,11 +552,19 @@ export function TronGame(props: TronProps) {
           <p className="tron-description">{t('tron.description')}</p>
           {inputMode === 'keyboard' && (
             <div className="tron-keybinds" aria-label={t('keybinds')}>
-              <KeybindGroup player="p1" label={t('tron.p1')} />
-              <KeybindGroup player="p2" label={t('tron.p2')} />
+              <KeybindGroup player="p1" label={playerLabel('p1', playerNames, t)} />
+              <KeybindGroup player="p2" label={playerLabel('p2', playerNames, t)} />
             </div>
           )}
           <div className="tron-setup">
+            <label className="tron-setup-field">
+              <span className="tron-field-label">{t('tron.player1Name')}</span>
+              <input type="text" maxLength={12} autoComplete="off" spellCheck={false} value={playerNames.p1} placeholder={t('tron.namePlaceholder')} onChange={(event) => setPlayerNames((names) => ({ ...names, p1: event.target.value }))} />
+            </label>
+            <label className="tron-setup-field">
+              <span className="tron-field-label">{t('tron.player2Name')}</span>
+              <input type="text" maxLength={12} autoComplete="off" spellCheck={false} value={playerNames.p2} placeholder={t('tron.namePlaceholder')} onChange={(event) => setPlayerNames((names) => ({ ...names, p2: event.target.value }))} />
+            </label>
             <div className="tron-setup-field">
               <span className="tron-field-label" id="tron-rounds-label">{t('tron.roundsToWin')}</span>
               <div className="tron-stepper" role="group" aria-labelledby="tron-rounds-label">
@@ -574,7 +592,7 @@ export function TronGame(props: TronProps) {
         </div>
         <section className="tron-highscores">
           <p className="eyebrow">{t('tron.highscore')}</p>
-          <HighscoreTable entries={highscores} labels={{ rank: t('tron.rank'), playerName: t('tron.playerName'), score: t('tron.score'), noScores: t('tron.noScores') }} />
+          <HighscoreTable entries={highscores} labels={{ rank: t('tron.rank'), playerName: t('tron.player'), score: t('tron.wins'), noScores: t('tron.noScores') }} />
         </section>
         {gameSettings}
         {controlsPanel}
@@ -622,7 +640,7 @@ export function TronGame(props: TronProps) {
   }
 
   if (view === 'victory' || view === 'gameover') {
-    const banner = snapshot ? matchBanner(snapshot, t) : { text: t('tron.gameOver'), tone: 'neutral' as const }
+    const banner = snapshot ? matchBanner(snapshot, playerNames, t) : { text: t('tron.gameOver'), tone: 'neutral' as const }
     const resultScore = snapshot ? snapshot.matchResult?.roundsWon || Math.max(snapshot.totals.p1, snapshot.totals.p2) : 0
     return (
       <main className="tron-page tron-result-page" style={accentVars}>
@@ -631,7 +649,7 @@ export function TronGame(props: TronProps) {
           <h1 className={`tron-banner-${banner.tone}`}>{banner.text}</h1>
           <p className="score-display">{t('tron.score')}: {resultScore} {t('tron.rounds')}</p>
           <div className="tron-actions">
-            <button className="tron-primary result-next-button" type="button" onClick={() => setView('highscore')}>{t('tron.highscore')}</button>
+            <button className="tron-primary result-next-button" type="button" onClick={() => { setHighscores(readHighscores()); setView('highscore') }}>{t('tron.highscore')}</button>
           </div>
         </div>
       </main>
@@ -644,16 +662,9 @@ export function TronGame(props: TronProps) {
         <div className="tron-panel tron-result-panel">
           <p className="eyebrow">{t('tron.highscore')}</p>
           <h1>{t('tron.highscore')}</h1>
-          <HighscoreTable entries={highscores} labels={{ rank: t('tron.rank'), playerName: t('tron.playerName'), score: t('tron.score'), noScores: t('tron.noScores') }} />
-          <label className="name-field" htmlFor="tron-player-name">
-            {t('tron.playerName')}
-            <input id="tron-player-name" value={playerName} placeholder={t('tron.namePlaceholder')} onChange={(event) => setPlayerName(event.target.value)} />
-          </label>
+          <HighscoreTable entries={highscores} labels={{ rank: t('tron.rank'), playerName: t('tron.player'), score: t('tron.wins'), noScores: t('tron.noScores') }} />
           <div className="tron-actions">
-            <button className="tron-primary" type="button" onClick={submitScore}>{t('tron.submitScore')}</button>
-          </div>
-          <div className="tron-actions">
-            <button type="button" onClick={startMatch}>{t('tron.retry')}</button>
+            <button className="tron-primary" type="button" onClick={startMatch}>{t('tron.retry')}</button>
             <button type="button" onClick={handleExitToStart}>{t('tron.backToStart')}</button>
           </div>
         </div>
@@ -664,7 +675,7 @@ export function TronGame(props: TronProps) {
   const state = snapshot
   const showRoundOverlay = view === 'playing' && state?.phase === 'roundOver'
   const banner = state?.phase === 'roundOver' && state.roundResult
-    ? roundBanner(state.roundResult.outcome, t)
+    ? roundBanner(state.roundResult.outcome, playerNames, t)
     : null
 
   return (
@@ -672,8 +683,8 @@ export function TronGame(props: TronProps) {
       <div className="tron-hud">
         <span>{t('tron.round')} {state?.round ?? 1}</span>
         <span>{t('tron.firstTo')} {roundsToWin}</span>
-        <span className="tron-score-p1">{t('tron.p1')} {state?.totals.p1 ?? 0}</span>
-        <span className="tron-score-p2">{t('tron.p2')} {state?.totals.p2 ?? 0}</span>
+        <span className="tron-score-p1">{playerLabel('p1', playerNames, t)} {state?.totals.p1 ?? 0}</span>
+        <span className="tron-score-p2">{playerLabel('p2', playerNames, t)} {state?.totals.p2 ?? 0}</span>
         <span>{t('tron.ties')} {state?.totals.ties ?? 0}</span>
         {inputMode === 'keyboard' && (
           <span className="tron-hud-keybinds" aria-label={t('keybinds')}>

@@ -34,7 +34,7 @@ flowchart TD
         tronCanvas -->|"step() / bufferTurn() / continueAfterRound()"| core["tron/game-core.ts — pure grid / round / match logic"]
         core -->|"roundOver overlay (sub-state of playing)"| tron
         tron --> sticks["MobileSticks — two 2D analog sticks (movement = P1, shoot = P2)"]
-        sticks -->|"turnToward()"| core
+        sticks -->|"absolute desired direction (never reverse) -> turnToward()"| core
         tron --> bots["tron/bots.ts — TurnSource / BotController seam (future PvBot)"]
         bots -.->|"decide() returns TurnCommand -> bufferTurn()"| core
         tron --> tronHs["tron/highscores.ts"]
@@ -62,7 +62,7 @@ flowchart TD
         bubble -->|"saveHighscore()"| highscores
         highscores -->|"readHighscores()"| hsTable
         tron -->|"persistLocale()"| l10n
-        tron -->|"saveHighscore()"| tronHs
+        tron -->|"recordMatchWin() on match end"| tronHs
         tronHs -->|"readHighscores()"| tron
         l10nD["locale JSON files (en / ms / zh)"] --> l10n
         cfg --> ls[("localStorage<br/>flash-games.config")]
@@ -107,13 +107,16 @@ flowchart LR
     TPAUSED -->|"forfeit (End match)"| TGAMEOVER["gameover"]
     TPLAYING -->|"round ends (win / tie)"| ROUNDOVER["roundOver overlay — sub-state of playing"]
     ROUNDOVER -->|continue| TPLAYING
-    TPLAYING -->|"a player reaches roundsToWin"| TVICTORY["victory"]
-    TGAMEOVER -->|highscores| THIGHSCORE["highscore"]
+    TPLAYING -->|"a player reaches roundsToWin — recordMatchWin(winner) fires once per match"| TVICTORY["victory"]
+    TGAMEOVER -->|highscores| THIGHSCORE["highscore — wins per player"]
     TVICTORY -->|highscores| THIGHSCORE
     THIGHSCORE -->|retry| TLOADING
     THIGHSCORE -->|backToStart| TSTART
-    THIGHSCORE -->|"submitScore() -> saveHighscore()"| TSTART
 ```
+
+> The Tron highscore view is read-only: the winner's win is recorded
+> automatically on entry to `victory` (once per match, under the winner's
+> display name set on the start screen). Forfeits and tied rounds record nothing.
 
 ## Persistence call sites
 
@@ -126,7 +129,7 @@ flowchart LR
 | `highscores.saveHighscore` | `updateConfig(...)` | `highscores['bubble-trouble']` (top-10, desc) |
 | `TronGame.changeLocale` | `persistLocale()` → `updateConfig(...)` | `settings.locale` |
 | `TronGame.saveControllerAdjustment` | `updateConfig(...)` | `settings.mobileControls` |
-| `tron/highscores.saveHighscore` | `updateConfig(...)` | `highscores['tron']` (top-10, desc) |
+| `tron/highscores.recordMatchWin` (TronGame victory effect) | `updateConfig(...)` | `highscores['tron']` (per-player match-win tally, top-10 by wins) |
 
 ### Config change subscriptions
 

@@ -23,7 +23,7 @@ AppConfig
 │   └── mobileControls
 │       ├── movement: { x, y, scale }                      (percent pos + 0.5–2.5 scale)
 │       └── shoot: { x, y, scale }
-└── highscores: Record<gameId, { name, score }[]>          (top-10, sorted desc)
+└── highscores: Record<gameId, { name, score }[]>          (top-10, sorted desc; tron score = lifetime match wins per player name)
 ```
 
 ## ER diagram
@@ -80,7 +80,7 @@ erDiagram
     HIGHSCORE_ENTRY {
         int rank "implicit 1-10 (insertion order)"
         string name "player name"
-        number score "sorted descending"
+        number score "sorted descending; tron: lifetime match wins per player name (aggregated)"
     }
 
     LOCALE_DICTIONARY ||..|| APPCONFIG : "settings.locale indexes"
@@ -100,4 +100,4 @@ erDiagram
 | **Persistence API** | `src/config/index.ts` | `readConfig()` / `writeConfig()` / `updateConfig()` + `mergeConfig()` deep-merge over defaults |
 | **Persisted document** | `localStorage['flash-games.config']` | Single `AppConfig` record: settings + per-game highscores |
 | **Static data** | `games/index.ts`, `assets/languages/*.json` | Game registry (read-only), en/ms/zh translation dictionaries |
-| **Ephemeral state** | `BubbleTroubleGame.tsx`, `tron/TronGame.tsx` | Per-session runtimes + view state machines (never persisted); Tron adds session-only match options (rounds-to-win 1-9, per-player colors) that deliberately stay out of `AppConfig` |
+| **Ephemeral state** | `BubbleTroubleGame.tsx`, `tron/TronGame.tsx` | Per-session runtimes + view state machines (never persisted); Tron adds session-only match options (rounds-to-win 1-9, per-player colors, per-player display names) that deliberately stay out of `AppConfig` |
