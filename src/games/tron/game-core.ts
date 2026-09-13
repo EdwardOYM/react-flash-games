@@ -123,14 +123,15 @@ function advance(cycle: CycleState, direction: Direction): { col: number; row: n
 }
 
 /**
- * True when a head entering `next` crashes: arena edge, an existing wall, or
- * the cell the other cycle occupies right now (that cell becomes the other's
- * fresh wall the moment the other head leaves it).
+ * True when a head entering `next` crashes: arena edge, an existing wall, or —
+ * when another cycle is present — the cell the other cycle occupies right now
+ * (that cell becomes the other's fresh wall the moment the other head leaves
+ * it). Omit `other` for single-cycle modes such as the tutorial.
  */
-function crashed(grid: Uint8Array, next: { col: number; row: number }, other: CycleState): boolean {
+function crashed(grid: Uint8Array, next: { col: number; row: number }, other?: CycleState): boolean {
   if (next.col < 0 || next.col >= GRID_COLS || next.row < 0 || next.row >= GRID_ROWS) return true
   if (grid[indexOf(next.col, next.row)] !== 0) return true
-  return next.col === other.col && next.row === other.row
+  return other !== undefined && next.col === other.col && next.row === other.row
 }
 
 /**
@@ -209,17 +210,17 @@ export function step(state: GameState): GameState {
 }
 
 /**
- * Tutorial variant of step(): only player 1 moves and can crash; player 2
- * stays parked (frozen in place, its cell remains solid). A crash silently
- * restarts the practice run with a fresh grid and tick counter while the
- * parked cycle stays where it is.
+ * Tutorial variant of step(): single-cycle practice — only player 1 is on the
+ * board and can crash; player 2 is absent (kept `alive: false`, so it renders
+ * nowhere and its cell is not a hazard). A crash silently restarts the
+ * practice run with a fresh grid and tick counter.
  */
 export function stepTutorial(state: GameState): GameState {
   if (state.phase !== 'playing') return state
   const p1Dir = state.p1Turn ? turnDirection(state.p1.direction, state.p1Turn) : state.p1.direction
   const p1Next = advance(state.p1, p1Dir)
-  if (crashed(state.grid, p1Next, state.p2)) {
-    return { ...startRound(null, state.roundsToWin), p2: state.p2 }
+  if (crashed(state.grid, p1Next)) {
+    return { ...startRound(null, state.roundsToWin), p2: { ...state.p2, alive: false } }
   }
   const grid = state.grid.slice()
   grid[indexOf(state.p1.col, state.p1.row)] = 1

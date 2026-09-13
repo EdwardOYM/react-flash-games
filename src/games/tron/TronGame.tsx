@@ -386,8 +386,9 @@ export function TronGame(props: TronProps) {
 
   const startTutorial = useCallback(() => {
     const state = startRound(null, roundsToWin)
-    // Park P2 safely in a corner, facing away from the arena.
-    stateRef.current = { ...state, p2: { col: GRID_COLS - 2, row: 1, direction: 'up', alive: true, path: [] } }
+    // Tutorial is single-cycle: player 2 is absent from the practice board
+    // (alive: false keeps its cycle off the canvas and out of collisions).
+    stateRef.current = { ...state, p2: { ...state.p2, alive: false } }
     setSnapshot(stateRef.current)
     setTutorialStep(0)
     tutorialStepRef.current = 0
