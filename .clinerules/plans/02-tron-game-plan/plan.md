@@ -32,7 +32,7 @@ A previous session in this repository died mid-execution (SocketError) while a l
 - [x] Step 12 - Responsive pass (960x540 / portrait / mobile landscape)
 - [x] Step 13 - Credits entry check
 - [x] Step 14 - Diagrams in sync
-- [ ] Step 15 - Final validation
+- [x] Step 15 - Final validation
 
 ## Hard rules for every step
 
@@ -144,3 +144,25 @@ Update `.github/diagram/database-schema.md` (GAME_CATALOG ids, highscores bucket
 ## Completion report
 
 For each step: files changed, player-facing behavior, and validation commands + results. The final report closes this plan with the full file set and a summary following the Output section of `.clinerules/01-flash-game-builder.md`: files changed, player-facing behavior + credit entries, and the validation command + result.
+## Final completion report (Step 15)
+
+**Full file set**
+
+| Path | Change |
+| --- | --- |
+| `src/games/tron/game-core.ts` | Pure grid / cycle / collision / round / match logic + `turnToward()` + `stepTutorial()` |
+| `src/games/tron/TronGame.tsx` | All views (start / tutorial / loading / playing / paused / gameover / victory / highscore), canvas loop, keyboard + stick input, HUD, overlays, settings/controls wiring |
+| `src/games/tron/TronGame.css` | All Tron styling + 720 / 520 / max-height-600 / mobile-landscape queries |
+| `src/games/tron/bots.ts` | `TurnCommand` / `TurnSource` / `BotController` / `createBot(easy / medium / hard)` seams (no UI) |
+| `src/games/tron/highscores.ts` | `highscores['tron']` read/save via config, top-10 desc |
+| `src/games/highscore/HighscoreTable.tsx` + `.css` | Shared table extracted from bubble-trouble (labels via props) |
+| `src/assets/tron/README.md` | Media placeholder |
+| `src/config/default.config.json` | Seeded `highscores.tron = []` (only schema-adjacent change) |
+| `src/games/index.ts`, `src/start/StartPage.tsx` | Registry entry (`page: 'tron'`) + routing branch |
+| `src/assets/languages/en.json` / `ms.json` / `zh.json` + `index.ts` | `tron.*` group, Tron keyNames, stepper keys; generic `settings` / `musicOn` / `musicOff`; `failim`->`filem` fix; type unions |
+| `src/settings/SettingsModal.tsx`, `src/games/bubble-trouble/*` | Generic music labels; shared table import (visual no-op) |
+| `.github/diagram/database-schema.md`, `.github/diagram/architecture-flow.md` | Tron catalog/highscores/schema refs; Tron runtime subgraph + view state machine + call sites |
+
+**Player-facing behavior** — Two-player local light-cycle duel at the 960x540 embed scale: buffered 90-degree turns on remappable W/S/A-D (P1) and arrows (P2) or one 2D analog stick per player; per-round win/tie banners as an overlay of `playing`; match ends at the chosen rounds-to-win (1-9) into victory/gameover, then the shared highscore table (winner name + rounds won; save returns to start and refreshes the start-page table); guided tutorial with parked P2; settings modal with music toggle (persisted), locale, and key remapping; mobile stick reposition/resize persisted in `settings.mobileControls`. Credit entry renders from the registry ("Tron: Tron light-cycle genre (1982 film)"; ms wording fixed to "filem 1982"). Bot mode is future scope: `bots.ts` seams only.
+
+**Validation** — `npm run build` green (`tsc -b && vite build`; only the pre-existing >500 kB chunk warning) and `npm run lint` 0 warnings / 0 errors across 20 files; en/ms/zh key parity ALL OK (8 groups + top level); zero player-facing literals in `src/games/tron/` and `src/games/index.ts` (all copy routes through `t()`); every view reachable and leaveable; three-viewport audit (960x540, <=520px portrait, mobile landscape) with no horizontal scrolling.

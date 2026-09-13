@@ -581,6 +581,10 @@ export function TronGame(props: TronProps) {
             <button type="button" onClick={onExit}>{t('tron.exit')}</button>
           </div>
         </div>
+        <section className="tron-highscores">
+          <p className="eyebrow">{t('tron.highscore')}</p>
+          <HighscoreTable entries={highscores} labels={{ rank: t('tron.rank'), playerName: t('tron.playerName'), score: t('tron.score'), noScores: t('tron.noScores') }} />
+        </section>
         {gameSettings}
         {controlsPanel}
       </main>

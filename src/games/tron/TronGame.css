@@ -11,6 +11,7 @@
 .tron-loading-orb { width: 68px; height: 68px; margin-bottom: 36px; border: 8px solid #274b66; border-top-color: var(--tron-p1, #22d3ee); border-radius: 50%; animation: tron-spin 1s linear infinite; }
 @keyframes tron-spin { to { transform: rotate(360deg); } }
 .tron-keybinds { display: inline-flex; flex-wrap: wrap; gap: 10px 28px; align-items: center; margin: 0 0 34px; }
+.tron-highscores { max-width: 620px; margin-top: 54px; }
 .tron-keybind-group { display: inline-flex; align-items: center; gap: 5px; }
 .tron-keybind-label { margin-right: 6px; color: #8fb3c9; font-family: 'DM Mono', monospace; font-size: .66rem; text-transform: uppercase; }
 .tron-keybinds kbd, .tron-hud-keybinds kbd { min-width: 26px; padding: 4px 8px; border: 1px solid #274b66; background: #050a12; font-family: 'DM Mono', monospace; font-size: .66rem; text-align: center; }
