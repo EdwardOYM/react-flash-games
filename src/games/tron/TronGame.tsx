@@ -611,65 +611,69 @@ export function TronGame(props: TronProps) {
             </div>
           )}
           <div className="tron-setup">
-            <div className="tron-setup-field">
-              <span className="tron-field-label" id="tron-p1-source-label">{t('tron.seatControl')}</span>
-              <div className="tron-seat-toggle" role="group" aria-labelledby="tron-p1-source-label">
-                <button type="button" aria-pressed={sources.p1.kind === 'human'} onClick={() => setSeatHuman('p1')}>{t('tron.player')}</button>
-                <button type="button" aria-pressed={sources.p1.kind === 'bot'} onClick={() => setSeatBot('p1', botDifficultyOf(sources.p1))}>{t('tron.seatBot')}</button>
-              </div>
-            </div>
-            {sources.p1.kind === 'bot' && (
-              <div className="tron-setup-field">
-                <span className="tron-field-label" id="tron-p1-bot-label">{t('tron.botDifficulty')}</span>
-                <div className="tron-stepper" role="group" aria-labelledby="tron-p1-bot-label">
-                  <button type="button" aria-label={t('tron.botEasier')} disabled={sources.p1.difficulty === 'easy'} onClick={() => stepBotDifficulty('p1', -1)}>−</button>
-                  <span className="tron-stepper-value tron-stepper-value-wide" aria-live="polite">{t(BOT_DIFFICULTY_KEYS[sources.p1.difficulty])}</span>
-                  <button type="button" aria-label={t('tron.botHarder')} disabled={sources.p1.difficulty === 'hard'} onClick={() => stepBotDifficulty('p1', 1)}>+</button>
-                </div>
-              </div>
-            )}
-            <label className="tron-setup-field">
-              <span className="tron-field-label">{t('tron.player1Name')}</span>
-              <input type="text" maxLength={12} autoComplete="off" spellCheck={false} value={playerNames.p1} placeholder={t('tron.namePlaceholder')} onChange={(event) => setPlayerNames((names) => ({ ...names, p1: event.target.value }))} />
-            </label>
-            <div className="tron-setup-field">
-              <span className="tron-field-label" id="tron-p2-source-label">{t('tron.seatControl')}</span>
-              <div className="tron-seat-toggle" role="group" aria-labelledby="tron-p2-source-label">
-                <button type="button" aria-pressed={sources.p2.kind === 'human'} onClick={() => setSeatHuman('p2')}>{t('tron.player')}</button>
-                <button type="button" aria-pressed={sources.p2.kind === 'bot'} onClick={() => setSeatBot('p2', botDifficultyOf(sources.p2))}>{t('tron.seatBot')}</button>
-              </div>
-            </div>
-            {sources.p2.kind === 'bot' && (
-              <div className="tron-setup-field">
-                <span className="tron-field-label" id="tron-p2-bot-label">{t('tron.botDifficulty')}</span>
-                <div className="tron-stepper" role="group" aria-labelledby="tron-p2-bot-label">
-                  <button type="button" aria-label={t('tron.botEasier')} disabled={sources.p2.difficulty === 'easy'} onClick={() => stepBotDifficulty('p2', -1)}>−</button>
-                  <span className="tron-stepper-value tron-stepper-value-wide" aria-live="polite">{t(BOT_DIFFICULTY_KEYS[sources.p2.difficulty])}</span>
-                  <button type="button" aria-label={t('tron.botHarder')} disabled={sources.p2.difficulty === 'hard'} onClick={() => stepBotDifficulty('p2', 1)}>+</button>
-                </div>
-              </div>
-            )}
-            <label className="tron-setup-field">
-              <span className="tron-field-label">{t('tron.player2Name')}</span>
-              <input type="text" maxLength={12} autoComplete="off" spellCheck={false} value={playerNames.p2} placeholder={t('tron.namePlaceholder')} onChange={(event) => setPlayerNames((names) => ({ ...names, p2: event.target.value }))} />
-            </label>
-            <div className="tron-setup-field">
-              <span className="tron-field-label" id="tron-rounds-label">{t('tron.roundsToWin')}</span>
-              <div className="tron-stepper" role="group" aria-labelledby="tron-rounds-label">
-                <button type="button" aria-label={t('tron.stepperDecrease')} disabled={roundsToWin <= 1} onClick={() => setRoundsToWin((rounds) => Math.max(1, rounds - 1))}>−</button>
-                <span className="tron-stepper-value" aria-live="polite">{roundsToWin}</span>
-                <button type="button" aria-label={t('tron.stepperIncrease')} disabled={roundsToWin >= 9} onClick={() => setRoundsToWin((rounds) => Math.min(9, rounds + 1))}>+</button>
-              </div>
-            </div>
             <div className="tron-setup-row">
+              <div className="tron-setup-field">
+                <span className="tron-field-label" id="tron-p1-source-label">{t('tron.seatControl')}</span>
+                <div className="tron-seat-toggle" role="group" aria-labelledby="tron-p1-source-label">
+                  <button type="button" aria-pressed={sources.p1.kind === 'human'} onClick={() => setSeatHuman('p1')}>{t('tron.player')}</button>
+                  <button type="button" aria-pressed={sources.p1.kind === 'bot'} onClick={() => setSeatBot('p1', botDifficultyOf(sources.p1))}>{t('tron.seatBot')}</button>
+                </div>
+              </div>
+              {sources.p1.kind === 'bot' && (
+                <div className="tron-setup-field">
+                  <span className="tron-field-label" id="tron-p1-bot-label">{t('tron.botDifficulty')}</span>
+                  <div className="tron-stepper" role="group" aria-labelledby="tron-p1-bot-label">
+                    <button type="button" aria-label={t('tron.botEasier')} disabled={sources.p1.difficulty === 'easy'} onClick={() => stepBotDifficulty('p1', -1)}>−</button>
+                    <span className="tron-stepper-value tron-stepper-value-wide" aria-live="polite">{t(BOT_DIFFICULTY_KEYS[sources.p1.difficulty])}</span>
+                    <button type="button" aria-label={t('tron.botHarder')} disabled={sources.p1.difficulty === 'hard'} onClick={() => stepBotDifficulty('p1', 1)}>+</button>
+                  </div>
+                </div>
+              )}
+              <label className="tron-setup-field">
+                <span className="tron-field-label">{t('tron.player1Name')}</span>
+                <input type="text" maxLength={12} autoComplete="off" spellCheck={false} value={playerNames.p1} placeholder={t('tron.namePlaceholder')} onChange={(event) => setPlayerNames((names) => ({ ...names, p1: event.target.value }))} />
+              </label>
               <label className="tron-setup-field">
                 <span className="tron-field-label">{t('tron.player1Color')}</span>
                 <input type="color" value={p1Color} onChange={(event) => setP1Color(event.target.value)} />
+              </label>
+            </div>
+            <div className="tron-setup-row">
+              <div className="tron-setup-field">
+                <span className="tron-field-label" id="tron-p2-source-label">{t('tron.seatControl')}</span>
+                <div className="tron-seat-toggle" role="group" aria-labelledby="tron-p2-source-label">
+                  <button type="button" aria-pressed={sources.p2.kind === 'human'} onClick={() => setSeatHuman('p2')}>{t('tron.player')}</button>
+                  <button type="button" aria-pressed={sources.p2.kind === 'bot'} onClick={() => setSeatBot('p2', botDifficultyOf(sources.p2))}>{t('tron.seatBot')}</button>
+                </div>
+              </div>
+              {sources.p2.kind === 'bot' && (
+                <div className="tron-setup-field">
+                  <span className="tron-field-label" id="tron-p2-bot-label">{t('tron.botDifficulty')}</span>
+                  <div className="tron-stepper" role="group" aria-labelledby="tron-p2-bot-label">
+                    <button type="button" aria-label={t('tron.botEasier')} disabled={sources.p2.difficulty === 'easy'} onClick={() => stepBotDifficulty('p2', -1)}>−</button>
+                    <span className="tron-stepper-value tron-stepper-value-wide" aria-live="polite">{t(BOT_DIFFICULTY_KEYS[sources.p2.difficulty])}</span>
+                    <button type="button" aria-label={t('tron.botHarder')} disabled={sources.p2.difficulty === 'hard'} onClick={() => stepBotDifficulty('p2', 1)}>+</button>
+                  </div>
+                </div>
+              )}
+              <label className="tron-setup-field">
+                <span className="tron-field-label">{t('tron.player2Name')}</span>
+                <input type="text" maxLength={12} autoComplete="off" spellCheck={false} value={playerNames.p2} placeholder={t('tron.namePlaceholder')} onChange={(event) => setPlayerNames((names) => ({ ...names, p2: event.target.value }))} />
               </label>
               <label className="tron-setup-field">
                 <span className="tron-field-label">{t('tron.player2Color')}</span>
                 <input type="color" value={p2Color} onChange={(event) => setP2Color(event.target.value)} />
               </label>
+            </div>
+            <div className="tron-setup-row">
+              <div className="tron-setup-field">
+                <span className="tron-field-label" id="tron-rounds-label">{t('tron.roundsToWin')}</span>
+                <div className="tron-stepper" role="group" aria-labelledby="tron-rounds-label">
+                  <button type="button" aria-label={t('tron.stepperDecrease')} disabled={roundsToWin <= 1} onClick={() => setRoundsToWin((rounds) => Math.max(1, rounds - 1))}>−</button>
+                  <span className="tron-stepper-value" aria-live="polite">{roundsToWin}</span>
+                  <button type="button" aria-label={t('tron.stepperIncrease')} disabled={roundsToWin >= 9} onClick={() => setRoundsToWin((rounds) => Math.min(9, rounds + 1))}>+</button>
+                </div>
+              </div>
             </div>
           </div>
           <div className="tron-menu">

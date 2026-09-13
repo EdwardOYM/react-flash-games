@@ -90,6 +90,7 @@
 @media (max-width: 520px) {
   .tron-panel { width: 100%; margin-top: 18px; padding: 24px 16px 22px; }
   .tron-setup { gap: 14px 24px; margin-bottom: 28px; }
+  .tron-setup-row { gap: 14px 24px; }
   .tron-controls-card { padding: 24px 20px 28px; }
   .tron-tutorial-card { padding: 12px 14px; }
   .tron-tutorial-card .tron-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
