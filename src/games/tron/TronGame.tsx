@@ -302,7 +302,6 @@ export function TronGame(props: TronProps) {
   const [tutorialDone, setTutorialDone] = useState(false)
   const [highscores, setHighscores] = useState(() => readHighscores())
   const [playerName, setPlayerName] = useState('')
-  const [music, setMusic] = useState(() => readConfig().settings.music)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const tutorialStepRef = useRef(0)
 
@@ -315,14 +314,6 @@ export function TronGame(props: TronProps) {
     onLocaleChange?.(nextLocale)
     persistLocale(nextLocale)
   }, [onLocaleChange])
-
-  const toggleMusic = useCallback(() => {
-    setMusic((current) => {
-      const next = !current
-      updateConfig((config) => ({ ...config, settings: { ...config.settings, music: next } }))
-      return next
-    })
-  }, [])
 
   useEffect(() => {
     if (view !== 'loading') return
@@ -539,7 +530,7 @@ export function TronGame(props: TronProps) {
   )
 
   const gameSettings = settingsOpen && (
-    <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} additionalBindings={tronKeyBindings} musicEnabled={music} onMusicToggle={toggleMusic} />
+    <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} additionalBindings={tronKeyBindings} />
   )
 
   if (view === 'start') {

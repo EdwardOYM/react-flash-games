@@ -269,7 +269,6 @@ export function BubbleTroubleGame({ locale: providedLocale, onLocaleChange, onEx
   const [view, setView] = useState<View>('start')
   const [tutorialStep, setTutorialStep] = useState(0)
   const [tutorialDone, setTutorialDone] = useState(false)
-  const [music, setMusic] = useState(() => readConfig().settings.music)
   const [score, setScore] = useState(0)
   const [health, setHealth] = useState(3)
   const [submitted, setSubmitted] = useState(false)
@@ -304,13 +303,12 @@ export function BubbleTroubleGame({ locale: providedLocale, onLocaleChange, onEx
   const finishGame = (nextView: 'gameover' | 'victory') => setView(nextView)
   const backToStart = () => { setView('start'); setSubmitted(false); setPlayerName('') }
   const changeLocale = (nextLocale: Locale) => { setLocale(nextLocale); onLocaleChange?.(nextLocale); persistLocale(nextLocale) }
-  const toggleMusic = () => { const next = !music; setMusic(next); updateConfig((config) => ({ ...config, settings: { ...config.settings, music: next } })) }
   const updateMobilePositions = (positions: typeof mobilePositions) => setMobilePositions(positions)
   const beginControllerAdjustment = () => { setMobilePositions(savedMobilePositions); setEditingControls(true); setSettingsOpen(false); setControlsOpen(false); if (view === 'start') setView('remap') }
   const saveControllerAdjustment = () => { updateConfig((config) => ({ ...config, settings: { ...config.settings, mobileControls: mobilePositions } })); setSavedMobilePositions(mobilePositions); setEditingControls(false); if (view === 'remap') setView('start') }
   const exitControllerAdjustment = () => { setMobilePositions(savedMobilePositions); setEditingControls(false); if (view === 'remap') setView('start') }
   const submitScore = () => { if (submitted) return; const entries = saveHighscore({ name: playerName.trim() || t('bubble.defaultPlayerName'), score }); setHighscores(entries); setSubmitted(false); setPlayerName(''); setView('start') }
-  const gameSettings = settingsOpen && <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} musicEnabled={music} onMusicToggle={toggleMusic} />
+  const gameSettings = settingsOpen && <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} />
   const controlsPanel = controlsOpen && <div className="bubble-controls-overlay"><div className="bubble-controls-card"><p className="eyebrow">{t('bubble.controls')}</p><h2>{t('bubble.controls')}</h2><ControllerSettings t={t} additionalBindings={keyBindings} onRemapController={beginControllerAdjustment} /><div className="bubble-actions"><button type="button" onClick={() => setControlsOpen(false)}>{t('bubble.back')}</button></div></div></div>
 
   if (view === 'start') return <main className="bubble-page"><div className="bubble-shell"><p className="eyebrow">{t('bubble.title')}</p><h1>{t('bubble.title')}</h1><p className="bubble-description">{t('bubble.description')}</p>{inputMode === 'keyboard' && <div className="bubble-keybinds" aria-label={t('keybinds')}><span className="bubble-keybind"><span className="bubble-keybind-label">{t('keyNames.moveLeft')} / {t('keyNames.moveRight')}</span><kbd>{readKey('bubble-move-left', 'ArrowLeft')}</kbd><span aria-hidden="true">+</span><kbd>{readKey('bubble-move-right', 'ArrowRight')}</kbd></span><span className="bubble-keybind"><span className="bubble-keybind-label">{t('keyNames.shoot')}</span><kbd>{readKey('bubble-shoot', 'ArrowUp')}</kbd></span></div>}<div className="bubble-menu"><button className="bubble-primary" type="button" onClick={startGame}>{t('bubble.startGame')}</button><button type="button" onClick={startTutorial}>{t('bubble.tutorial')}</button><button type="button" onClick={() => setControlsOpen(true)}>{t('bubble.controls')}</button><button type="button" onClick={openSettings}>{t('settings')}</button><button type="button" onClick={onExit}>{t('bubble.exit')}</button></div><section className="bubble-highscores"><p className="eyebrow">{t('bubble.highscore')}</p><HighscoreTable entries={highscores} labels={{ rank: t('bubble.rank'), playerName: t('bubble.playerName'), score: t('bubble.score'), noScores: t('bubble.noScores') }} /></section></div>{gameSettings}{controlsPanel}</main>

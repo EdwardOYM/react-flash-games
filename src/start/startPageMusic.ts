@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react'
-import startPageMusicUrl from '../assets/start-page-music.mp3'
+import alienNo1MusicUrl from '../assets/alien-no-1.mp3'
 import { readConfig, subscribeConfig } from '../config'
 
 /**
- * Looping start-page music, driven entirely by the shared config store
- * (`settings.music` + `settings.volume`). Playback waits for the first user
- * gesture when the browser blocks autoplay, pauses while a game page is open,
- * and releases its audio element on unmount.
+ * Looping start-page music — track: “Alien no.1” — driven entirely by the
+ * shared config store (`settings.music` + `settings.musicVolume` +
+ * `settings.muted`). Playback waits for the first user gesture when the
+ * browser blocks autoplay, pauses while a game page is open, and releases
+ * its audio element on unmount.
  */
 export function useStartPageMusic(suspended: boolean) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -14,7 +15,7 @@ export function useStartPageMusic(suspended: boolean) {
   const suspendedRef = useRef(suspended)
 
   useEffect(() => {
-    const audio = new Audio(startPageMusicUrl)
+    const audio = new Audio(alienNo1MusicUrl)
     audio.loop = true
     audioRef.current = audio
 

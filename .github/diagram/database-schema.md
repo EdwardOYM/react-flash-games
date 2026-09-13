@@ -12,7 +12,10 @@
 AppConfig
 ├── version: number                                        (schema version, currently 1)
 ├── settings
-│   ├── volume: number                                     (0–100, default 70)
+│   ├── musicVolume: number                                (0–100, default 70)
+│   ├── sfx: boolean                                       (default true)
+│   ├── sfxVolume: number                                  (0–100, default 70)
+│   ├── muted: boolean                                     (default false)
 │   ├── locale: 'en' | 'ms' | 'zh'
 │   ├── music: boolean
 │   ├── primaryKey: string                                 (default "Space")
@@ -37,7 +40,10 @@ erDiagram
 
     SETTINGS ||--|| KEY_REBINDINGS : "1-to-1 (map)"
     SETTINGS {
-        number volume "0-100, default 70"
+        number musicVolume "0-100, default 70"
+        boolean sfx "default true"
+        number sfxVolume "0-100, default 70"
+        boolean muted "default false"
         string locale "en | ms | zh"
         boolean music "default true"
         string primaryKey "default: Space"

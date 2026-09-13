@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { BubbleTroubleGame, TronGame, games } from '../games'
 import { getPreferredLocale, persistLocale, type Locale, useTranslations } from '../assets/languages'
-import { readConfig, updateConfig, subscribeConfig } from '../config'
 import { CreditsPage } from '../credits'
 import { SettingsModal } from '../settings'
 import { useStartPageMusic } from './startPageMusic'
@@ -38,18 +37,9 @@ export function StartPage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [creditsOpen, setCreditsOpen] = useState(false)
   const [selectedGame, setSelectedGame] = useState<string | null>(null)
-  const [musicEnabled, setMusicEnabled] = useState(() => readConfig().settings.music)
   const t = useTranslations(locale)
 
   useStartPageMusic(selectedGame !== null)
-
-  useEffect(() => subscribeConfig((config) => setMusicEnabled(config.settings.music)), [])
-
-  const toggleMusic = () => {
-    const next = !musicEnabled
-    setMusicEnabled(next)
-    updateConfig((config) => ({ ...config, settings: { ...config.settings, music: next } }))
-  }
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -67,5 +57,5 @@ export function StartPage() {
   if (selectedGame === 'bubble-trouble') return <BubbleTroubleGame locale={locale} onLocaleChange={changeLocale} onExit={() => setSelectedGame(null)} t={t} />
   if (selectedGame === 'tron') return <TronGame locale={locale} onLocaleChange={changeLocale} onExit={() => setSelectedGame(null)} t={t} />
 
-  return <main className="start-page"><header className="topbar"><div className="brand"><span className="brand-mark">EG</span><span>{t('brand')}</span></div><div className="topbar-actions"><span className="status">{t('status')}</span><button className="text-button" type="button" onClick={() => setCreditsOpen(true)}>{t('credits')}</button><button className="settings-trigger" type="button" onClick={() => setSettingsOpen(true)} aria-label={t('openSettings')}>⚙</button></div></header><section className="intro"><div className="intro-copy"><p className="eyebrow">{t('eyebrow')}</p><h1>{t('headlineStart')}<br /><em>{t('headlineEmphasis')}</em></h1><p className="lede">{t('description')}</p><div className="game-list">{games.map((game) => <button className="game-row" key={game.id} type="button" onClick={() => game.page && setSelectedGame(game.page)}><span>{game.icon}</span><span>{t(game.titleKey)}</span><small>{t(game.statusKey)}</small></button>)}</div></div><div className="preview"><ScenePreview previewAlt={t('previewAlt')} /><span className="preview-label">{t('previewLabel')}</span></div></section>{settingsOpen && <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} musicEnabled={musicEnabled} onMusicToggle={toggleMusic} />}</main>
+  return <main className="start-page"><header className="topbar"><div className="brand"><span className="brand-mark">EG</span><span>{t('brand')}</span></div><div className="topbar-actions"><span className="status">{t('status')}</span><button className="text-button" type="button" onClick={() => setCreditsOpen(true)}>{t('credits')}</button><button className="settings-trigger" type="button" onClick={() => setSettingsOpen(true)} aria-label={t('openSettings')}>⚙</button></div></header><section className="intro"><div className="intro-copy"><p className="eyebrow">{t('eyebrow')}</p><h1>{t('headlineStart')}<br /><em>{t('headlineEmphasis')}</em></h1><p className="lede">{t('description')}</p><div className="game-list">{games.map((game) => <button className="game-row" key={game.id} type="button" onClick={() => game.page && setSelectedGame(game.page)}><span>{game.icon}</span><span>{t(game.titleKey)}</span><small>{t(game.statusKey)}</small></button>)}</div></div><div className="preview"><ScenePreview previewAlt={t('previewAlt')} /><span className="preview-label">{t('previewLabel')}</span></div></section>{settingsOpen && <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} />}</main>
 }
