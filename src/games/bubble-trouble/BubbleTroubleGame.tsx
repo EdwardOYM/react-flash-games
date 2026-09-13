@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getPreferredLocale, persistLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
 import { readConfig, updateConfig, type MobileControlPosition } from '../../config'
 import { SettingsModal, ControllerSettings, useControllerVisibility, useInputMode, type AdditionalKeyBinding } from '../../settings'
+import { playBubblePop } from '../../soundEffects'
 import { HighscoreTable } from '../highscore/HighscoreTable'
 import { readHighscores, saveHighscore } from './highscores'
 import './BubbleTroubleGame.css'
@@ -17,6 +18,8 @@ const WIDTH = 960
 const HEIGHT = 540
 const PLAYER_Y = HEIGHT - 44
 const MAX_LEVEL = 4
+// Pop pitch rises as bubbles shrink (level 0 = biggest bubble, MAX_LEVEL = smallest).
+const popPitchByLevel = [0.8, 1.05, 1.3, 1.55, 1.85]
 const defaultRuntime = (): Runtime => ({ playerX: WIDTH / 2, balls: [{ x: WIDTH / 2, y: 145, radius: 48, velocityX: 145, velocityY: 0, level: 0 }], strings: [], score: 0, health: 3, spawnCount: 1, hitCooldown: 0 })
 const keyBindings: AdditionalKeyBinding[] = [
   { id: 'bubble-move-left', labelKey: 'keyNames.moveLeft', defaultKey: 'ArrowLeft' },
@@ -205,6 +208,7 @@ function GameCanvas({ view, runtime, gameBoardLabel, mobileLeftLabel, mobileRigh
         const hitIndex = game.balls.findIndex((ball) => Math.abs(ball.x - shot.x) <= ball.radius + 5 && shot.top <= ball.y + ball.radius && PLAYER_Y >= ball.y - ball.radius)
         if (hitIndex === -1) continue
         const [hit] = game.balls.splice(hitIndex, 1)
+        playBubblePop(popPitchByLevel[Math.min(hit.level, popPitchByLevel.length - 1)])
         if (tutorial && tutorialGoal === 'split') tutorialSplitHit = true
         game.strings = game.strings.filter((current) => current !== shot)
         game.score += 1

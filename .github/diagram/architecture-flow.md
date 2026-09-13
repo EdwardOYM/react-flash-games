@@ -10,6 +10,7 @@
 ```mermaid
 flowchart TD
     main["src/main.tsx"] --> app["src/App.tsx"]
+    main --> uiSounds["soundEffects.ts — button click SFX (reads settings.volume)"]
     app --> start["StartPage.tsx — Game Hub"]
 
     subgraph HUB["Hub screens"]
@@ -23,6 +24,7 @@ flowchart TD
     subgraph GAME_LOOP["Bubble Trouble runtime"]
         bubble --> canvas["GameCanvas — canvas rAF loop"]
         canvas -->|"onScore / onHealth / onGameOver / onClear"| bubble
+        canvas -->|"playBubblePop (pitch ↑ for smaller bubbles)"| uiSounds
         bubble --> hsTable["HighscoreTable.tsx (shared games/highscore)"]
         bubble --> ctrlSettings["ControllerSettings.tsx"]
     end
@@ -54,6 +56,7 @@ flowchart TD
         tronHs --> cfg
         l10n --> cfg
         settingsModal -->|"volume / locale / keys / music"| cfg
+        uiSounds -.->|"readConfig() — settings.volume"| cfg
         ctrlSettings -->|"keybindings / primaryKey / mobileControls"| cfg
         bubble -->|"persistLocale()"| l10n
         bubble -->|"saveHighscore()"| highscores
@@ -117,6 +120,7 @@ flowchart LR
 | Caller | Operation | Effect on `flash-games.config` |
 |---|---|---|
 | `SettingsModal.updateVolume` | `updateConfig(...)` | `settings.volume` |
+| `StartPage.toggleMusic` | `updateConfig(...)` | `settings.music` |
 | `StartPage.changeLocale` | `persistLocale()` → `updateConfig(...)` | `settings.locale` |
 | `BubbleTroubleGame.toggleMusic` | `updateConfig(...)` | `settings.music` |
 | `ControllerSettings` (remap/reset) | `updateConfig(...)` | `settings.primaryKey`, `settings.keybindings` |
@@ -126,3 +130,12 @@ flowchart LR
 | `TronGame.changeLocale` | `persistLocale()` → `updateConfig(...)` | `settings.locale` |
 | `TronGame.saveControllerAdjustment` | `updateConfig(...)` | `settings.mobileControls` |
 | `tron/highscores.saveHighscore` | `updateConfig(...)` | `highscores['tron']` (top-10, desc) |
+
+### Config change subscriptions
+
+`updateConfig` notifies subscribers registered via `subscribeConfig` (same-call-site table above still applies — subscriptions only read):
+
+| Subscriber | Reaction |
+|---|---|
+| `StartPage` | Syncs the `musicEnabled` toggle label |
+| `start/startPageMusic.ts` (`useStartPageMusic`) | Re-applies `settings.volume` and starts/stops the looping start-page music from `settings.music`; pauses while a game page is open |

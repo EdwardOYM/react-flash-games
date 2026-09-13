@@ -60,5 +60,17 @@ export function writeConfig(config: AppConfig) {
 export function updateConfig(update: (config: AppConfig) => AppConfig) {
   const nextConfig = update(readConfig())
   writeConfig(nextConfig)
+  configListeners.forEach((listener) => listener(nextConfig))
   return nextConfig
+}
+
+type ConfigListener = (config: AppConfig) => void
+const configListeners = new Set<ConfigListener>()
+
+/** Subscribe to config changes made through `updateConfig`. Returns an unsubscribe function. */
+export function subscribeConfig(listener: ConfigListener) {
+  configListeners.add(listener)
+  return () => {
+    configListeners.delete(listener)
+  }
 }

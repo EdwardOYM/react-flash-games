@@ -17,6 +17,8 @@ export type TranslationKey =
   | 'openSettings'
   | 'settingsTitle'
   | 'settings'
+  | 'music'
+  | 'musicCredit'
   | 'musicOn'
   | 'musicOff'
   | 'closeSettings'
