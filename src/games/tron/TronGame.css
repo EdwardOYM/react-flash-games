@@ -18,6 +18,7 @@
 .tron-keybind-p1 kbd { color: var(--tron-p1, #22d3ee); }
 .tron-keybind-p2 kbd { color: var(--tron-p2, #fb7185); }
 .tron-setup { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px 40px; margin: 0 0 36px; }
+.tron-setup-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 18px 40px; flex-basis: 100%; }
 .tron-field-label { display: block; margin-bottom: 10px; color: #8fb3c9; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; }
 .tron-stepper { display: inline-flex; align-items: center; gap: 10px; }
 .tron-stepper button { width: 40px; height: 40px; padding: 0; border: 1px solid #274b66; color: #e6fbff; background: transparent; font-family: 'DM Mono', monospace; font-size: 1.1rem; line-height: 1; cursor: pointer; }
@@ -25,6 +26,13 @@
 .tron-stepper button:focus-visible { outline: 2px solid #e6fbff; outline-offset: 2px; }
 .tron-stepper button:disabled { opacity: .35; cursor: default; }
 .tron-stepper-value { min-width: 36px; text-align: center; font-family: 'DM Mono', monospace; font-size: 1.15rem; }
+.tron-stepper-value-wide { min-width: 110px; font-size: 1rem; }
+.tron-seat-toggle { display: inline-flex; }
+.tron-seat-toggle button { padding: 10px 16px; border: 1px solid #274b66; border-right-width: 0; color: #e6fbff; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
+.tron-seat-toggle button:last-child { border-right-width: 1px; }
+.tron-seat-toggle button:hover:enabled, .tron-seat-toggle button:focus:enabled { border-color: var(--tron-p1, #22d3ee); color: var(--tron-p1, #22d3ee); }
+.tron-seat-toggle button[aria-pressed='true'] { border-color: var(--tron-p1, #22d3ee); color: #050a12; background: var(--tron-p1, #22d3ee); }
+.tron-seat-toggle button:focus-visible { outline: 2px solid #e6fbff; outline-offset: 2px; z-index: 1; position: relative; }
 .tron-setup-field input[type='color'] { width: 56px; height: 38px; padding: 3px; border: 1px solid #274b66; background: #050a12; cursor: pointer; }
 .tron-setup-field input[type='color']::-webkit-color-swatch-wrapper { padding: 0; }
 .tron-setup-field input[type='color']::-webkit-color-swatch { border: none; }

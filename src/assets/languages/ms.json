@@ -172,7 +172,15 @@
     "gameBoardLabel": "Papan permainan Tron",
     "inspiredBy": "Diilhamkan oleh genre siklus cahaya Tron (filem 1982)",
     "stepperDecrease": "Lebih sedikit perlawan",
-    "stepperIncrease": "Lebih banyak perlawan"
+    "stepperIncrease": "Lebih banyak perlawan",
+    "seatControl": "Dikawal oleh",
+    "seatBot": "Bot",
+    "botDifficulty": "Kesukaran bot",
+    "botEasy": "Mudah",
+    "botMedium": "Sederhana",
+    "botHard": "Sukar",
+    "botEasier": "Lebih mudah",
+    "botHarder": "Lebih sukar"
   },
   "games": {
     "orbit": "Tangkap Orbit",

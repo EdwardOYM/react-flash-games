@@ -172,7 +172,15 @@
     "gameBoardLabel": "光轮游戏棋盘",
     "inspiredBy": "灵感来自光轮赛车题材（1982 年电影）",
     "stepperDecrease": "减少回合",
-    "stepperIncrease": "增加回合"
+    "stepperIncrease": "增加回合",
+    "seatControl": "操控方式",
+    "seatBot": "机器人",
+    "botDifficulty": "机器人难度",
+    "botEasy": "简单",
+    "botMedium": "中等",
+    "botHard": "困难",
+    "botEasier": "更简单",
+    "botHarder": "更困难"
   },
   "games": {
     "orbit": "轨道捕捉",

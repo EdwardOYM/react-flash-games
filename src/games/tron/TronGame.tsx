@@ -23,6 +23,7 @@ import {
   type RoundOutcome,
   type Turn,
 } from './game-core'
+import { createBot, type BotController, type BotDifficulty, type TurnSource } from './bots'
 import '../bubble-trouble/BubbleTroubleGame.css' // reuse the shared .mobile-controls primitives
 import { HighscoreTable } from '../highscore/HighscoreTable'
 import { readHighscores, recordMatchWin } from './highscores'
@@ -86,21 +87,38 @@ function substituteParams(template: string, params: Record<string, string>): str
 }
 
 type PlayerNames = { p1: string; p2: string }
+type SeatSources = Record<PlayerId, TurnSource>
 
-/** Display label for a player: their set name, or the localized default. */
-function playerLabel(player: PlayerId, names: PlayerNames, t: (key: TranslationKey) => string) {
-  return names[player].trim() || t(player === 'p1' ? 'tron.p1' : 'tron.p2')
+const DEFAULT_SOURCES: SeatSources = { p1: { kind: 'human' }, p2: { kind: 'human' } }
+const BOT_DIFFICULTY_ORDER: BotDifficulty[] = ['easy', 'medium', 'hard']
+const BOT_DIFFICULTY_KEYS: Record<BotDifficulty, TranslationKey> = {
+  easy: 'tron.botEasy',
+  medium: 'tron.botMedium',
+  hard: 'tron.botHard',
 }
 
-function roundBanner(outcome: RoundOutcome, names: PlayerNames, t: (key: TranslationKey) => string) {
+function botDifficultyOf(source: TurnSource): BotDifficulty {
+  return source.kind === 'bot' ? source.difficulty : 'medium'
+}
+
+/** Display label for a player: their set name, the localized bot label, or the localized default. */
+function playerLabel(player: PlayerId, names: PlayerNames, sources: SeatSources, t: (key: TranslationKey) => string) {
+  const name = names[player].trim()
+  if (name) return name
+  const source = sources[player]
+  if (source.kind === 'bot') return `${t('tron.seatBot')} · ${t(BOT_DIFFICULTY_KEYS[source.difficulty])}`
+  return t(player === 'p1' ? 'tron.p1' : 'tron.p2')
+}
+
+function roundBanner(outcome: RoundOutcome, names: PlayerNames, sources: SeatSources, t: (key: TranslationKey) => string) {
   if (outcome === 'tie') return { text: t('tron.roundTie'), tone: 'neutral' as const }
-  return { text: substituteParams(t('tron.roundWonBy'), { player: playerLabel(outcome, names, t) }), tone: outcome }
+  return { text: substituteParams(t('tron.roundWonBy'), { player: playerLabel(outcome, names, sources, t) }), tone: outcome }
 }
 
-function matchBanner(state: GameState, names: PlayerNames, t: (key: TranslationKey) => string) {
+function matchBanner(state: GameState, names: PlayerNames, sources: SeatSources, t: (key: TranslationKey) => string) {
   const winner = state.matchResult?.winner
   if (!winner) return { text: t('tron.gameOver'), tone: 'neutral' as const }
-  return { text: substituteParams(t('tron.victory'), { player: playerLabel(winner, names, t) }), tone: winner }
+  return { text: substituteParams(t('tron.victory'), { player: playerLabel(winner, names, sources, t) }), tone: winner }
 }
 
 function drawBoard(context: CanvasRenderingContext2D, state: GameState | null, fraction: number, p1Color: string, p2Color: string) {
@@ -163,7 +181,7 @@ function KeybindGroup({ player, label }: { player: 'p1' | 'p2'; label: string })
   )
 }
 
-function MobileSticks({ visible, editable, showP2 = true, p1Label, p2Label, positions, onPositionsChange, onTurn }: { visible: boolean; editable: boolean; showP2?: boolean; p1Label: string; p2Label: string; positions: StickPositions; onPositionsChange: (positions: StickPositions) => void; onTurn: (player: PlayerId, desired: Direction) => void }) {
+function MobileSticks({ visible, editable, showP1 = true, showP2 = true, p1Label, p2Label, positions, onPositionsChange, onTurn }: { visible: boolean; editable: boolean; showP1?: boolean; showP2?: boolean; p1Label: string; p2Label: string; positions: StickPositions; onPositionsChange: (positions: StickPositions) => void; onTurn: (player: PlayerId, desired: Direction) => void }) {
   const dragRef = useRef<{ slot: StickSlot; offsetX: number; offsetY: number } | null>(null)
   const resizeRef = useRef<{ slot: StickSlot; startScale: number; baseDistance: number } | null>(null)
 
@@ -261,10 +279,10 @@ function MobileSticks({ visible, editable, showP2 = true, p1Label, p2Label, posi
   return (
     <div className={`mobile-controls${visible ? ' mobile-controls-visible' : ''}${editable ? ' mobile-controls-editable' : ''}`}>
       <div className="mobile-control-group mobile-movement-control tron-p1-stick-group" style={({ left: `${positions.movement.x}%`, top: `${positions.movement.y}%`, '--control-scale': positions.movement.scale, '--control-half': '38px' } as CSSProperties)} onPointerDown={(event) => startDragging('movement', event)} onPointerMove={dragControl} onPointerUp={stopDragging}>
-        <div className="mobile-stick" aria-label={p1Label} style={{ transform: `scale(${positions.movement.scale})` }} onPointerDown={(event) => startAnalog('p1', 'movement', event)} onPointerMove={editable ? dragControl : (event) => updateAnalog('p1', event)} onPointerUp={stopAnalog} onPointerCancel={stopAnalog}>
+        {showP1 && <div className="mobile-stick" aria-label={p1Label} style={{ transform: `scale(${positions.movement.scale})` }} onPointerDown={(event) => startAnalog('p1', 'movement', event)} onPointerMove={editable ? dragControl : (event) => updateAnalog('p1', event)} onPointerUp={stopAnalog} onPointerCancel={stopAnalog}>
           <span className="mobile-stick-knob" />
-        </div>
-        <div className="mobile-control-resize" onPointerDown={(event) => startResizing('movement', event)} onPointerMove={resizeControl} onPointerUp={stopResizing} onPointerCancel={stopResizing} />
+        </div>}
+        {showP1 && <div className="mobile-control-resize" onPointerDown={(event) => startResizing('movement', event)} onPointerMove={resizeControl} onPointerUp={stopResizing} onPointerCancel={stopResizing} />}
       </div>
       <div className="mobile-control-group mobile-shoot-control tron-p2-stick-group" style={({ left: `${positions.shoot.x}%`, top: `${positions.shoot.y}%`, '--control-scale': positions.shoot.scale, '--control-half': '38px' } as CSSProperties)} onPointerDown={(event) => startDragging('shoot', event)} onPointerMove={dragControl} onPointerUp={stopDragging}>
         {showP2 && <div className="mobile-stick" aria-label={p2Label} style={{ transform: `scale(${positions.shoot.scale})` }} onPointerDown={(event) => startAnalog('p2', 'shoot', event)} onPointerMove={editable ? dragControl : (event) => updateAnalog('p2', event)} onPointerUp={stopAnalog} onPointerCancel={stopAnalog}>
@@ -293,6 +311,7 @@ export function TronGame(props: TronProps) {
   const [roundsToWin, setRoundsToWin] = useState(5)
   const [p1Color, setP1Color] = useState(P1_COLOR)
   const [p2Color, setP2Color] = useState(P2_COLOR)
+  const [sources, setSources] = useState<SeatSources>(DEFAULT_SOURCES)
   const [snapshot, setSnapshot] = useState<GameState | null>(null)
   const [mobilePositions, setMobilePositions] = useState<StickPositions>(() => readConfig().settings.mobileControls)
   const [savedMobilePositions, setSavedMobilePositions] = useState<StickPositions>(() => readConfig().settings.mobileControls)
@@ -306,8 +325,26 @@ export function TronGame(props: TronProps) {
   const tutorialStepRef = useRef(0)
   // Guards the one-time win record for the current match.
   const recordedMatchRef = useRef(false)
+  // One bot controller per bot seat, built at match start; null = human seat.
+  const botsRef = useRef<Record<PlayerId, BotController | null>>({ p1: null, p2: null })
+  // Mirror of `sources` for event handlers that must not re-subscribe on change.
+  const sourcesRef = useRef<SeatSources>(sources)
 
   useEffect(() => { viewRef.current = view }, [view])
+
+  useEffect(() => { sourcesRef.current = sources }, [sources])
+
+  const setSeatHuman = (player: PlayerId) => setSources((current) => ({ ...current, [player]: { kind: 'human' } }))
+
+  const setSeatBot = (player: PlayerId, difficulty: BotDifficulty) => setSources((current) => ({ ...current, [player]: { kind: 'bot', difficulty } }))
+
+  const stepBotDifficulty = (player: PlayerId, delta: number) => {
+    setSources((current) => {
+      const index = BOT_DIFFICULTY_ORDER.indexOf(botDifficultyOf(current[player]))
+      const next = BOT_DIFFICULTY_ORDER[Math.min(BOT_DIFFICULTY_ORDER.length - 1, Math.max(0, index + delta))]
+      return { ...current, [player]: { kind: 'bot', difficulty: next } }
+    })
+  }
 
   useEffect(() => { tutorialStepRef.current = tutorialStep }, [tutorialStep])
 
@@ -325,15 +362,20 @@ export function TronGame(props: TronProps) {
 
   const startMatch = useCallback(() => {
     recordedMatchRef.current = false
+    botsRef.current = {
+      p1: sources.p1.kind === 'bot' ? createBot(sources.p1.difficulty) : null,
+      p2: sources.p2.kind === 'bot' ? createBot(sources.p2.difficulty) : null,
+    }
     const next = startRound(null, roundsToWin)
     stateRef.current = next
     setSnapshot(next)
     setView('loading')
-  }, [roundsToWin])
+  }, [roundsToWin, sources])
 
   const handleExitToStart = useCallback(() => {
     stateRef.current = null
     setSnapshot(null)
+    botsRef.current = { p1: null, p2: null }
     setView('start')
   }, [])
 
@@ -401,14 +443,14 @@ export function TronGame(props: TronProps) {
   }, [])
 
   // A decisive match win is recorded once per match, under the winner's name.
-  // Forfeits and ties record nothing.
+  // Forfeits, ties, and wins by a bot seat record nothing.
   useEffect(() => {
     if (view !== 'victory') return
     const state = stateRef.current
     const winner = state?.matchResult?.winner
-    if (!winner || recordedMatchRef.current) return
+    if (!winner || recordedMatchRef.current || sourcesRef.current[winner].kind === 'bot') return
     recordedMatchRef.current = true
-    const entries = recordMatchWin(playerLabel(winner, playerNames, t))
+    const entries = recordMatchWin(playerLabel(winner, playerNames, sourcesRef.current, t))
     setHighscores(entries ?? [])
   }, [view, playerNames, t])
   // `desired` is an absolute travel direction (stick up = travel up, key
@@ -434,6 +476,8 @@ export function TronGame(props: TronProps) {
       const binding = DIRECTION_BINDINGS.find((candidate) => normalizeKey(readKey(candidate.id)) === key)
       if (!binding) return
       if (viewRef.current !== 'playing' && viewRef.current !== 'tutorial') return
+      // Bot seats ignore human keyboard input during a match (the tutorial is always human-driven).
+      if (viewRef.current === 'playing' && sourcesRef.current[playerOf(binding.id)].kind === 'bot') return
       event.preventDefault()
       if (pressedKeysRef.current.has(binding.id)) return
       pressedKeysRef.current.add(binding.id)
@@ -470,7 +514,16 @@ export function TronGame(props: TronProps) {
           const now = performance.now()
           if (now - lastTickRef.current >= TICK_MS) {
             lastTickRef.current = now
-            const next = step(state)
+            // Bot seats decide one buffered turn per tick, exactly like a
+            // human key press, before the core steps the board.
+            let working = state
+            for (const player of ['p1', 'p2'] as PlayerId[]) {
+              const bot = botsRef.current[player]
+              if (!bot) continue
+              const command = bot.decide(working, player)
+              if (command) working = bufferTurn(working, player, command.turn)
+            }
+            const next = step(working)
             stateRef.current = next
             render(0)
             if (next.phase !== 'playing') setSnapshot(next)
@@ -553,15 +606,49 @@ export function TronGame(props: TronProps) {
           <p className="tron-description">{t('tron.description')}</p>
           {inputMode === 'keyboard' && (
             <div className="tron-keybinds" aria-label={t('keybinds')}>
-              <KeybindGroup player="p1" label={playerLabel('p1', playerNames, t)} />
-              <KeybindGroup player="p2" label={playerLabel('p2', playerNames, t)} />
+              {sources.p1.kind === 'human' && <KeybindGroup player="p1" label={playerLabel('p1', playerNames, sources, t)} />}
+              {sources.p1.kind === 'human' && sources.p2.kind === 'human' && <KeybindGroup player="p2" label={playerLabel('p2', playerNames, sources, t)} />}
             </div>
           )}
           <div className="tron-setup">
+            <div className="tron-setup-field">
+              <span className="tron-field-label" id="tron-p1-source-label">{t('tron.seatControl')}</span>
+              <div className="tron-seat-toggle" role="group" aria-labelledby="tron-p1-source-label">
+                <button type="button" aria-pressed={sources.p1.kind === 'human'} onClick={() => setSeatHuman('p1')}>{t('tron.player')}</button>
+                <button type="button" aria-pressed={sources.p1.kind === 'bot'} onClick={() => setSeatBot('p1', botDifficultyOf(sources.p1))}>{t('tron.seatBot')}</button>
+              </div>
+            </div>
+            {sources.p1.kind === 'bot' && (
+              <div className="tron-setup-field">
+                <span className="tron-field-label" id="tron-p1-bot-label">{t('tron.botDifficulty')}</span>
+                <div className="tron-stepper" role="group" aria-labelledby="tron-p1-bot-label">
+                  <button type="button" aria-label={t('tron.botEasier')} disabled={sources.p1.difficulty === 'easy'} onClick={() => stepBotDifficulty('p1', -1)}>−</button>
+                  <span className="tron-stepper-value tron-stepper-value-wide" aria-live="polite">{t(BOT_DIFFICULTY_KEYS[sources.p1.difficulty])}</span>
+                  <button type="button" aria-label={t('tron.botHarder')} disabled={sources.p1.difficulty === 'hard'} onClick={() => stepBotDifficulty('p1', 1)}>+</button>
+                </div>
+              </div>
+            )}
             <label className="tron-setup-field">
               <span className="tron-field-label">{t('tron.player1Name')}</span>
               <input type="text" maxLength={12} autoComplete="off" spellCheck={false} value={playerNames.p1} placeholder={t('tron.namePlaceholder')} onChange={(event) => setPlayerNames((names) => ({ ...names, p1: event.target.value }))} />
             </label>
+            <div className="tron-setup-field">
+              <span className="tron-field-label" id="tron-p2-source-label">{t('tron.seatControl')}</span>
+              <div className="tron-seat-toggle" role="group" aria-labelledby="tron-p2-source-label">
+                <button type="button" aria-pressed={sources.p2.kind === 'human'} onClick={() => setSeatHuman('p2')}>{t('tron.player')}</button>
+                <button type="button" aria-pressed={sources.p2.kind === 'bot'} onClick={() => setSeatBot('p2', botDifficultyOf(sources.p2))}>{t('tron.seatBot')}</button>
+              </div>
+            </div>
+            {sources.p2.kind === 'bot' && (
+              <div className="tron-setup-field">
+                <span className="tron-field-label" id="tron-p2-bot-label">{t('tron.botDifficulty')}</span>
+                <div className="tron-stepper" role="group" aria-labelledby="tron-p2-bot-label">
+                  <button type="button" aria-label={t('tron.botEasier')} disabled={sources.p2.difficulty === 'easy'} onClick={() => stepBotDifficulty('p2', -1)}>−</button>
+                  <span className="tron-stepper-value tron-stepper-value-wide" aria-live="polite">{t(BOT_DIFFICULTY_KEYS[sources.p2.difficulty])}</span>
+                  <button type="button" aria-label={t('tron.botHarder')} disabled={sources.p2.difficulty === 'hard'} onClick={() => stepBotDifficulty('p2', 1)}>+</button>
+                </div>
+              </div>
+            )}
             <label className="tron-setup-field">
               <span className="tron-field-label">{t('tron.player2Name')}</span>
               <input type="text" maxLength={12} autoComplete="off" spellCheck={false} value={playerNames.p2} placeholder={t('tron.namePlaceholder')} onChange={(event) => setPlayerNames((names) => ({ ...names, p2: event.target.value }))} />
@@ -574,14 +661,16 @@ export function TronGame(props: TronProps) {
                 <button type="button" aria-label={t('tron.stepperIncrease')} disabled={roundsToWin >= 9} onClick={() => setRoundsToWin((rounds) => Math.min(9, rounds + 1))}>+</button>
               </div>
             </div>
-            <label className="tron-setup-field">
-              <span className="tron-field-label">{t('tron.player1Color')}</span>
-              <input type="color" value={p1Color} onChange={(event) => setP1Color(event.target.value)} />
-            </label>
-            <label className="tron-setup-field">
-              <span className="tron-field-label">{t('tron.player2Color')}</span>
-              <input type="color" value={p2Color} onChange={(event) => setP2Color(event.target.value)} />
-            </label>
+            <div className="tron-setup-row">
+              <label className="tron-setup-field">
+                <span className="tron-field-label">{t('tron.player1Color')}</span>
+                <input type="color" value={p1Color} onChange={(event) => setP1Color(event.target.value)} />
+              </label>
+              <label className="tron-setup-field">
+                <span className="tron-field-label">{t('tron.player2Color')}</span>
+                <input type="color" value={p2Color} onChange={(event) => setP2Color(event.target.value)} />
+              </label>
+            </div>
           </div>
           <div className="tron-menu">
             <button className="tron-primary" type="button" onClick={startMatch}>{t('tron.startMatch')}</button>
@@ -641,7 +730,7 @@ export function TronGame(props: TronProps) {
   }
 
   if (view === 'victory' || view === 'gameover') {
-    const banner = snapshot ? matchBanner(snapshot, playerNames, t) : { text: t('tron.gameOver'), tone: 'neutral' as const }
+    const banner = snapshot ? matchBanner(snapshot, playerNames, sources, t) : { text: t('tron.gameOver'), tone: 'neutral' as const }
     const resultScore = snapshot ? snapshot.matchResult?.roundsWon || Math.max(snapshot.totals.p1, snapshot.totals.p2) : 0
     return (
       <main className="tron-page tron-result-page" style={accentVars}>
@@ -676,7 +765,7 @@ export function TronGame(props: TronProps) {
   const state = snapshot
   const showRoundOverlay = view === 'playing' && state?.phase === 'roundOver'
   const banner = state?.phase === 'roundOver' && state.roundResult
-    ? roundBanner(state.roundResult.outcome, playerNames, t)
+    ? roundBanner(state.roundResult.outcome, playerNames, sources, t)
     : null
 
   return (
@@ -684,21 +773,21 @@ export function TronGame(props: TronProps) {
       <div className="tron-hud">
         <span>{t('tron.round')} {state?.round ?? 1}</span>
         <span>{t('tron.firstTo')} {roundsToWin}</span>
-        <span className="tron-score-p1">{playerLabel('p1', playerNames, t)} {state?.totals.p1 ?? 0}</span>
-        <span className="tron-score-p2">{playerLabel('p2', playerNames, t)} {state?.totals.p2 ?? 0}</span>
+        <span className="tron-score-p1">{playerLabel('p1', playerNames, sources, t)} {state?.totals.p1 ?? 0}</span>
+        <span className="tron-score-p2">{playerLabel('p2', playerNames, sources, t)} {state?.totals.p2 ?? 0}</span>
         <span>{t('tron.ties')} {state?.totals.ties ?? 0}</span>
         {inputMode === 'keyboard' && (
           <span className="tron-hud-keybinds" aria-label={t('keybinds')}>
-            <KeybindGroup player="p1" label="" />
-            <span aria-hidden="true">·</span>
-            <KeybindGroup player="p2" label="" />
+            {sources.p1.kind === 'human' && <KeybindGroup player="p1" label="" />}
+            {sources.p1.kind === 'human' && sources.p2.kind === 'human' && <span aria-hidden="true">·</span>}
+            {sources.p2.kind === 'human' && <KeybindGroup player="p2" label="" />}
           </span>
         )}
         {state?.phase === 'playing' && !editingControls && <button type="button" onClick={handlePause}>{t('tron.pause')}</button>}
       </div>
       <div className="tron-stage">
         <canvas ref={canvasRef} className="tron-canvas" width={WIDTH} height={HEIGHT} role="img" aria-label={t('tron.gameBoardLabel')} />
-        <MobileSticks visible={controllerVisible} editable={editingControls} p1Label={t('tron.mobileP1Stick')} p2Label={t('tron.mobileP2Stick')} positions={mobilePositions} onPositionsChange={updateMobilePositions} onTurn={applyTurn} />
+        <MobileSticks visible={controllerVisible} editable={editingControls} showP1={sources.p1.kind === 'human'} showP2={sources.p2.kind === 'human'} p1Label={t('tron.mobileP1Stick')} p2Label={t('tron.mobileP2Stick')} positions={mobilePositions} onPositionsChange={updateMobilePositions} onTurn={(player, desired) => { if (sourcesRef.current[player].kind !== 'bot') applyTurn(player, desired) }} />
         {showRoundOverlay && banner && (
           <div className="tron-round-overlay">
             <div className="tron-round-card">

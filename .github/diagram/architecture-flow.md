@@ -33,10 +33,10 @@ flowchart TD
         tron --> tronCanvas["TronGame canvas rAF loop (960x540, 100ms ticks)"]
         tronCanvas -->|"step() / bufferTurn() / continueAfterRound()"| core["tron/game-core.ts — pure grid / round / match logic"]
         core -->|"roundOver overlay (sub-state of playing)"| tron
-        tron --> sticks["MobileSticks — two 2D analog sticks (movement = P1, shoot = P2)"]
+        tron --> sticks["MobileSticks — two 2D analog sticks (movement = P1, shoot = P2; bot seats hide their stick)"]
         sticks -->|"absolute desired direction (never reverse) -> turnToward()"| core
-        tron --> bots["tron/bots.ts — TurnSource / BotController seam (future PvBot)"]
-        bots -.->|"decide() returns TurnCommand -> bufferTurn()"| core
+        tron -->|"start-screen per-seat toggle: Player or Bot (easy / medium / hard)"| bots["tron/bots.ts — TurnSource / BotController / createBot()"]
+        bots -->|"decide() per tick -> bufferTurn() before step()"| core
         tron --> tronHs["tron/highscores.ts"]
     end
 
@@ -116,7 +116,8 @@ flowchart LR
 
 > The Tron highscore view is read-only: the winner's win is recorded
 > automatically on entry to `victory` (once per match, under the winner's
-> display name set on the start screen). Forfeits and tied rounds record nothing.
+> display name set on the start screen). Forfeits, tied rounds, and wins by a
+> bot seat record nothing.
 
 ## Persistence call sites
 

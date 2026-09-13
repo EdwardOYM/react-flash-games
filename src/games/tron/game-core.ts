@@ -29,6 +29,9 @@ export const GRID_COLS = 64
 export const GRID_ROWS = 36
 export const CELL_PX = 15
 export const TICK_MS = 100
+// Cycles spawn this many cells in from their home edge (five steps closer
+// to the arena center than the wall itself).
+export const START_INSET = 5
 export const P1_COLOR = '#22d3ee'
 export const P2_COLOR = '#fb7185'
 
@@ -143,8 +146,8 @@ export function startRound(previous: GameState | null, roundsToWin: number): Gam
   const target = Math.max(1, roundsToWin)
   return {
     grid: new Uint8Array(GRID_COLS * GRID_ROWS),
-    p1: { col: 0, row: GRID_ROWS / 2, direction: 'right', alive: true, path: [] },
-    p2: { col: GRID_COLS - 1, row: GRID_ROWS / 2, direction: 'left', alive: true, path: [] },
+    p1: { col: START_INSET, row: GRID_ROWS / 2, direction: 'right', alive: true, path: [] },
+    p2: { col: GRID_COLS - 1 - START_INSET, row: GRID_ROWS / 2, direction: 'left', alive: true, path: [] },
     p1Turn: null,
     p2Turn: null,
     round: previous ? previous.round + 1 : 1,

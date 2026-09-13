@@ -177,6 +177,14 @@ type TronTranslationKey =
   | 'mobileP2Stick'
   | 'gameBoardLabel'
   | 'inspiredBy'
+  | 'seatControl'
+  | 'seatBot'
+  | 'botDifficulty'
+  | 'botEasy'
+  | 'botMedium'
+  | 'botHard'
+  | 'botEasier'
+  | 'botHarder'
 
 const dictionaries: Record<Locale, TranslationDictionary> = { en, ms, zh }
 

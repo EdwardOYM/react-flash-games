@@ -172,7 +172,15 @@
     "gameBoardLabel": "Tron game board",
     "inspiredBy": "Inspired by the Tron light-cycle genre (1982 film)",
     "stepperDecrease": "Fewer rounds",
-    "stepperIncrease": "More rounds"
+    "stepperIncrease": "More rounds",
+    "seatControl": "Controlled by",
+    "seatBot": "Bot",
+    "botDifficulty": "Bot difficulty",
+    "botEasy": "Easy",
+    "botMedium": "Medium",
+    "botHard": "Hard",
+    "botEasier": "Easier",
+    "botHarder": "Harder"
   },
   "games": {
     "orbit": "Orbit Catch",
