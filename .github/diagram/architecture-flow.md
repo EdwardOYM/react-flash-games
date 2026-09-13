@@ -10,7 +10,7 @@
 ```mermaid
 flowchart TD
     main["src/main.tsx"] --> app["src/App.tsx"]
-    main --> uiSounds["soundEffects.ts — UI & gameplay SFX (reads settings.sfx / muted / sfxVolume)"]
+    main --> uiSounds["soundEffects.ts — UI & gameplay SFX (reads settings.sfx / muted / sfxVolume; skips silent prefix in pop buffer)"]
     app --> start["StartPage.tsx — Game Hub"]
 
     subgraph HUB["Hub screens"]

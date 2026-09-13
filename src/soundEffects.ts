@@ -5,6 +5,13 @@ import { readConfig } from './config'
 let clickAudio: HTMLAudioElement | null = null
 let audioContext: AudioContext | null = null
 let popBuffer: AudioBuffer | null = null
+// Seconds of empty audio at the start of the bubble-pop asset, measured once
+// from the decoded buffer. Playback offsets past it so the pop is heard the
+// moment the bubble breaks instead of after the silent prefix plays out.
+let popSilenceSeconds = 0
+// A frame counts as audible once it reaches a small fraction of the loudest
+// sample in the buffer, so decoder noise is not mistaken for the pop.
+const POP_ONSET_THRESHOLD = 0.02
 
 /** Sound effects play only when the SFX channel is on and global mute is off. */
 function sfxSettings(): { allowed: boolean; volume: number } {
@@ -33,12 +40,50 @@ export function installUiSounds() {
   }, true)
 }
 
+/**
+ * Measure the silent prefix of a decoded pop buffer in seconds of buffer time.
+ * A frame is silent while every channel stays below a small fraction of the
+ * loudest sample; the first audible frame across all channels is the onset.
+ * A buffer with no audible content returns 0.
+ */
+function leadingSilenceSeconds(buffer: AudioBuffer): number {
+  const frames = buffer.length
+  const channels = buffer.numberOfChannels
+  if (frames < 1 || channels < 1) return 0
+  const channelData: Array<Float32Array<ArrayBuffer>> = []
+  let peak = 0
+  for (let channel = 0; channel < channels; channel++) {
+    const data = buffer.getChannelData(channel)
+    channelData.push(data)
+    for (let frame = 0; frame < frames; frame++) {
+      const magnitude = Math.abs(data[frame])
+      if (magnitude > peak) peak = magnitude
+    }
+  }
+  if (peak === 0) return 0
+  const threshold = peak * POP_ONSET_THRESHOLD
+  for (let frame = 0; frame < frames; frame++) {
+    for (const data of channelData) {
+      if (Math.abs(data[frame]) >= threshold) return frame / buffer.sampleRate
+    }
+  }
+  return 0
+}
+
 async function ensurePopBuffer(): Promise<AudioBuffer | null> {
   try {
     audioContext ??= new AudioContext()
     if (!popBuffer) {
       const response = await fetch(bubblePopUrl)
-      popBuffer = await audioContext.decodeAudioData(await response.arrayBuffer())
+      const decoded = await audioContext.decodeAudioData(await response.arrayBuffer())
+      popBuffer = decoded
+      // Measure once per decoded buffer. A measurement failure just keeps the
+      // previous behavior (play from the very start).
+      try {
+        popSilenceSeconds = leadingSilenceSeconds(decoded)
+      } catch {
+        popSilenceSeconds = 0
+      }
     }
     // Gameplay sounds only occur after a user gesture, but resume defensively.
     if (audioContext.state === 'suspended') await audioContext.resume()
@@ -64,6 +109,8 @@ export function playBubblePop(rate: number) {
     gain.gain.value = sfx.volume
     source.connect(gain)
     gain.connect(audioContext.destination)
-    source.start()
+    // Skip the asset's silent prefix. The offset is in buffer time at the
+    // buffer's natural sample rate, so it works at every playbackRate.
+    source.start(undefined, popSilenceSeconds)
   })
 }
