@@ -27,6 +27,7 @@
 .bnb-input { width: 100%; padding: 11px 12px; border: 1px solid #50676a; color: #f5f0e8; background: #16222a; font-family: 'DM Mono', monospace; font-size: .8rem; }
 .bnb-input:focus, .bnb-input:focus-visible { border-color: #ffc857; outline: 2px solid #f5f0e8; outline-offset: 2px; }
 .bnb-input-code { letter-spacing: .32em; text-transform: uppercase; }
+.bnb-shell > .bnb-field { width: min(100%, 960px); margin: 18px 0 20px; }
 .bnb-segmented, .bnb-stepper { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; }
 .bnb-segmented button, .bnb-stepper button { padding: 9px 12px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
 .bnb-segmented button:hover, .bnb-stepper button:hover { border-color: #ffc857; color: #ffc857; }

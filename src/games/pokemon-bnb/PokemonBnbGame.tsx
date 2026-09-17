@@ -212,6 +212,18 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     messageHandlerRef.current = readMessage
   })
 
+  // Re-announce our display name when it changes after the channel opens, so
+  // the other seat's status line stays correct. Reuses the hello handshake;
+  // no protocol change needed.
+  useEffect(() => {
+    if (status !== 'connected') return
+    if (roleRef.current === 'host') {
+      sessionRef.current?.send({ kind: 'hello-ack', name: displayName, protocolVersion: PROTOCOL_VERSION })
+    } else if (roleRef.current === 'guest') {
+      sessionRef.current?.send({ kind: 'hello', name: displayName, protocolVersion: PROTOCOL_VERSION })
+    }
+  }, [displayName, status])
+
   useEffect(() => () => {
     sessionRef.current?.dispose()
     sessionRef.current = null
@@ -476,6 +488,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         <p className="eyebrow">{t('games.pokemonBnbMini')}</p>
         <h1>{t('pokemonBnb.title')}</h1>
         <p className="bnb-copy">{t('pokemonBnb.description')}</p>
+        <div className="bnb-field">
+          <label className="bnb-field-label" htmlFor="bnb-start-server">{t('pokemonBnb.serverLabel')}</label>
+          <input id="bnb-start-server" className="bnb-input" type="text" value={serverInput} autoComplete="off" spellCheck={false} placeholder={t('pokemonBnb.serverPlaceholder')} onChange={(event) => setServerInput(event.target.value)} />
+          <p className="bnb-hint">{t('pokemonBnb.serverHint')}</p>
+          {serverInvalid && <p className="bnb-hint bnb-hint-warn" role="status">{t('pokemonBnb.serverInvalid')}</p>}
+        </div>
         <div className="bnb-actions">
           <button className="bnb-primary" type="button" onClick={() => beginSession('host')}>{t('pokemonBnb.createLobby')}</button>
           <button type="button" onClick={() => { setErrorKey(null); setNotice(null); setView('lobbyJoin') }}>{t('pokemonBnb.joinLobby')}</button>

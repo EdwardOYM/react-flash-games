@@ -11,7 +11,7 @@
 - [x] 1 — Data foundation (rng, cards, pack, 30C set data + pack config)
 - [x] 2 — Shell + L10n + registry (translations, games/index, StartPage, skeleton views, CSS base, config seed)
 - [x] 3 — Networking layer (peerjs dep, net/protocol.ts, net/peer.ts)
-- [ ] 4 — Lobby flow (host create + settings, guest join by code, start broadcast)
+- [x] 4 — Lobby flow (host create + settings, guest join by code, start broadcast)
 - [ ] 5 — Pack opening (seeded ceremony, skip-all, PokemonCard, ready handshake)
 - [ ] 6 — Deck builder (pool grid, include/exclude, legality, ready handshake)
 - [ ] 7 — Battle engine core (pure game-core.ts, full rulebook, local hot-seat validation)
@@ -269,6 +269,16 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   peerjs's `validateId` regex accepts our hyphenated `pkm-bnb-XXX` ids. Note: peerjs loads the
   whole peerjs client (~290 kB minified) into the main bundle; consider lazy `import('peerjs')`
   or a vite `manualChunks` split in CP10.
+- **CP4 (done).** Full lobby UI in `PokemonBnbGame.tsx`: start view gets the shared optional
+  server-address field plus create/join; dedicated lobby view shows the host's copyable code,
+  editable name, editable settings for the host (set segmented, packs/prizes steppers,
+  timer segmented) with every change broadcast as `lobby-update` and clamped on receipt by the
+  guest; guest `lobbyJoin` view holds name/code/server with short-code validation. Connection
+  status dot (connecting/waiting/connected/error), `hello`/`hello-ack` names feed the
+  `statusConnected` line, names re-announce on edit after connect, and `leave` resets or drops
+  back to waiting. Host start rolls the shared seed and sends `lobby-start`, moving both seats
+  to the `opening` placeholder. Embed CSS capped (`min(100%, 960px)`, portrait + landscape
+  breakpoints). Build + lint clean.
 
 
 
