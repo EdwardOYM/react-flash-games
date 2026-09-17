@@ -77,7 +77,7 @@ Add constraints and a `## Styling Workflow` section to `.clinerules/01-flash-gam
 Validate + checkpoint.
 
 ### Step 10 — Consistency sync (skills + terminal rules)
-- Add a "per-component CSS" Procedure step + Quality Gate to `.clinerules/skills/new-game-project/SKILL.md` and the mirror `.github/skills/new-game-project/SKILL.md`.
+- Add a "per-component CSS" Procedure step + Quality Gate to `.clinerules/skills/new-game-project/new-game-project.md` and the mirror `.github/skills/new-game-project/new-game-project.md`.
 - Update `.clinerules/04-terminal-commands.md` examples that reference `src/App.css` to use `src/start/StartPage.css`.
 
 Validate + checkpoint.

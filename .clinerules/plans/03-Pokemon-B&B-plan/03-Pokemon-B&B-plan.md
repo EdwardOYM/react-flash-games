@@ -18,13 +18,26 @@
 
   Sub-steps (one per editor pass; stop between each for review):
 
-  - **CP7-A** — engine types + rulebook constants + `setupBattle` + mulligan.
-  - **CP7-B** — action dispatcher + turn manipulation sub-phases (`attachEnergy`, `playTrainer`, `evolve`, `retreatToBench`, `useAttack`, `endTurn`).
-  - **CP7-C** — attacks + effect parser + damage + KO/prize/victory.
-  - **CP7-D** — turn lifecycle + statuses + timer + snapshots (`toSnapshot`/`applySnapshot`/`applyTimeout`).
-  - **CP7-E** — wire `PokemonBnbGame.tsx`: `loading` → `playing` transition + `BattleState` state.
-  - **CP7-F** — `?local=1` hot-seat harness (validation only, not player-facing).
-  - **CP7-G** — validate (`npm run build` + `npm run lint` + key-parity + determinism note).
+  - [ ] **CP7-A** — engine types + rulebook constants + `setupBattle` + mulligan.
+  - [ ] **CP7-B** — action dispatcher + turn manipulation sub-phases (`attachEnergy`, `playTrainer`, `evolve`, `retreatToBench`, `useAttack`, `endTurn`).
+  - [ ] **CP7-C** — attacks + effect parser + damage + KO/prize/victory.
+  - [ ] **CP7-D** — turn lifecycle + statuses + timer + snapshots (`toSnapshot`/`applySnapshot`/`applyTimeout`).
+  - [ ] **CP7-E** — wire `PokemonBnbGame.tsx`: `loading` → `playing` transition + `BattleState` state.
+  - [ ] **CP7-F** — `?local=1` hot-seat harness (validation only, not player-facing).
+  - [ ] **CP7-G** — validate (`npm run build` + `npm run lint` + key-parity + determinism note).
+
+<!--
+OPERATING CONVENTION (applies to every CP7 sub-step):
+- Before reading code, editing, or running commands, re-read `.clinerules/plans/03-Pokemon-B&B-plan/03-Pokemon-B&B-plan.md`
+  and confirm the current Progress line plus the current mode in the user's request (plan mode = explore/
+  propose only; act mode = implement but still follow the plan + checkpoint protocol).
+- One sub-step per session turn, then `npm run build` + `npm run lint`, report, and STOP until the user
+  says "next". If context was compacted, re-verify any prior "done" claim from the files on disk before
+  continuing, and never trust a summarized claim alone.
+- Use exact `old_text` when editing (re-read files first); prefer `read_files` over `Get-Content`, and
+  `search_codebase` over `Select-String`. No interactive pagers, no dev servers; see
+  `.clinerules/04-terminal-commands.md`.
+-->
 
 <!--
 NOTE (CP7 task author): the plan's draft `Types` block (CardDef/Attack/Effect/Ability unions) is

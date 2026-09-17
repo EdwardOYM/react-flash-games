@@ -5,7 +5,7 @@ This workspace bundles Cline skills under `.clinerules/skills/`:
 - `new-game-project` — create a complete new React + Three.js flash game: scaffold `src/games/<id>/` and `src/assets/<id>/`, implement the start, tutorial, loading, settings, gameplay, pause, game-over, victory, and highscore flow, and wire translations, key rebindings, config/highscore persistence, and credits.
 - `release-devlog` — create a short, player-friendly release devlog (`uploaded versions/devlog/devlog-<version>.md`) by comparing the latest two uploaded build versions in `uploaded versions/` in memory (no extraction), grouped into emoji-led blocks for games, sounds, and other player-visible changes.
 
-The same skill is mirrored at `.github/skills/new-game-project/SKILL.md` (GitHub Copilot format) — keep both copies in sync. The agent definition lives at `.github/agents/flash-game-builder.agent.md` and provides the cross-tool version of the project rules.
+The same skill is mirrored at `.github/skills/new-game-project/new-game-project.md` (GitHub Copilot format) — keep both copies in sync. The agent definition lives at `.github/agents/flash-game-builder.agent.md` and provides the cross-tool version of the project rules.
 
 ## When to use skills
 

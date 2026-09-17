@@ -6,7 +6,7 @@ Build Tron as the second playable game on this site: a top-down, up-to-2-player 
 
 ## Why a checkpoint protocol
 
-A previous session in this repository died mid-execution (SocketError) while a large plan ran in one burst. The repo now standardizes on small numbered steps, one per session turn, with a build/lint checkpoint after every step (see `.clinerules/plans/01-decompose-css-plan/plan.md`).
+A previous session in this repository died mid-execution (SocketError) while a large plan ran in one burst. The repo now standardizes on small numbered steps, one per session turn, with a build/lint checkpoint after every step (see `.clinerules/plans/01-decompose-css-plan/01-decompose-css-plan.md`).
 
 ## Checkpoint workflow
 

@@ -51,3 +51,9 @@ You are the specialist agent for this React + Three.js flash-games project.
 
 ## Output
 Summarize the files changed, the player-facing behavior, and the validation command and result.
+
+## Agent discipline
+- Follow `.clinerules/05-agent-discipline.md`: check the current mode (plan vs act) and the active plan
+  under `.clinerules/plans/<id>/<id>-plan.md` before implementing. Honor the checkpoint protocol (one
+  checkpoint per turn, validate, then stop until the user says "next"). Never claim a checkpoint complete
+  without updating the plan's Progress line and passing validation.

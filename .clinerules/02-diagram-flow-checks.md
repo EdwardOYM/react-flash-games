@@ -9,7 +9,7 @@ paths:
   - "src/App.tsx"
   - ".github/diagram/**"
   - "*.agent.md"
-  - "SKILL.md"
+  - "*.md"
 ---
 
 # Diagram & Flow Checks
