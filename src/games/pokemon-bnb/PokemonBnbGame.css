@@ -55,6 +55,9 @@
 .bnb-dot-connected { background: #7ee0a7; }
 .bnb-dot-error { background: #ff8a7a; }
 .bnb-dot-closed { background: #5d6f72; }
+/* Pack opening: responsive card-facsimile grid inside the 960px shell. */
+.bnb-card-grid { list-style: none; margin: 16px 0 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.bnb-card-grid li { margin: 0; padding: 0; }
 .bnb-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 0 0 18px; }
 .bnb-summary dt { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; }
 .bnb-summary dd { margin: 4px 0 0; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .9rem; }
@@ -69,6 +72,8 @@
   .bnb-shell h1 { font-size: clamp(1.5rem, 4vh, 2.2rem); }
   /* Settings stack into a single tight column so the Start button stays visible. */
   .bnb-fields, .bnb-form { grid-template-columns: 1fr; gap: 8px; }
+  /* Opening grid shrinks to two compact columns so cards + actions fit. */
+  .bnb-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 10px 0 12px; }
   .bnb-status { margin: 0 0 8px; }
   .bnb-code-row { margin: 0 0 8px; gap: 8px; }
   .bnb-summary { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0 0 8px; }

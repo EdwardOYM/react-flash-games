@@ -1,0 +1,28 @@
+/* PokemonCard — typographic card facsimile. Co-located with PokemonCard.tsx. */
+.pkm-card { position: relative; display: flex; flex-direction: column; gap: 6px; width: 100%; min-height: 240px; padding: 10px 11px 12px; border: 1px solid #50676a; border-radius: 10px; color: #101820; background: linear-gradient(165deg, #fdf6e3 0, #f0dfb8 70%); font-family: 'DM Mono', monospace; overflow: hidden; }
+.pkm-card-trainer { background: linear-gradient(165deg, #e8f1f5 0, #c3d9e2 70%); }
+.pkm-card-energy { background: linear-gradient(165deg, #eaf5e8 0, #c4dfc0 70%); }
+.pkm-card-rarity-rare { border-color: #ffc857; box-shadow: 0 0 0 1px #ffc857; }
+.pkm-card-rarity-ultraRare { border-color: #e08bff; box-shadow: 0 0 0 1px #e08bff, 0 0 14px rgba(224, 139, 255, .35); }
+.pkm-card-rarity-illustrationRare { border-color: #ff9d5c; box-shadow: 0 0 0 1px #ff9d5c, 0 0 18px rgba(255, 157, 92, .45); }
+.pkm-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pkm-card-name { font-size: .82rem; font-weight: 700; line-height: 1.25; }
+.pkm-card-hp { flex: none; font-size: .72rem; font-weight: 700; color: #a33; }
+.pkm-card-meta { display: flex; justify-content: space-between; gap: 8px; margin: 0; font-size: .64rem; color: #5d6f72; }
+.pkm-card-rarity { align-self: flex-start; padding: 2px 8px; border-radius: 999px; border: 1px solid #50676a; font-size: .6rem; text-transform: uppercase; letter-spacing: .06em; }
+.pkm-card-body { display: flex; flex-direction: column; gap: 6px; }
+.pkm-card-stage { margin: 0; font-size: .64rem; color: #5d6f72; }
+.pkm-card-abilities, .pkm-card-attacks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pkm-card-abilities li, .pkm-card-attacks li { border-top: 1px solid rgba(80, 103, 106, .4); padding-top: 6px; font-size: .66rem; line-height: 1.45; }
+.pkm-card-abilities strong { display: block; font-size: .66rem; }
+.pkm-card-abilities span { display: block; color: #33454a; }
+.pkm-card-attack-head { display: flex; justify-content: space-between; gap: 8px; margin: 0; font-size: .7rem; }
+.pkm-card-cost { margin: 2px 0 0; font-size: .62rem; color: #5d6f72; }
+.pkm-card-text { margin: 2px 0 0; font-size: .64rem; line-height: 1.45; color: #33454a; }
+.pkm-card-effect { border-top: 1px solid rgba(80, 103, 106, .4); padding-top: 6px; }
+.pkm-card-foot { margin: auto 0 0; font-size: .6rem; color: #5d6f72; }
+.pkm-card-damage { position: absolute; right: 8px; bottom: 8px; min-width: 26px; height: 26px; padding: 0 6px; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: #a33; color: #fff; font-size: .72rem; font-weight: 700; }
+.pkm-card-statuses { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 5px; }
+.pkm-card-status { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #101820; background: #7ee0a7; }
+.pkm-card-back { align-items: center; justify-content: center; background: radial-gradient(circle at 50% 38%, #2c3a4d 0, #101820 68%); border-color: #ffc857; }
+.pkm-card-back-mark { color: #ffc857; font-size: 2.4rem; }

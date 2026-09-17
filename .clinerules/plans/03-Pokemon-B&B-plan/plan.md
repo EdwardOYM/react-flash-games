@@ -12,7 +12,7 @@
 - [x] 2 — Shell + L10n + registry (translations, games/index, StartPage, skeleton views, CSS base, config seed)
 - [x] 3 — Networking layer (peerjs dep, net/protocol.ts, net/peer.ts)
 - [x] 4 — Lobby flow (host create + settings, guest join by code, start broadcast)
-- [ ] 5 — Pack opening (seeded ceremony, skip-all, PokemonCard, ready handshake)
+- [x] 5 — Pack opening (seeded ceremony, skip-all, PokemonCard, ready handshake)
 - [ ] 6 — Deck builder (pool grid, include/exclude, legality, ready handshake)
 - [ ] 7 — Battle engine core (pure game-core.ts, full rulebook, local hot-seat validation)
 - [ ] 8 — Battle UI (tabletop zones, counters, statuses, energy, log, pause)
@@ -279,6 +279,17 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   back to waiting. Host start rolls the shared seed and sends `lobby-start`, moving both seats
   to the `opening` placeholder. Embed CSS capped (`min(100%, 960px)`, portrait + landscape
   breakpoints). Build + lint clean.
+- **CP5 (done).** Seeded pack-opening ceremony in `PokemonBnbGame.tsx`: both seats derive the
+  identical `openedCards` sequence via `openPacks(cards, pack, packs, createRng(matchSeed))`
+  (memoized on seed/set/pack-count; no opened cards ever cross the wire), revealing face-down
+  → face-up one card at a time with a skip-all, progress + pack counters, and a translated
+  `opponentReady` notice. Reusable `PokemonCard.tsx` + `PokemonCard.css` render the typographic
+  facsimile (rarity chip, name/HP/types, stage, abilities, attacks, trainer/energy text,
+  face-down back, damage/status overlay props reserved for CP8); card names/text stay English
+  data, only the rarity chip + back label are translated (14 new `pokemonBnb.*` keys, parity
+  89/89). `opening-ready` both-ready handshake (event-driven view switch via ready refs, no
+  setState-in-effect) moves both seats to the `deck` placeholder; all ceremony/ready state
+  resets on reseed/leave/rejoin. Build + lint clean.
 
 
 
