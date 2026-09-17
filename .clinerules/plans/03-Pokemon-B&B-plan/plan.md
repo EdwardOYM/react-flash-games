@@ -14,7 +14,42 @@
 - [x] 4 — Lobby flow (host create + settings, guest join by code, start broadcast)
 - [x] 5 — Pack opening (seeded ceremony, skip-all, PokemonCard, ready handshake)
 - [x] 6 — Deck builder (pool grid, include/exclude, legality, ready handshake)
-- [ ] 7 — Battle engine core (pure game-core.ts, full rulebook, local hot-seat validation)
+- [ ] 7 — Battle engine core (pure `game-core.ts`, full rulebook, local hot-seat validation)
+
+  Sub-steps (one per editor pass; stop between each for review):
+
+  - **CP7-A** — engine types + rulebook constants + `setupBattle` + mulligan.
+  - **CP7-B** — action dispatcher + turn manipulation sub-phases (`attachEnergy`, `playTrainer`, `evolve`, `retreatToBench`, `useAttack`, `endTurn`).
+  - **CP7-C** — attacks + effect parser + damage + KO/prize/victory.
+  - **CP7-D** — turn lifecycle + statuses + timer + snapshots (`toSnapshot`/`applySnapshot`/`applyTimeout`).
+  - **CP7-E** — wire `PokemonBnbGame.tsx`: `loading` → `playing` transition + `BattleState` state.
+  - **CP7-F** — `?local=1` hot-seat harness (validation only, not player-facing).
+  - **CP7-G** — validate (`npm run build` + `npm run lint` + key-parity + determinism note).
+
+<!--
+NOTE (CP7 task author): the plan's draft `Types` block (CardDef/Attack/Effect/Ability unions) is
+superseded by the real models in `src/games/pokemon-bnb/cards.ts` (PokemonCardDef / TrainerCardDef /
+EnergyCardDef / AttackDef / AbilityDef / WeaknessDef / ResistanceDef). Do not copy the draft unions into
+`game-core.ts`; consume `CardDef` and the card-type guards from `./cards`. Weakness/Resistance `value`
+is a verbatim string ("×2", "×3", "-30", "-20"); parse it in the engine with a small normalized helper
+(see CP7-C decision note) so future sets slot in unchanged.
+-->
+
+<!--
+DECISION NOTES (from user, 2026-09-17):
+- Weakness/Resistance values: keep the verbatim `value` string from card data (`"×2"`, `"×3"`, `"-30"`,
+  `"-20"`); add a small normalized parser in `game-core.ts` (`parseWeaknessValue` / `parseResistanceValue`
+  → `{ multiplier: number, reduction: number }`) defaulting to multiplier 2 / reduction 0, with an
+  unparseable fallback to those defaults + a log note. This keeps future sets with the same shape working
+  without engine changes.
+- Card text: keep verbatim attack/ability/trainer/effect text as-is in the engine and in card rendering
+  for now; do not try to render a text-driven "card face" from it beyond what `PokemonCard.tsx` already
+  does. Future work: replace the typographic facsimile with real card images.
+- Card images (future): source free/open card artwork from
+  `https://limitlesstcg.com/cards/30C` (LimitlessTCG 30C card image endpoint) or another free/open TCG
+  image API, and cache per-card images under `src/assets/pokemon-bnb/` so the build stays offline-capable.
+  Track as a follow-up task; not part of CP7/CP8.
+-->
 - [ ] 8 — Battle UI (tabletop zones, counters, statuses, energy, log, pause)
 - [ ] 9 — P2P battle sync + timer (host-authoritative, snapshots, disconnect, rematch)
 - [ ] 10 — End flow + polish + docs (victory/defeat, highscores, settings, responsive, credits, diagrams, final validation)
