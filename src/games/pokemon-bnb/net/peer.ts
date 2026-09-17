@@ -8,7 +8,7 @@
 
 import Peer from 'peerjs'
 import type { DataConnection } from 'peerjs'
-import { PROTOCOL_VERSION, isNetMessage, type NetMessage } from './protocol'
+import { PROTOCOL_VERSION, isNetMessage, type NetMessage, type PlayerSlot } from './protocol'
 
 export type PeerServerConfig = {
   host: string
@@ -24,7 +24,8 @@ export type PeerStatus = 'connecting' | 'waiting' | 'connected' | 'error' | 'clo
 
 export type SessionCallbacks = {
   onMessage: (message: NetMessage) => void
-  onPeerConnected: (name: string) => void
+  /** `slot` is the seat that opened: 'guest' in v1, more seats later. */
+  onPeerConnected: (slot: PlayerSlot) => void
   onPeerDisconnected: () => void
   onStatus: (status: PeerStatus) => void
   onError: (message: string) => void

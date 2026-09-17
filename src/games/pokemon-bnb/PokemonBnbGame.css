@@ -14,10 +14,63 @@
 .bnb-actions button:focus, .bnb-actions button:focus-visible { color: #aeb9b9; outline: 2px solid #f5f0e8; outline-offset: 2px; }
 .bnb-actions .bnb-primary { border-color: #ffc857; color: #101820; background: #ffc857; }
 .bnb-actions .bnb-primary:focus, .bnb-actions .bnb-primary:focus-visible { color: #aeb9b9; }
+.bnb-actions button:disabled { border-color: #33454a; color: #5d6f72; background: transparent; cursor: not-allowed; }
+.bnb-actions .bnb-primary:disabled { border-color: #33454a; color: #5d6f72; background: #1a262b; }
+
+/* Lobby: the shared settings stage, capped at the 960x540 embed width. */
+.bnb-shell-lobby { width: min(100%, 960px); margin: clamp(24px, 5vh, 64px) auto 0; }
+.bnb-form, .bnb-fields { display: grid; gap: 16px; width: min(100%, 960px); }
+.bnb-fields { margin: 10px 0 4px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.bnb-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.bnb-field-label { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
+.bnb-field-value { color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .8rem; }
+.bnb-input { width: 100%; padding: 11px 12px; border: 1px solid #50676a; color: #f5f0e8; background: #16222a; font-family: 'DM Mono', monospace; font-size: .8rem; }
+.bnb-input:focus, .bnb-input:focus-visible { border-color: #ffc857; outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.bnb-input-code { letter-spacing: .32em; text-transform: uppercase; }
+.bnb-segmented, .bnb-stepper { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; }
+.bnb-segmented button, .bnb-stepper button { padding: 9px 12px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
+.bnb-segmented button:hover, .bnb-stepper button:hover { border-color: #ffc857; color: #ffc857; }
+.bnb-segmented button:focus, .bnb-segmented button:focus-visible, .bnb-stepper button:focus, .bnb-stepper button:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.bnb-segmented button[aria-pressed='true'] { border-color: #ffc857; color: #101820; background: #ffc857; }
+.bnb-stepper { flex-wrap: nowrap; }
+.bnb-stepper-value { display: flex; align-items: center; justify-content: center; min-width: 46px; border: 1px solid #50676a; color: #f5f0e8; background: #16222a; font-family: 'DM Mono', monospace; font-size: .82rem; }
+.bnb-stepper button:disabled { border-color: #33454a; color: #5d6f72; cursor: not-allowed; }
+.bnb-code-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 4px 0 18px; }
+.bnb-code-label { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
+.bnb-code { padding: 8px 14px; border: 1px dashed #ffc857; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: 1.05rem; letter-spacing: .3em; }
+.bnb-code-row button { padding: 9px 12px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
+.bnb-code-row button:hover { border-color: #ffc857; color: #ffc857; }
+.bnb-code-row button:disabled { border-color: #33454a; color: #5d6f72; cursor: not-allowed; }
+.bnb-status, .bnb-waiting, .bnb-hint, .bnb-notice, .bnb-error { margin: 0; font-family: 'DM Mono', monospace; font-size: .74rem; line-height: 1.5; }
+.bnb-status { display: flex; align-items: center; gap: 9px; color: #aeb9b9; margin: 0 0 18px; }
+.bnb-waiting { color: #aeb9b9; }
+.bnb-hint { color: #7f8f92; }
+.bnb-hint-warn, .bnb-error { color: #ff8a7a; }
+.bnb-notice { color: #ffc857; margin: 12px 0 0; }
+.bnb-error { margin: 12px 0 0; }
+.bnb-dot { width: 9px; height: 9px; border-radius: 50%; background: #5d6f72; flex: none; }
+.bnb-dot-connecting { background: #ffc857; animation: bnb-pulse 1s ease-in-out infinite; }
+.bnb-dot-waiting { background: #ffc857; }
+.bnb-dot-connected { background: #7ee0a7; }
+.bnb-dot-error { background: #ff8a7a; }
+.bnb-dot-closed { background: #5d6f72; }
+.bnb-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 0 0 18px; }
+.bnb-summary dt { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; }
+.bnb-summary dd { margin: 4px 0 0; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .9rem; }
+@keyframes bnb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
 /* Mobile landscape: fixed 100dvh page, stage fits the shorter dimension. */
 @media (orientation: landscape) and (max-height: 600px) {
   .bnb-page { height: 100dvh; min-height: 0; padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); overflow: hidden; }
   .bnb-shell, .bnb-panel { margin: clamp(18px, 6vh, 56px) auto 0; }
+  .bnb-shell-lobby { width: min(100%, 960px); margin: max(14px, env(safe-area-inset-top)) auto 0; }
   .bnb-copy { margin: 16px 0 22px; }
+  .bnb-shell h1 { font-size: clamp(1.5rem, 4vh, 2.2rem); }
+  /* Settings stack into a single tight column so the Start button stays visible. */
+  .bnb-fields, .bnb-form { grid-template-columns: 1fr; gap: 8px; }
+  .bnb-status { margin: 0 0 8px; }
+  .bnb-code-row { margin: 0 0 8px; gap: 8px; }
+  .bnb-summary { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0 0 8px; }
+  .bnb-input { padding: 8px 10px; }
+  .bnb-segmented button, .bnb-stepper button { padding: 7px 10px; }
 }

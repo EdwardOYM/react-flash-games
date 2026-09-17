@@ -19,6 +19,14 @@ export function createRng(seed: number): Rng {
   }
 }
 
+/**
+ * Fresh lobby seed for the host. The value is broadcast in `lobby-start`, so
+ * both players derive the same packs from it; it is never shared before that.
+ */
+export function randomSeed(): number {
+  return Math.floor(Math.random() * 0x7fffffff)
+}
+
 /** Random integer in [0, max). */
 export function randomInt(rng: Rng, max: number): number {
   return rng.next() % max
