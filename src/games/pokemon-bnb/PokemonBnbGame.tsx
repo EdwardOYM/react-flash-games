@@ -1,15 +1,16 @@
 // Pokemon TCG B&B mini — peer-to-peer Build & Battle limited format.
-// CP5: pack-opening ceremony. Both seats derive the identical card pool from
-// the shared lobby seed (openPacks + createRng), then reveal it pack by pack
-// with a skip-all, through the reusable PokemonCard face. The both-ready
-// handshake (opening-ready) moves both players to deck building (CP6).
+// CP6: deck builder. The opened pool (same seeded sequence as the ceremony)
+// renders as an include/exclude grid; legality comes from deck.ts, and the
+// deck-ready handshake (deckIds, one entry per copy) advances both seats to
+// the battle placeholder (engine lands in CP7).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getPreferredLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
 import { SettingsModal } from '../../settings'
 import type { CardDef, CardRarity, SetId } from './cards'
+import { buildPoolIsValid, type DeckLegalityReason } from './deck'
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
-import { openPacks, type OpenedCard } from './pack'
+import { openPacks, buildPool, type OpenedCard, type OpenedPool } from './pack'
 import { createRng, randomSeed } from './rng'
 import { getSet, listSets } from './sets'
 import { PokemonCard } from './PokemonCard'
@@ -135,6 +136,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const [openingReady, setOpeningReady] = useState(false)
   const [opponentReady, setOpponentReady] = useState(false)
   const opponentReadyRef = useRef(false)
+  /** Deck-builder inclusion counts by card id (0..opened copies). */
+  const [deckCounts, setDeckCounts] = useState<Record<string, number>>({})
+  const [deckReady, setDeckReady] = useState(false)
+  const [opponentDeckReady, setOpponentDeckReady] = useState(false)
+  const opponentDeckReadyRef = useRef(false)
+  const deckReadyRef = useRef(false)
   const sessionRef = useRef<SessionBase | null>(null)
   const roleRef = useRef<Role | null>(null)
   const settingsRef = useRef<LobbySettings>(settings)
@@ -160,6 +167,33 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   }, [matchSeed, settings.set, settings.packs])
 
   const packSize = useMemo(() => getSet(settings.set)?.pack.size ?? 0, [settings.set])
+
+  /** Unique-card pool with opened copy counts (deck-builder source). */
+  const openedPool = useMemo<OpenedPool>(() => buildPool(openedCards), [openedCards])
+  const poolTotal = useMemo(
+    () => openedPool.cards.reduce((sum, card) => sum + (openedPool.byId.get(card.id) ?? 0), 0),
+    [openedPool],
+  )
+
+  /** Deck id list: one entry per included copy, in pool order. */
+  const deckIds = useMemo<string[]>(() => {
+    const ids: string[] = []
+    for (const card of openedPool.cards) {
+      const count = Math.min(deckCounts[card.id] ?? 0, openedPool.byId.get(card.id) ?? 0)
+      for (let copy = 0; copy < count; copy++) ids.push(card.id)
+    }
+    return ids
+  }, [deckCounts, openedPool])
+
+  const deckCheck = useMemo(() => buildPoolIsValid(deckIds, openedPool, settings.prizeCards), [deckIds, openedPool, settings.prizeCards])
+  const deckErrorKey = (reason: DeckLegalityReason): TranslationKey => {
+    switch (reason) {
+      case 'too-small': return 'pokemonBnb.deckErrorTooSmall'
+      case 'no-basic': return 'pokemonBnb.deckErrorNoBasic'
+      case 'no-energy': return 'pokemonBnb.deckErrorNoEnergy'
+      case 'over-pool': return 'pokemonBnb.deckErrorOverPool'
+    }
+  }
   const rarityLabel = (rarity: CardRarity): string => {
     switch (rarity) {
       case 'common': return t('pokemonBnb.rarityCommon')
@@ -179,6 +213,21 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const startTutorial = () => { setTutorialStep(0); setView('tutorial') }
   const leaveTutorial = () => setView(role ? 'lobby' : 'start')
   const advanceTutorial = () => { if (tutorialStep < tutorialSteps.length - 1) setTutorialStep(tutorialStep + 1); else leaveTutorial() }
+
+  // Ref-called implementations live in the ref-sync effect below (assigned
+  // post-render, never during render) so the stable data-channel handler
+  // always runs the fresh closure without being recreated itself.
+  const enterDeckBuilderRef = useRef<() => void>(() => {})
+  const resetMatchStateRef = useRef<() => void>(() => {})
+  const openedPoolRef = useRef<OpenedPool | null>(null)
+  /** Both seats enter deck building with every copy included by default. */
+  const enterDeckBuilder = useCallback(() => {
+    enterDeckBuilderRef.current?.()
+  }, [])
+
+  const resetMatchState = useCallback(() => {
+    resetMatchStateRef.current?.()
+  }, [])
 
   const closeSession = useCallback(() => {
     sessionRef.current?.dispose()
@@ -208,11 +257,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         if (roleRef.current !== 'guest') return
         setSettings(clampLobbySettings(message.settings))
         setMatchSeed(message.seed)
-        setRevealedCount(0)
-        setOpeningReady(false)
-        openingReadyRef.current = false
-        setOpponentReady(false)
-        opponentReadyRef.current = false
+        resetMatchState()
         setNotice(null)
         setErrorKey(null)
         setView('opening')
@@ -226,7 +271,16 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         setOpponentReady(true)
         opponentReadyRef.current = true
         setNotice(null)
-        if (openingReadyRef.current) setView('deck')
+        if (openingReadyRef.current) enterDeckBuilder()
+        return
+      }
+      case 'deck-ready': {
+        // Deck lists are private in the UI; the ids travel only so the CP7
+        // engine can set up the shared battle. Advance when both are ready.
+        setOpponentDeckReady(true)
+        opponentDeckReadyRef.current = true
+        setNotice(null)
+        if (deckReadyRef.current) setView('loading')
         return
       }
       case 'leave': {
@@ -245,7 +299,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         return
       }
       default:
-        // Deck and battle payloads land in later checkpoints.
+        // Battle payloads land in later checkpoints.
         return
     }
   }
@@ -275,12 +329,35 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current)
   }, [])
 
-  // Ref mirrors of the ready flags for use inside the data-channel handler
-  // (the handler runs outside render and reads refs, never stale state).
+  // Ref mirrors + ref-called implementations for the stable data-channel
+  // handler (assigned post-render, never during render).
   useEffect(() => {
     openingReadyRef.current = openingReady
     opponentReadyRef.current = opponentReady
-  }, [openingReady, opponentReady])
+    deckReadyRef.current = deckReady
+    opponentDeckReadyRef.current = opponentDeckReady
+    openedPoolRef.current = openedPool
+    enterDeckBuilderRef.current = () => {
+      setDeckCounts(Object.fromEntries(openedPool.cards.map((card) => [card.id, openedPool.byId.get(card.id) ?? 0])))
+      setDeckReady(false)
+      deckReadyRef.current = false
+      setOpponentDeckReady(false)
+      opponentDeckReadyRef.current = false
+      setView('deck')
+    }
+    resetMatchStateRef.current = () => {
+      setRevealedCount(0)
+      setOpeningReady(false)
+      openingReadyRef.current = false
+      setOpponentReady(false)
+      opponentReadyRef.current = false
+      setDeckCounts({})
+      setDeckReady(false)
+      deckReadyRef.current = false
+      setOpponentDeckReady(false)
+      opponentDeckReadyRef.current = false
+    }
+  }, [openingReady, opponentReady, deckReady, opponentDeckReady, openedPool])
 
   /** Host a new lobby, or dial the typed code. Shared setup + callbacks. */
   const beginSession = (nextRole: Role) => {
@@ -302,11 +379,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     setNotice(null)
     setOpponentName('')
     setMatchSeed(null)
-    setRevealedCount(0)
-    setOpeningReady(false)
-    openingReadyRef.current = false
-    setOpponentReady(false)
-    opponentReadyRef.current = false
+    resetMatchState()
     setCopied(false)
 
     const callbacks = {
@@ -362,16 +435,11 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     sessionRef.current?.send({ kind: 'lobby-update', settings: next })
   }
 
-  /** Host-only: roll the shared pack seed and send both players to opening. */
   const startPackOpening = () => {
     const seed = randomSeed()
     const payload = clampLobbySettings(settingsRef.current)
     setMatchSeed(seed)
-    setRevealedCount(0)
-    setOpeningReady(false)
-    openingReadyRef.current = false
-    setOpponentReady(false)
-    opponentReadyRef.current = false
+    resetMatchState()
     sessionRef.current?.send({ kind: 'lobby-start', seed, settings: payload })
     setView('opening')
   }
@@ -385,7 +453,29 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     setOpeningReady(true)
     openingReadyRef.current = true
     sessionRef.current?.send({ kind: 'opening-ready' })
-    if (opponentReadyRef.current) setView('deck')
+    if (opponentReadyRef.current) enterDeckBuilder()
+  }
+
+  /** Include or remove one copy of an opened card, clamped to opened copies. */
+  const adjustDeckCount = (cardId: string, delta: number) => {
+    const opened = openedPool.byId.get(cardId) ?? 0
+    setDeckCounts((counts) => {
+      const next = Math.min(opened, Math.max(0, (counts[cardId] ?? 0) + delta))
+      if (next === 0) {
+        const { [cardId]: _removed, ...rest } = counts
+        return rest
+      }
+      return { ...counts, [cardId]: next }
+    })
+  }
+
+  /** Mark our deck ready and send the id list (one entry per copy). */
+  const markDeckReady = () => {
+    if (!deckCheck.ok || deckReady) return
+    setDeckReady(true)
+    deckReadyRef.current = true
+    sessionRef.current?.send({ kind: 'deck-ready', deckIds })
+    if (opponentDeckReadyRef.current) setView('loading')
   }
 
   const copyCode = () => {
@@ -412,11 +502,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     setNotice(null)
     setErrorKey(null)
     setMatchSeed(null)
-    setRevealedCount(0)
-    setOpeningReady(false)
-    openingReadyRef.current = false
-    setOpponentReady(false)
-    opponentReadyRef.current = false
+    resetMatchState()
     setView('start')
   }
 
@@ -574,9 +660,82 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     )
   }
 
-  // Placeholder seat for the flow after pack opening (CP6 onward). It shows
+  // Placeholder seat for the flow after deck building (CP7 onward).
+  if (view === 'deck') {
+    return (
+      <main className="bnb-page">
+        <header className="bnb-topbar">
+          <span className="bnb-hud-label">{t('pokemonBnb.deckTitle')}</span>
+          <div className="bnb-topbar-actions">
+            <button type="button" onClick={leaveLobby}>{t('pokemonBnb.leaveLobby')}</button>
+            <button type="button" onClick={onExit}>{t('pokemonBnb.exit')}</button>
+          </div>
+        </header>
+        <div className="bnb-shell bnb-shell-lobby">
+          <p className="eyebrow">{displayName}</p>
+          <h1>{t('pokemonBnb.deckTitle')}</h1>
+          <p className="bnb-status" aria-live="polite">
+            {substituteParams(t('pokemonBnb.deckCount'), { count: String(deckCheck.summary.total), total: String(poolTotal) })}
+            <span className="bnb-status-sep" aria-hidden="true">·</span>
+            <span>{t('pokemonBnb.prizeCardsLabel')}: {settings.prizeCards}</span>
+          </p>
+          {openedPool.cards.length === 0 && <p className="bnb-error" role="alert">{t('pokemonBnb.deckEmpty')}</p>}
+          <h2 className="bnb-field-label">{t('pokemonBnb.deckSelectedLabel')}</h2>
+          <ol className="bnb-card-grid">
+            {openedPool.cards.map((card) => {
+              const opened = openedPool.byId.get(card.id) ?? 0
+              const included = Math.min(deckCounts[card.id] ?? 0, opened)
+              if (included === 0) return null
+              return (
+                <li key={card.id}>
+                  <PokemonCard card={card} rarityLabel={rarityLabel(card.rarity)} faceDownLabel={t('pokemonBnb.cardFaceDown')} />
+                  <p className="bnb-hint">{substituteParams(t('pokemonBnb.deckCopies'), { count: String(included) })}</p>
+                  <div className="bnb-actions">
+                    <button type="button" disabled={deckReady || included >= opened} onClick={() => adjustDeckCount(card.id, 1)} aria-label={substituteParams(t('pokemonBnb.deckInclude'), { name: card.name })}>+</button>
+                    <button type="button" disabled={deckReady || included <= 0} onClick={() => adjustDeckCount(card.id, -1)} aria-label={substituteParams(t('pokemonBnb.deckExclude'), { name: card.name })}>−</button>
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+          <h2 className="bnb-field-label">{t('pokemonBnb.deckPoolLabel')}</h2>
+          <ol className="bnb-card-grid">
+            {openedPool.cards.map((card) => {
+              const opened = openedPool.byId.get(card.id) ?? 0
+              const included = Math.min(deckCounts[card.id] ?? 0, opened)
+              if (included >= opened) return null
+              return (
+                <li key={card.id}>
+                  <PokemonCard card={card} rarityLabel={rarityLabel(card.rarity)} faceDownLabel={t('pokemonBnb.cardFaceDown')} />
+                  <div className="bnb-actions">
+                    <button type="button" disabled={deckReady} onClick={() => adjustDeckCount(card.id, 1)} aria-label={substituteParams(t('pokemonBnb.deckInclude'), { name: card.name })}>+</button>
+                  </div>
+                </li>
+              )
+            })}
+          </ol>
+          {deckCheck.reasons.map((reason) => (
+            <p key={reason} className="bnb-error" role="alert">
+              {reason === 'too-small'
+                ? substituteParams(t(deckErrorKey(reason)), { minimum: String(deckCheck.minimum) })
+                : t(deckErrorKey(reason))}
+            </p>
+          ))}
+          {opponentDeckReady && <p className="bnb-notice" role="status">{substituteParams(t('pokemonBnb.opponentReady'), { name: opponentName || t('pokemonBnb.defaultName') })}</p>}
+          {notice && <p className="bnb-notice" role="status">{t(notice)}</p>}
+          {errorKey && <p className="bnb-error" role="alert">{t(errorKey)}</p>}
+          <div className="bnb-actions">
+            {!deckReady && <button className="bnb-primary" type="button" disabled={!deckCheck.ok} onClick={markDeckReady}>{t('pokemonBnb.deckSubmit')}</button>}
+            {deckReady && !opponentDeckReady && <span className="bnb-waiting" aria-live="polite">{t('pokemonBnb.deckWaiting')}</span>}
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  // Placeholder seat for the flow after deck building (CP7 onward). It shows
   // the locked-in match settings so both clients can verify they agree.
-  if (view === 'deck' || view === 'loading' || view === 'playing' || view === 'paused' || view === 'gameover' || view === 'victory' || view === 'highscore') {
+  if (view === 'loading' || view === 'playing' || view === 'paused' || view === 'gameover' || view === 'victory' || view === 'highscore') {
     return (
       <main className="bnb-page">
         <header className="bnb-topbar">
