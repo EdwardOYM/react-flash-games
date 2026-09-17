@@ -1,0 +1,62 @@
+{
+  "set": "30c",
+  "size": 5,
+  "comment": "30C pack: 5 cards - 2x common, 1x uncommon-or-better (weighted up the ladder per community pull-rate reporting), 1x guaranteed Pikachu illustration rare (1 of the 30 'Pikachu Rare' variations), 1x basic energy (synthetic pool - the set itself has no energy cards). Weights are relative within each slot; tune here without touching code.",
+  "slots": [
+    {
+      "id": "common-1",
+      "poolRef": "common",
+      "count": 1
+    },
+    {
+      "id": "common-2",
+      "poolRef": "common",
+      "count": 1
+    },
+    {
+      "id": "uncommon-or-better",
+      "poolRef": "uncommonOrBetter",
+      "count": 1,
+      "weights": {
+        "uncommon": 0,
+        "rare": 74,
+        "ultraRare": 17,
+        "illustrationRare": 9
+      }
+    },
+    {
+      "id": "pikachu-ir",
+      "poolRef": "guaranteedPikachuIr",
+      "count": 1
+    },
+    {
+      "id": "basic-energy",
+      "poolRef": "basicEnergy",
+      "count": 1
+    }
+  ],
+  "pools": {
+    "uncommonOrBetter": {
+      "comment": "Uncommon-or-better slot: uncommons are absent from TCGdex data for this set, so the ladder bottoms out at 'rare' when no uncommons exist (see pack.ts fallback).",
+      "ladder": [
+        "uncommon",
+        "rare",
+        "ultraRare",
+        "illustrationRare"
+      ]
+    },
+    "basicEnergy": {
+      "comment": "Synthetic basic-energy pool: uniform across the 8 standard basic energy types.",
+      "types": [
+        "grass",
+        "fire",
+        "water",
+        "lightning",
+        "psychic",
+        "fighting",
+        "darkness",
+        "metal"
+      ]
+    }
+  }
+}
