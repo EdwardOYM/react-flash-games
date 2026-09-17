@@ -10,7 +10,7 @@
 - [x] 0 — Save this plan document
 - [x] 1 — Data foundation (rng, cards, pack, 30C set data + pack config)
 - [x] 2 — Shell + L10n + registry (translations, games/index, StartPage, skeleton views, CSS base, config seed)
-- [ ] 3 — Networking layer (peerjs dep, net/protocol.ts, net/peer.ts)
+- [x] 3 — Networking layer (peerjs dep, net/protocol.ts, net/peer.ts)
 - [ ] 4 — Lobby flow (host create + settings, guest join by code, start broadcast)
 - [ ] 5 — Pack opening (seeded ceremony, skip-all, PokemonCard, ready handshake)
 - [ ] 6 — Deck builder (pool grid, include/exclude, legality, ready handshake)
@@ -251,6 +251,24 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   back/exit until their checkpoint lands. Locale state intentionally minimal in the skeleton
   (prop-driven; settings modal + `persistLocale` wiring returns in CP10). `default.config.json`
   seeds `highscores['pokemon-bnb'] = []`. Registry icon is a hexagon '⬢' (card-shaped, hub-safe).
+- **CP3 (done).** `peerjs@1.5.5` added. `net/protocol.ts` = pure wire layer (`PROTOCOL_VERSION` 1,
+  `LOBBY_LIMITS` packs 1–6 / prizes 2–6 / timers off·45·60·90, `defaultLobbySettings`,
+  `clampLobbySettings`, `validateLobbySettings`, discriminated `NetMessage` union for hello /
+  hello-ack / lobby-update / lobby-start(seed) / opening-ready / deck-ready(deckIds) /
+  battle-action / battle-snapshot / leave / rematch, plus `isNetMessage` applied to every inbound
+  frame). `net/peer.ts` = `createHost` (id `pkm-bnb-<CODE>`, rAF-free status flow
+  connecting → waiting → connected, single guest seat, restartable after a drop, auto re-roll on id
+  collision) and `joinHost` (code normalisation, `hello` on channel open, re-dial after a drop);
+  `parseServerAddress` turns `192.168.0.12:9000` / `http://host/path` / `https://host` into a
+  PeerServerConfig, blank input = PeerJS Cloud. `HostSession.code` is a live getter fed by
+  `peer.id`, so retries rename the displayed code. Node validation (39 assertions, all passed)
+  stubbed `peerjs` and drove both session state machines, including the `ID-TAKEN` retry.
+  **Cloud broker verified live**: `wss://0.peerjs.com:443/peerjs?key=peerjs&id=pkm-bnb-…` →
+  `OPEN`, simultaneous duplicate id → `ID-TAKEN` (peerjs maps this to error type
+  `unavailable-id`, exactly what the retry listens for), fresh id → `OPEN`. Also confirmed
+  peerjs's `validateId` regex accepts our hyphenated `pkm-bnb-XXX` ids. Note: peerjs loads the
+  whole peerjs client (~290 kB minified) into the main bundle; consider lazy `import('peerjs')`
+  or a vite `manualChunks` split in CP10.
 
 
 
