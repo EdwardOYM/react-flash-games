@@ -13,7 +13,7 @@
 - [x] 3 — Networking layer (peerjs dep, net/protocol.ts, net/peer.ts)
 - [x] 4 — Lobby flow (host create + settings, guest join by code, start broadcast)
 - [x] 5 — Pack opening (seeded ceremony, skip-all, PokemonCard, ready handshake)
-- [ ] 6 — Deck builder (pool grid, include/exclude, legality, ready handshake)
+- [x] 6 — Deck builder (pool grid, include/exclude, legality, ready handshake)
 - [ ] 7 — Battle engine core (pure game-core.ts, full rulebook, local hot-seat validation)
 - [ ] 8 — Battle UI (tabletop zones, counters, statuses, energy, log, pause)
 - [ ] 9 — P2P battle sync + timer (host-authoritative, snapshots, disconnect, rematch)
@@ -290,6 +290,20 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   89/89). `opening-ready` both-ready handshake (event-driven view switch via ready refs, no
   setState-in-effect) moves both seats to the `deck` placeholder; all ceremony/ready state
   resets on reseed/leave/rejoin. Build + lint clean.
+- **CP6 (done).** Deck builder: new pure `deck.ts` (`buildPoolIsValid` /
+  `deckSummary` / `countBySupertype` / `minDeckSize` — minimum = min(pool,
+  prizes + 1) so 1-pack pools stay playable, plus ≥1 Basic and ≥1 Energy,
+  copies clamped to opened counts) and a full `deck` view in
+  `PokemonBnbGame.tsx` — seeded `openedPool` via `buildPool(openedCards)`,
+  all-copies-included by default, selected/excluded grids with per-copy
+  +/- (translated include/remove aria-labels + copy counts), live
+  `{count} of {total}` counter, per-reason translated legality errors, and
+  the `deck-ready` handshake (id list, one entry per copy) advancing both
+  seats to `loading` when both are ready. Deck contents never render on the
+  peer's screen (friendly-play privacy, per protocol comment). All match
+  state funnels through `resetMatchState`; the stable message handler calls
+  enter/reset through refs assigned post-render (no lint warnings). 14 new
+  `pokemonBnb.*` keys (parity 103/103). Build + lint clean.
 
 
 

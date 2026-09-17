@@ -44,6 +44,7 @@
 .bnb-code-row button:disabled { border-color: #33454a; color: #5d6f72; cursor: not-allowed; }
 .bnb-status, .bnb-waiting, .bnb-hint, .bnb-notice, .bnb-error { margin: 0; font-family: 'DM Mono', monospace; font-size: .74rem; line-height: 1.5; }
 .bnb-status { display: flex; align-items: center; gap: 9px; color: #aeb9b9; margin: 0 0 18px; }
+.bnb-status-sep { color: #50676a; }
 .bnb-waiting { color: #aeb9b9; }
 .bnb-hint { color: #7f8f92; }
 .bnb-hint-warn, .bnb-error { color: #ff8a7a; }
