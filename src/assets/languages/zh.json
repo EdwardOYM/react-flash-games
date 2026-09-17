@@ -51,7 +51,8 @@
     "signal": "原创概念",
     "memory": "原创概念",
     "bubbleTrouble": "Miniclip 的 Bubble Trouble",
-    "tron": "光轮赛车题材（1982 年电影）"
+    "tron": "光轮赛车题材（1982 年电影）",
+    "pokemonBnbMini": "宝可梦集换式卡牌（Build & Battle 限制赛制）"
   },
   "languageNames": {
     "en": "英语",
@@ -70,7 +71,9 @@
     "p2Up": "玩家 2 向上",
     "p2Down": "玩家 2 向下",
     "p2Left": "玩家 2 向左",
-    "p2Right": "玩家 2 向右"
+    "p2Right": "玩家 2 向右",
+    "confirm": "确认",
+    "skip": "跳过"
   },
   "gameStatus": {
     "ready": "可开始",
@@ -187,6 +190,34 @@
     "signal": "信号冲刺",
     "memory": "记忆花园",
     "bubbleTrouble": "Bubble Trouble",
-    "tron": "光轮"
+    "tron": "光轮",
+    "pokemonBnbMini": "宝可梦集换式卡牌 B&B mini"
+  },
+  "pokemonBnb": {
+    "title": "宝可梦集换式卡牌 B&B mini",
+    "description": "与好友点对点开房，一起拆开30周年纪念补充包，用开出的卡构筑限制赛卡组，并按接近规则书的卡牌规则对决。",
+    "start": "开启大厅",
+    "exit": "退出",
+    "back": "返回",
+    "wip": "这部分仍在建设中——将在后续检查点到来。",
+    "loading": "正在加载游戏",
+    "playing": "对战中",
+    "paused": "已暂停",
+    "pause": "暂停",
+    "resume": "继续",
+    "victory": "胜利——{player}赢下比赛！",
+    "gameOver": "游戏结束",
+    "highscore": "高分榜",
+    "retry": "再试一次",
+    "backToStart": "返回游戏开始",
+    "inspiredBy": "灵感来自宝可梦集换式卡牌 Build & Battle 限制赛制",
+    "tutorial": "帮助 / 教程",
+    "tutorialTitle": "玩法说明",
+    "tutorialPack": "加入大厅后逐张拆卡——或点击跳过一次全部翻开。",
+    "tutorialDeck": "用开出的卡构筑限制赛卡组。卡组内容在对战前保密。",
+    "tutorialBattle": "对战：抽卡、附着能量、进化、攻击、撤退，击倒宝可梦时拿走奖赏卡。卡组抽空即落败。",
+    "tutorialComplete": "很好——你已准备好开局！",
+    "tutorialSkip": "跳过教程",
+    "finish": "完成"
   }
 }

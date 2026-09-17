@@ -9,7 +9,7 @@
 
 - [x] 0 — Save this plan document
 - [x] 1 — Data foundation (rng, cards, pack, 30C set data + pack config)
-- [ ] 2 — Shell + L10n + registry (translations, games/index, StartPage, skeleton views, CSS base, config seed)
+- [x] 2 — Shell + L10n + registry (translations, games/index, StartPage, skeleton views, CSS base, config seed)
 - [ ] 3 — Networking layer (peerjs dep, net/protocol.ts, net/peer.ts)
 - [ ] 4 — Lobby flow (host create + settings, guest join by code, start broadcast)
 - [ ] 5 — Pack opening (seeded ceremony, skip-all, PokemonCard, ready handshake)
@@ -243,6 +243,14 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   rare with weights rare 74 / ultraRare 17 / illustrationRare 9 (measured 73.4/16.2/10.4 over
   1000 packs). `scripts/fetch-pokemon-set.mjs` is the reusable future-set pipeline
   (`node scripts/fetch-pokemon-set.mjs 30th src/assets/pokemon-bnb/sets/30c/cards.json 30c`).
+- **CP2 (done).** `pokemonBnb` group (25 keys) + `games.pokemonBnbMini` + `gameInspiration.pokemonBnbMini`
+  + `keyNames.confirm` / `keyNames.skip` added to all three dictionaries (parity 203/203). Registry
+  entry `pokemon-bnb` (icon ⬢) exported with `PokemonBnbGame`; StartPage routes it. Skeleton view
+  union: start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused /
+  gameover / victory / highscore — non-start views render the `pokemonBnb.wip` placeholder with
+  back/exit until their checkpoint lands. Locale state intentionally minimal in the skeleton
+  (prop-driven; settings modal + `persistLocale` wiring returns in CP10). `default.config.json`
+  seeds `highscores['pokemon-bnb'] = []`. Registry icon is a hexagon '⬢' (card-shaped, hub-safe).
 
 
 

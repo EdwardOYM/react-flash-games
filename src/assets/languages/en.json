@@ -51,7 +51,8 @@
     "signal": "Original concept",
     "memory": "Original concept",
     "bubbleTrouble": "Bubble Trouble from Miniclip",
-    "tron": "Tron light-cycle genre (1982 film)"
+    "tron": "Tron light-cycle genre (1982 film)",
+    "pokemonBnbMini": "Pokemon TCG (Build & Battle limited format)"
   },
   "languageNames": {
     "en": "English",
@@ -70,7 +71,9 @@
     "p2Up": "Player 2 up",
     "p2Down": "Player 2 down",
     "p2Left": "Player 2 left",
-    "p2Right": "Player 2 right"
+    "p2Right": "Player 2 right",
+    "confirm": "Confirm",
+    "skip": "Skip"
   },
   "gameStatus": {
     "ready": "ready",
@@ -187,6 +190,34 @@
     "signal": "Signal Sprint",
     "memory": "Memory Bloom",
     "bubbleTrouble": "Bubble Trouble",
-    "tron": "Tron"
+    "tron": "Tron",
+    "pokemonBnbMini": "Pokemon TCG B&B mini"
+  },
+  "pokemonBnb": {
+    "title": "Pokemon TCG B&B mini",
+    "description": "Host a peer lobby, open 30th Celebration packs together, build a limited deck from what you pull, and duel with rulebook-close TCG rules.",
+    "start": "Open a lobby",
+    "exit": "Exit",
+    "back": "Back",
+    "wip": "This part is on the workbench — it arrives in a later checkpoint.",
+    "loading": "Loading game",
+    "playing": "Playing",
+    "paused": "Paused",
+    "pause": "Pause",
+    "resume": "Resume",
+    "victory": "Victory — {player} wins the match!",
+    "gameOver": "Game over",
+    "highscore": "Highscore",
+    "retry": "Retry",
+    "backToStart": "Back to game start",
+    "inspiredBy": "Inspired by the Pokemon TCG Build & Battle limited format",
+    "tutorial": "Help / tutorial",
+    "tutorialTitle": "How to play",
+    "tutorialPack": "Join a lobby, then open your packs one card at a time — or skip to reveal them all.",
+    "tutorialDeck": "Build your limited deck from the cards you opened. Your deck stays secret until you play it.",
+    "tutorialBattle": "Duel: draw, attach energy, evolve, attack, retreat, and take prize cards when you knock out a Pokemon. Deck out and you lose.",
+    "tutorialComplete": "Nice work — you are ready to play!",
+    "tutorialSkip": "Skip tutorial",
+    "finish": "Finish"
   }
 }

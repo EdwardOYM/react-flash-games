@@ -58,6 +58,9 @@ export type TranslationKey =
   | 'languageNames.ms'
   | 'languageNames.zh'
   | 'keyNames.primary'
+  | 'keyNames.confirm'
+  | 'keyNames.skip'
+
   | 'gameStatus.ready'
   | 'gameStatus.comingSoon'
   | 'games.orbit'
@@ -77,8 +80,14 @@ export type TranslationKey =
   | 'keyNames.p2Right'
   | 'gameInspiration.bubbleTrouble'
   | 'gameInspiration.tron'
+  | 'gameInspiration.pokemonBnbMini'
+
   | 'games.tron'
+  | 'games.pokemonBnbMini'
+
   | `bubble.${BubbleTranslationKey}`
+  | `pokemonBnb.${PkmBnbTranslationKey}`
+
   | `tron.${TronTranslationKey}`
 type BubbleTranslationKey =
   | 'title'
@@ -186,12 +195,39 @@ type TronTranslationKey =
   | 'botEasier'
   | 'botHarder'
 
+type PkmBnbTranslationKey =
+  | 'title'
+  | 'description'
+  | 'start'
+  | 'exit'
+  | 'back'
+  | 'wip'
+  | 'loading'
+  | 'playing'
+  | 'paused'
+  | 'pause'
+  | 'resume'
+  | 'victory'
+  | 'gameOver'
+  | 'highscore'
+  | 'retry'
+  | 'backToStart'
+  | 'inspiredBy'
+  | 'tutorial'
+  | 'tutorialTitle'
+  | 'tutorialPack'
+  | 'tutorialDeck'
+  | 'tutorialBattle'
+  | 'tutorialComplete'
+  | 'tutorialSkip'
+  | 'finish'
+
 const dictionaries: Record<Locale, TranslationDictionary> = { en, ms, zh }
 
 function readTranslation(dictionary: TranslationDictionary, key: TranslationKey): string {
   const [group, value] = key.split('.')
   if (value) {
-    return dictionary[group as 'gameStatus' | 'games' | 'languageNames' | 'keyNames' | 'gameInspiration' | 'bubble' | 'tron'][value as never]
+    return dictionary[group as 'gameStatus' | 'games' | 'languageNames' | 'keyNames' | 'gameInspiration' | 'bubble' | 'tron' | 'pokemonBnb'][value as never]
   }
   return dictionary[key as keyof TranslationDictionary] as string
 }

@@ -10,12 +10,21 @@
     "primaryKey": "Space",
     "keybindings": {},
     "mobileControls": {
-      "movement": { "x": 12, "y": 72, "scale": 1 },
-      "shoot": { "x": 88, "y": 72, "scale": 1 }
+      "movement": {
+        "x": 12,
+        "y": 72,
+        "scale": 1
+      },
+      "shoot": {
+        "x": 88,
+        "y": 72,
+        "scale": 1
+      }
     }
   },
   "highscores": {
     "bubble-trouble": [],
-    "tron": []
+    "tron": [],
+    "pokemon-bnb": []
   }
 }

@@ -51,7 +51,8 @@
     "signal": "Konsep asli",
     "memory": "Konsep asli",
     "bubbleTrouble": "Bubble Trouble daripada Miniclip",
-    "tron": "Genre siklus cahaya Tron (filem 1982)"
+    "tron": "Genre siklus cahaya Tron (filem 1982)",
+    "pokemonBnbMini": "Pokemon TCG (format terhad Build & Battle)"
   },
   "languageNames": {
     "en": "Inggeris",
@@ -70,7 +71,9 @@
     "p2Up": "Pemain 2 op",
     "p2Down": "Pemain 2 af",
     "p2Left": "Pemain 2 kiri",
-    "p2Right": "Pemain 2 kanan"
+    "p2Right": "Pemain 2 kanan",
+    "confirm": "Sahkan",
+    "skip": "Langkau"
   },
   "gameStatus": {
     "ready": "sedia",
@@ -187,6 +190,34 @@
     "signal": "Larian Isyarat",
     "memory": "Kembangan Memori",
     "bubbleTrouble": "Bubble Trouble",
-    "tron": "Tron"
+    "tron": "Tron",
+    "pokemonBnbMini": "Pokemon TCG B&B mini"
+  },
+  "pokemonBnb": {
+    "title": "Pokemon TCG B&B mini",
+    "description": "Sedia lobi sesama rakan, buka pek Sambutan ke-30 bersama, bina dek terhad daripada kad yang diperoleh, dan bertarung mengikut peraturan TCG.",
+    "start": "Buka lobi",
+    "exit": "Keluar",
+    "back": "Kembali",
+    "wip": "Bahagian ini masih di meja kerja — ia tiba pada fasa seterusnya.",
+    "loading": "Memuatkan permainan",
+    "playing": "Bermain",
+    "paused": "Dijeda",
+    "pause": "Jeda",
+    "resume": "Sambung",
+    "victory": "Kemenangan — {player} memenangi perlawanan!",
+    "gameOver": "Permainan tamat",
+    "highscore": "Skor tertinggi",
+    "retry": "Cuba lagi",
+    "backToStart": "Kembali ke mula permainan",
+    "inspiredBy": "Diilhamkan oleh format terhad Build & Battle Pokemon TCG",
+    "tutorial": "Bantuan / tutorial",
+    "tutorialTitle": "Cara bermain",
+    "tutorialPack": "Sertai lobi, kemudian buka pek anda kad demi kad — atau langkau untuk mendedahkan semuanya.",
+    "tutorialDeck": "Bina dek terhad anda daripada kad yang dibuka. Dek anda kekal rahsia sehingga dimainkan.",
+    "tutorialBattle": "Bertarung: lukis, lampirkan tenaga, berevolusi, serang, berundur, dan ambil kad ganjaran apabila menewaskan Pokemon. Kehabisan dek bermakna kalah.",
+    "tutorialComplete": "Bagus — anda sedia untuk bermain!",
+    "tutorialSkip": "Langkau tutorial",
+    "finish": "Selesai"
   }
 }
