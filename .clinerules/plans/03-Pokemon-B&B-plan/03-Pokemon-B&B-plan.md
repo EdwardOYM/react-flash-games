@@ -23,7 +23,33 @@
   - [x] **CP7-B** — action dispatcher + turn manipulation sub-phases (`attachEnergy`, `playTrainer`, `evolve`, `retreatToBench`, `useAttack`, `endTurn`).
   - [x] **CP7-C** — attacks + effect parser + damage + KO/prize/victory.
   - [x] **CP7-D** — turn lifecycle + statuses + timer + snapshots (`toSnapshot`/`applySnapshot`/`applyTimeout`).
-  - [ ] **CP7-E** — wire `PokemonBnbGame.tsx`: `loading` → `playing` transition + `BattleState` state.
+  - [x] **CP7-E-a** — restructure this plan into E-a…E-f (done by this very edit) **+ split the engine
+        into modules**: move `game-core.ts` (~1380 lines, 66 exports) verbatim into a
+        `src/games/pokemon-bnb/game-core/` folder along its existing section seams —
+        `types.ts` (BattleState/Snapshot/BattleAction/… types), `constants.ts` (rulebook constants),
+        `helpers.ts` (sideOf/foeOf/logEvent/clone/failure/checkTurn/canPayCost/canEvolveOnto/stage…),
+        `setup.ts` (setupBattle, mulligans, opening flip, prizes, draw/placePrizes),
+        `actions.ts` (attachEnergy/playTrainer/evolve/retreatToBench/declareAttack/endTurn/promoteActive
+        + processAction), `effects.ts` (parseAttackEffects/applyEffect/computeAttackDamage/resolveAttack/flipCoin),
+        `turns.ts` (applyStartOfTurn/applyEndTurn/applyCheckup/applyTimeout/performKo/takePrizeCard/checkVictory),
+        `snapshots.ts` (toSnapshot/applySnapshot/HIDDEN_CARD), and an `index.ts` re-export barrel so
+        existing `from './game-core'` imports keep working. Code moves verbatim; only imports change.
+        The single file is deleted after the split. (User decision, 2026-09-18: full 8-module split
+        for scaling + accessibility; see the checkpoint note at the bottom.)
+  - [ ] **CP7-E-b** — locale keys only (pure data): add the engine's ~33 `pokemonBnb.log.*` keys,
+        the engine error-code copy (~26 `error.*` keys: not-your-turn, energy-limit, insufficient-energy,
+        must-promote, view-only, …) and battle UI keys (turn header, zone labels, condition names,
+        match-over banner) to en/ms/zh + the `PkmBnbTranslationKey` union; keep 3-way key parity.
+  - [ ] **CP7-E-c** — component wiring only in `PokemonBnbGame.tsx`: store the opponent's
+        `deck-ready` ids, `beginBattle()` from both ready paths (`setupBattle` with the shared
+        seed, deck ids resolved to CardDefs from the shared pool), reset clears the battle,
+        `loading` → short timer → `playing` (Tron's 500 ms effect pattern).
+  - [ ] **CP7-E-d** — battle render + CSS in `PokemonBnbGame.css`: turn header (whose turn,
+        turn #), side panels (active card name/HP/damage/energy/conditions, bench, hand/deck/
+        prizes/discard counts), translated log strip (params substituted, seat display names),
+        error-code → translated copy helper; 960x540 embed cap + landscape breakpoint.
+  - [ ] **CP7-E-e** — update `.github/diagram/architecture-flow.md` (engine module layout +
+        `loading → playing` transition in the view state machine), mark E-a…E-e done.
   - [ ] **CP7-F** — `?local=1` hot-seat harness (validation only, not player-facing).
   - [ ] **CP7-G** — validate (`npm run build` + `npm run lint` + key-parity + determinism note).
 
@@ -442,6 +468,28 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   immutable input state instead of `result.state` (actions clone since CP7-B). No persisted
   schema, config, registry, view state machine or wiring changed — `.github/diagram/*` updates
   remain due with CP7-E.
+
+- **CP7-E-a (done).** Engine module split in `src/games/pokemon-bnb/game-core/` (user decision,
+  2026-09-18: full 8-module split for scaling + accessibility). `game-core.ts` (~1381 lines) moved
+  verbatim along its section seams into `constants.ts` (rulebook numbers), `types.ts`
+  (state/snapshot/action types; `STATUS_CONDITIONS` lives here because `StatusCondition` derives
+  from it), `helpers.ts` (zone access, logging, cloning, once-per-turn rejection, cost/evolution
+  legality, Weakness/Resistance parsers, plus `drawCards`, shared by setup/effects/turns),
+  `setup.ts` (opening hands, mulligans, seeded flip, Active/Bench/Prize placement), `actions.ts`
+  (attachEnergy/playTrainer/evolve/retreatToBench/declareAttack/endTurn/promoteActive +
+  `processAction`), `effects.ts` (flipCoin, damage maths, effect parse/apply, resolveAttack),
+  `turns.ts` (applyEndTurn/applyStartOfTurn/Checkup/timeout/KO/Prize/victory), and `snapshots.ts`
+  (toSnapshot/applySnapshot/HIDDEN_CARD), with an `index.ts` barrel keeping the original engine
+  header and re-exporting everything so future `from './game-core'` imports (CP7-E-c) work
+  unchanged. The move was mechanical (a throwaway Node codemod sliced the original by line
+  ranges, then deleted), so every body is byte-identical except nine deliberate `export ` prefixes:
+  `logEvent`/`drawCards`/`inPlayOf`/`inPlayList`/`failure`/`checkTurn`/`tailLog` (helpers) and
+  `applyEndTurn`/`applyDeckOutLoss` (turns), which other modules call. Two cross-import seams:
+  actions → effects/turns, and effects ↔ turns (`flipCoin` vs
+  `performKo`/`prizesTaken`/`applyDeckOutLoss`) — function-declaration-only, safe under ESM
+  hoisting and documented in both module headers. No persisted schema, config, registry, view
+  state machine or wiring changed; diagram updates still land with CP7-E-e. Validation:
+  `npm run build` + `npm run lint` clean (0 warnings / 0 errors).
 
 
 
