@@ -1,14 +1,15 @@
 // Pokemon TCG B&B mini — peer-to-peer Build & Battle limited format.
-// CP6: deck builder. The opened pool (same seeded sequence as the ceremony)
-// renders as an include/exclude grid; legality comes from deck.ts, and the
-// deck-ready handshake (deckIds, one entry per copy) advances both seats to
-// the battle placeholder (engine lands in CP7).
+// CP7-E-c: the deck-ready handshake (deckIds, one entry per copy) feeds
+// beginBattle(), which runs setupBattle from the shared seed with both decks
+// resolved against the identical opened pool; the loading view holds for a
+// short beat (Tron's 500 ms pattern) before the battle view (E-d renders it).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getPreferredLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
 import { SettingsModal } from '../../settings'
 import type { CardDef, CardRarity, SetId } from './cards'
 import { buildPoolIsValid, type DeckLegalityReason } from './deck'
-import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage } from './net/protocol'
+import { STATUS_CONDITIONS, setupBattle, type BattleLogEntry, type BattleState, type SideState } from './game-core'
+import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
 import { openPacks, buildPool, type OpenedCard, type OpenedPool } from './pack'
 import { createRng, randomSeed } from './rng'
@@ -57,6 +58,79 @@ function errorKeyFor(code: string): TranslationKey {
   if (code === 'peer-unavailable') return 'pokemonBnb.errorPeerUnavailable'
   if (code === 'protocol-mismatch') return 'pokemonBnb.errorProtocolMismatch'
   return 'pokemonBnb.errorConnection'
+}
+
+/** Condition id -> translated label (battle panels and log params). */
+const CONDITION_LABEL_KEYS: Record<string, TranslationKey> = {
+  asleep: 'pokemonBnb.conditionAsleep',
+  paralyzed: 'pokemonBnb.conditionParalyzed',
+  confused: 'pokemonBnb.conditionConfused',
+  poisoned: 'pokemonBnb.conditionPoisoned',
+  burned: 'pokemonBnb.conditionBurned',
+}
+
+/** Engine win reason -> translated label (match-over banner). */
+const WIN_REASON_KEYS: Record<string, TranslationKey> = {
+  prizes: 'pokemonBnb.winReasonPrizes',
+  'deck-out': 'pokemonBnb.winReasonDeckOut',
+  'no-pokemon': 'pokemonBnb.winReasonNoPokemon',
+}
+
+type BattlePanelProps = {
+  heading: string
+  side: SideState
+  prizeTotal: number
+  /** The viewer's own panel lists its hand names; the foe's stays count-only. */
+  isSelf: boolean
+  t: (key: TranslationKey) => string
+  conditionLabel: (status: string) => string
+}
+
+/** One battle side panel: zone counters, Active line, bench, own hand. */
+function BattlePanel({ heading, side, prizeTotal, isSelf, t, conditionLabel }: BattlePanelProps) {
+  const active = side.active
+  const activeConditions: string[] = []
+  if (active) {
+    for (const status of STATUS_CONDITIONS) {
+      if (active.conditions[status]) activeConditions.push(conditionLabel(status))
+    }
+  }
+  return (
+    <section className={`bnb-side${isSelf ? ' bnb-side-self' : ' bnb-side-foe'}`}>
+      <header className="bnb-side-head">
+        <span className="bnb-side-name">{heading}</span>
+        <span className="bnb-side-zones">
+          {t('pokemonBnb.zoneHand')} {side.hand.length}
+          <span className="bnb-status-sep" aria-hidden="true">·</span>
+          {t('pokemonBnb.zoneDeck')} {side.deck.length}
+          <span className="bnb-status-sep" aria-hidden="true">·</span>
+          {t('pokemonBnb.zonePrizes')} {side.prizeCount}/{prizeTotal}
+          <span className="bnb-status-sep" aria-hidden="true">·</span>
+          {t('pokemonBnb.zoneDiscard')} {side.discard.length}
+        </span>
+      </header>
+      <div className="bnb-side-active">
+        {active
+          ? <>
+              <span className="bnb-side-card">{active.card.name}</span>
+              <span className="bnb-side-hp">{active.card.hp} HP</span>
+              {active.damage > 0 && <span className="bnb-side-dmg">−{active.damage}</span>}
+              <span className="bnb-side-energy">⚡{active.attachedEnergy.length}</span>
+              {activeConditions.length > 0 && <span className="bnb-side-conditions">{activeConditions.join(' / ')}</span>}
+            </>
+          : <span className="bnb-side-card">{t('pokemonBnb.zoneActive')}: —</span>}
+      </div>
+      <p className="bnb-side-bench">
+        <span className="bnb-side-bench-label">{t('pokemonBnb.zoneBench')}</span>
+        {side.bench.length > 0 ? side.bench.map((pokemon) => pokemon.card.name).join(' / ') : '—'}
+      </p>
+      {isSelf && side.hand.length > 0 && (
+        <div className="bnb-side-hand">
+          {side.hand.map((card, index) => <span key={`${card.id}-${index}`} className="bnb-hand-chip">{card.name}</span>)}
+        </div>
+      )}
+    </section>
+  )
 }
 
 type LobbyFieldsProps = {
@@ -142,6 +216,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const [opponentDeckReady, setOpponentDeckReady] = useState(false)
   const opponentDeckReadyRef = useRef(false)
   const deckReadyRef = useRef(false)
+  /** Opponent's deck-ready id list; kept until the next match reset. */
+  const opponentDeckIdsRef = useRef<string[] | null>(null)
+  /** Battle state for the current match (null until both decks are ready). */
+  const [battle, setBattle] = useState<BattleState | null>(null)
+  /** Last rejected action code from the engine; shown translated in-battle. */
+  const [battleError, setBattleError] = useState<string | null>(null)
   const sessionRef = useRef<SessionBase | null>(null)
   const roleRef = useRef<Role | null>(null)
   const settingsRef = useRef<LobbySettings>(settings)
@@ -150,6 +230,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const closingRef = useRef(false)
   const copyTimerRef = useRef<number | null>(null)
   const messageHandlerRef = useRef<(message: NetMessage) => void>(() => undefined)
+  const battleLogRef = useRef<HTMLOListElement | null>(null)
 
   const displayName = playerName.trim() || t('pokemonBnb.defaultName')
   const isHost = role === 'host'
@@ -229,6 +310,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     resetMatchStateRef.current?.()
   }, [])
 
+  const beginBattleRef = useRef<() => void>(() => {})
+
+  const beginBattle = useCallback(() => {
+    beginBattleRef.current?.()
+  }, [])
+
   const closeSession = useCallback(() => {
     sessionRef.current?.dispose()
     sessionRef.current = null
@@ -279,8 +366,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         // engine can set up the shared battle. Advance when both are ready.
         setOpponentDeckReady(true)
         opponentDeckReadyRef.current = true
+        opponentDeckIdsRef.current = [...message.deckIds]
         setNotice(null)
-        if (deckReadyRef.current) setView('loading')
+        if (deckReadyRef.current) {
+          setView('loading')
+          beginBattle()
+        }
         return
       }
       case 'leave': {
@@ -309,6 +400,27 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     settingsRef.current = settings
     nameRef.current = displayName
     messageHandlerRef.current = readMessage
+    // Fresh every render: setupBattle needs the final deckIds memo, the
+    // opponent's deck ids, the shared seed and the locked lobby settings.
+    beginBattleRef.current = () => {
+      if (matchSeed === null || opponentDeckIdsRef.current === null) return
+      const resolveDeck = (ids: string[]): CardDef[] => {
+        const defs: CardDef[] = []
+        for (const id of ids) {
+          const def = openedPool.cards.find((card) => card.id === id)
+          if (def) defs.push(def)
+        }
+        return defs
+      }
+      const myDeck = resolveDeck(deckIds)
+      const foeDeck = resolveDeck(opponentDeckIdsRef.current)
+      setBattle(setupBattle(
+        settingsRef.current,
+        roleRef.current === 'guest' ? foeDeck : myDeck,
+        roleRef.current === 'guest' ? myDeck : foeDeck,
+        matchSeed,
+      ))
+    }
   })
 
   // Re-announce our display name when it changes after the channel opens, so
@@ -356,8 +468,26 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       deckReadyRef.current = false
       setOpponentDeckReady(false)
       opponentDeckReadyRef.current = false
+      opponentDeckIdsRef.current = null
+      setBattle(null)
+      setBattleError(null)
     }
   }, [openingReady, opponentReady, deckReady, opponentDeckReady, openedPool])
+
+  // loading -> short beat -> playing (Tron's 500 ms pattern). The timer only
+  // starts once the battle state exists, so a failed setup cannot leave a
+  // seat staring at a battle that never renders.
+  useEffect(() => {
+    if (view !== 'loading' || battle === null) return
+    const timer = window.setTimeout(() => setView('playing'), 500)
+    return () => window.clearTimeout(timer)
+  }, [view, battle])
+
+  // Keep the newest battle-log entry visible when the strip overflows.
+  useEffect(() => {
+    const list = battleLogRef.current
+    if (list) list.scrollTop = list.scrollHeight
+  }, [battle?.log.length])
 
   /** Host a new lobby, or dial the typed code. Shared setup + callbacks. */
   const beginSession = (nextRole: Role) => {
@@ -475,7 +605,36 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     setDeckReady(true)
     deckReadyRef.current = true
     sessionRef.current?.send({ kind: 'deck-ready', deckIds })
-    if (opponentDeckReadyRef.current) setView('loading')
+    if (opponentDeckReadyRef.current) {
+      setView('loading')
+      beginBattle()
+    }
+  }
+
+  /** Seat display name: lobby names, falling back to the role labels. */
+  const seatName = (slot: PlayerSlot): string => {
+    if (role === slot) return displayName
+    if (opponentName) return opponentName
+    return t(slot === 'host' ? 'pokemonBnb.hostRole' : 'pokemonBnb.guestRole')
+  }
+  const conditionLabel = (status: string): string => {
+    const key = CONDITION_LABEL_KEYS[status]
+    return key ? t(key) : status
+  }
+  /** One structured log entry -> player-facing copy (params substituted). */
+  const logCopy = (entry: BattleLogEntry): string => {
+    const params: Record<string, string> = {}
+    for (const [name, value] of Object.entries(entry.params ?? {})) {
+      if (name === 'player') params[name] = seatName(value as PlayerSlot)
+      else if (name === 'status') params[name] = conditionLabel(String(value))
+      else params[name] = String(value)
+    }
+    return substituteParams(t(entry.key as TranslationKey), params)
+  }
+  /** Engine error code -> translated copy (kebab code -> camelCase key). */
+  const battleErrorCopy = (code: string): string => {
+    const camel = code.split('-').map((part, index) => (index === 0 ? part : part[0].toUpperCase() + part.slice(1))).join('')
+    return t(`pokemonBnb.error.${camel}` as TranslationKey)
   }
 
   const copyCode = () => {
@@ -733,8 +892,52 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     )
   }
 
-  // Placeholder seat for the flow after deck building (CP7 onward). It shows
-  // the locked-in match settings so both clients can verify they agree.
+  // CP7-E-d: the battle tabletop. Both seats render their own engine state;
+  // the opponent's hand stays a count-only line (privacy, per CP6) until the
+  // host-authoritative snapshots of CP9 replace this with toSnapshot views.
+  if (view === 'playing' && battle) {
+    const mySlot: PlayerSlot = role === 'guest' ? 'guest' : 'host'
+    const foeSlot: PlayerSlot = mySlot === 'host' ? 'guest' : 'host'
+    return (
+      <main className="bnb-page">
+        <header className="bnb-topbar">
+          <span className="bnb-hud-label">{t('pokemonBnb.title')}</span>
+          <div className="bnb-topbar-actions">
+            <button type="button" onClick={leaveLobby}>{t('pokemonBnb.leaveLobby')}</button>
+            <button type="button" onClick={onExit}>{t('pokemonBnb.exit')}</button>
+          </div>
+        </header>
+        <section className="bnb-battle">
+          <header className="bnb-battle-head">
+            <p className="bnb-battle-turn">{substituteParams(t('pokemonBnb.turnHeader'), { turn: String(battle.turn), player: seatName(battle.activePlayer) })}</p>
+            {battle.over && battle.winner && (
+              <p className="bnb-battle-banner" role="status">
+                <span>{t('pokemonBnb.matchOverTitle')}</span>
+                <span>{battle.winReason ? `${seatName(battle.winner)} · ${t(WIN_REASON_KEYS[battle.winReason])}` : seatName(battle.winner)}</span>
+              </p>
+            )}
+            {battle.pendingPromotion === mySlot && !battle.over && (
+              <p className="bnb-notice">{battleErrorCopy('must-promote')}</p>
+            )}
+          </header>
+          <div className="bnb-battle-main">
+            <div className="bnb-battle-table">
+              <BattlePanel heading={seatName(foeSlot)} side={battle[foeSlot]} prizeTotal={battle.prizeCards} isSelf={false} t={t} conditionLabel={conditionLabel} />
+              <BattlePanel heading={seatName(mySlot)} side={battle[mySlot]} prizeTotal={battle.prizeCards} isSelf t={t} conditionLabel={conditionLabel} />
+            </div>
+            <ol className="bnb-battle-log" ref={battleLogRef}>
+              {battle.log.slice(-24).map((entry, index) => <li key={`${entry.key}-${index}`}>{logCopy(entry)}</li>)}
+            </ol>
+          </div>
+          {battleError && <p className="bnb-error" role="alert">{battleErrorCopy(battleError)}</p>}
+        </section>
+      </main>
+    )
+  }
+
+  // Placeholder seat for the post-deck views the battle render does not cover
+  // yet (loading beat, pause, results). It shows the locked-in match settings
+  // so both clients can verify they agree.
   if (view === 'loading' || view === 'playing' || view === 'paused' || view === 'gameover' || view === 'victory' || view === 'highscore') {
     return (
       <main className="bnb-page">

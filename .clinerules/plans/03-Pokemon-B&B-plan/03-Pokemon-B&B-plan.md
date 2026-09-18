@@ -40,11 +40,11 @@
         the engine error-code copy (~26 `error.*` keys: not-your-turn, energy-limit, insufficient-energy,
         must-promote, view-only, …) and battle UI keys (turn header, zone labels, condition names,
         match-over banner) to en/ms/zh + the `PkmBnbTranslationKey` union; keep 3-way key parity.
-  - [ ] **CP7-E-c** — component wiring only in `PokemonBnbGame.tsx`: store the opponent's
+  - [x] **CP7-E-c** — component wiring only in `PokemonBnbGame.tsx`: store the opponent's
         `deck-ready` ids, `beginBattle()` from both ready paths (`setupBattle` with the shared
         seed, deck ids resolved to CardDefs from the shared pool), reset clears the battle,
         `loading` → short timer → `playing` (Tron's 500 ms effect pattern).
-  - [ ] **CP7-E-d** — battle render + CSS in `PokemonBnbGame.css`: turn header (whose turn,
+  - [x] **CP7-E-d** — battle render + CSS in `PokemonBnbGame.css`: turn header (whose turn,
         turn #), side panels (active card name/HP/damage/energy/conditions, bench, hand/deck/
         prizes/discard counts), translated log strip (params substituted, seat display names),
         error-code → translated copy helper; 960x540 embed cap + landscape breakpoint.
@@ -509,6 +509,42 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   missing keys, and exact engine coverage (33/33 log keys, 26/26 error codes) in all three
   dictionaries; `npm run build` + `npm run lint` clean (0 warnings / 0 errors). No component,
   schema, registry, view-state or diagram changes.
+
+- **CP7-E-c (done).** Battle wiring in `PokemonBnbGame.tsx` (+56/−6). `beginBattle()` follows the
+  component's ref-called-implementation pattern (`beginBattleRef` assigned in the always-run
+  ref-sync effect, so the stable data-channel handler and `markDeckReady` call it without
+  definition-order hazards): it resolves both deck-id lists against the shared `openedPool`
+  (ids → `CardDef`), maps seats via `roleRef` (guest's deck is the engine's `guestDeck`), and runs
+  `setupBattle(settingsRef.current, hostDeck, guestDeck, matchSeed)` into a new `battle` state —
+  no battle data crosses the wire; both seats derive the identical state from the shared seed.
+  The `deck-ready` handler now stores the opponent's ids in `opponentDeckIdsRef` (cleared by
+  `resetMatchState`, which also nulls `battle`), and both both-ready paths (peer-first via
+  `readMessage`, self-first via `markDeckReady`) advance `loading` + call `beginBattle()`.
+  `loading → playing` uses Tron's exact 500 ms timeout effect, guarded on `battle !== null` so a
+  failed setup can never strand a seat (defensive; the handshake makes it unreachable). Render is
+  untouched — the loading/playing placeholder stays until CP7-E-d. Validation: `npm run build` +
+  `npm run lint` clean (0 warnings / 0 errors); bundle +~14 kB from the engine now being imported
+  by the component (expected). No schema, registry, CSS, or diagram changes.
+
+- **CP7-E-d (done).** Battle render + CSS. `PokemonBnbGame.tsx`: a `view === 'playing' && battle`
+  branch renders the tabletop — turn header (turn number + active seat), two `BattlePanel` side
+  panels (zone counters hand/deck/prizes {remaining}/{total}/discard, Active line with name, HP,
+  damage, attached-Energy count and translated condition names, bench names, and the viewer's own
+  hand as name chips), a translated log strip (last 24 entries, auto-scrolled to the newest via a
+  ref + effect), and the match-over banner (winner + translated win reason). Log translation
+  substitutes `{player}` with the lobby display names (fallback `hostRole`/`guestRole`) and
+  `{status}` with the translated condition label; card/attack text stays verbatim data. The
+  opponent's hand stays count-only (CP6 privacy) until CP9's `toSnapshot` views. New
+  `battleError` state (cleared by `resetMatchState`) displays engine error codes through
+  `battleErrorCopy` (kebab code -> camelCase `pokemonBnb.error.*` key), currently surfaced for the
+  `must-promote` gate notice and ready for CP8/CP7-F actions. Damage/energy use `−n`/`⚡n`
+  glyph+number chips (no English words), so no new keys were needed beyond CP7-E-b's set.
+  `PokemonBnbGame.css`: `bnb-battle*`/`bnb-side*` styles with the stage at `min(100%, 960px)` +
+  `aspect-ratio: 16/9`, the shared landscape breakpoint (`height: min(calc(100dvh - 96px),
+  calc(100vw * .5625))`, safe-area handled by `.bnb-page`), and a ≤520px portrait query stacking
+  panels with a clamped log strip. Validation: `npm run build` + `npm run lint` clean (0 warnings
+  / 0 errors). No schema, registry, or diagram changes (architecture-flow engine layout lands
+  with CP7-E-e).
 
 
 
