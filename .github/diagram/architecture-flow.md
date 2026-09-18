@@ -19,6 +19,7 @@ flowchart TD
         start --> registry["games/index.ts — GameDefinition[]"]
         registry --> bubble["bubble-trouble/BubbleTroubleGame.tsx"]
         registry --> tron["tron/TronGame.tsx"]
+        registry --> pokemonBnb["pokemon-bnb/PokemonBnbGame.tsx"]
     end
 
     subgraph GAME_LOOP["Bubble Trouble runtime"]
@@ -40,9 +41,18 @@ flowchart TD
         tron --> tronHs["tron/highscores.ts"]
     end
 
+    subgraph POKEMON["Pokemon TCG B&B mini runtime"]
+        pokemonBnb -->|"hello / lobby-update / lobby-start with shared seed / opening-ready / deck-ready ids / leave"| peer["pokemon-bnb/net: peer.ts createHost / joinHost (PeerJS Cloud default or self-hosted server) + protocol.ts message envelope and LobbySettings"]
+        peer -->|"onMessage handler (single stable closure via refs)"| pokemonBnb
+        pokemonBnb -->|"openPacks(cards, pack, seed) — deterministic, identical pool on both seats"| data["pokemon-bnb data: sets.ts / cards.ts / rng.ts seeded xorshift32 / pack.ts / deck.ts legality"]
+        pokemonBnb -->|"deck-ready ids resolved against the shared pool -> setupBattle(settings, hostDeck, guestDeck, seed)"| engine["game-core/ module folder — index barrel re-exports<br/>constants / types / helpers / setup / actions / effects / turns / snapshots (pure, no React / DOM / network)"]
+        engine -->|"BattleState -> tabletop render: turn header, side panels, translated log strip"| pokemonBnb
+    end
+
     subgraph STATE["View state machine"]
         bubble -->|"View union"| views["start / tutorial / loading / playing / paused / remap / gameover / victory / highscore"]
         tron -->|"View union"| tronViews["start / tutorial / loading / playing / paused / gameover / victory / highscore (round-over is an overlay sub-state of playing; stick remap is an in-pause overlay, not a view)"]
+        pokemonBnb -->|"View union"| pkmViews["start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused / gameover / victory / highscore (battle tabletop renders from playing; paused + results are placeholders until CP8 / CP10)"]
     end
 
     subgraph PERSIST["Data & persistence layer"]
@@ -118,6 +128,32 @@ flowchart LR
 > automatically on entry to `victory` (once per match, under the winner's
 > display name set on the start screen). Forfeits, tied rounds, and wins by a
 > bot seat record nothing.
+
+## Pokemon B&B mini view state machine (ephemeral runtime flow)
+
+`paused`, `gameover`, `victory`, and `highscore` are placeholder views until
+CP8 (battle interactions + pause) and CP10 (results + highscores); the battle
+tabletop renders from `playing` once both deck-ready handshakes have run
+`beginBattle()`. `leaveLobby()` returns to `start` from every view. From CP9
+the guest renders the battle from host snapshots (`toSnapshot` / `applySnapshot`)
+instead of its own engine state.
+
+```mermaid
+flowchart LR
+    PSTART["view: start"] --> PTUTORIAL["tutorial"]
+    PTUTORIAL -->|"finish / skip"| PSTART
+    PSTART -->|"create lobby (host)"| PLOBBY["lobby"]
+    PSTART -->|"join by code"| PJOIN["lobbyJoin"]
+    PJOIN -->|"data channel opens"| PLOBBY
+    PLOBBY -->|"leaveLobby()"| PSTART
+    PLOBBY -->|"host startMatch() broadcasts lobby-start (seed + settings)"| POPENING["opening"]
+    POPENING -->|"opening-ready handshake: both ready"| PDECK["deck"]
+    PDECK -->|"deck-ready handshake: both ready -> beginBattle() runs setupBattle from the shared seed"| PLOADING["loading (500ms)"]
+    PLOADING -->|"battle built"| PPLAYING["playing (battle tabletop)"]
+    PPAUSED["paused"] -.->|"resume (CP8)"| PPLAYING
+    PPLAYING -.->|"pause (CP8)"| PPAUSED
+    PPLAYING -.->|"victory / gameover / highscore (CP10)"| PRESULTS["victory / gameover / highscore"]
+```
 
 ## Persistence call sites
 

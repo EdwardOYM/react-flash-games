@@ -48,7 +48,7 @@
         turn #), side panels (active card name/HP/damage/energy/conditions, bench, hand/deck/
         prizes/discard counts), translated log strip (params substituted, seat display names),
         error-code → translated copy helper; 960x540 embed cap + landscape breakpoint.
-  - [ ] **CP7-E-e** — update `.github/diagram/architecture-flow.md` (engine module layout +
+  - [x] **CP7-E-e** — update `.github/diagram/architecture-flow.md` (engine module layout +
         `loading → playing` transition in the view state machine), mark E-a…E-e done.
   - [ ] **CP7-F** — `?local=1` hot-seat harness (validation only, not player-facing).
   - [ ] **CP7-G** — validate (`npm run build` + `npm run lint` + key-parity + determinism note).
@@ -545,6 +545,21 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   panels with a clamped log strip. Validation: `npm run build` + `npm run lint` clean (0 warnings
   / 0 errors). No schema, registry, or diagram changes (architecture-flow engine layout lands
   with CP7-E-e).
+
+- **CP7-E-e (done).** `.github/diagram/architecture-flow.md` synced with CP7-E: the hub registry
+  now routes to `pokemon-bnb/PokemonBnbGame.tsx`; a new "Pokemon TCG B&B mini runtime" subgraph
+  documents the P2P peer layer (peer.ts/protocol.ts, single stable onMessage closure), the seeded
+  data modules (sets/cards/rng/pack/deck — deterministic identical pool), and the engine module
+  layout (`game-core/` index barrel over constants / types / helpers / setup / actions / effects /
+  turns / snapshots, pure, no React/DOM/network) fed by `deck-ready` ids resolved against the
+  shared pool into `setupBattle(settings, hostDeck, guestDeck, seed)`; the STATE subgraph gained
+  the pokemon view union; and a new "Pokemon B&B mini view state machine" section documents
+  start → tutorial / lobby / lobbyJoin → opening → deck → loading (500 ms) → playing, with
+  dashed CP8/CP10 transitions for pause and results, the leaveLobby escape, and the CP9 note that
+  guests will render from host snapshots. Persistence call-site table unchanged — the pokemon
+  game performs no config I/O yet (highscore/persistLocale wiring is CP10 and will add its rows
+  then). Validation: `npm run build` + `npm run lint` clean (0 warnings / 0 errors). CP7-E
+  sub-step E-a…E-e all complete; CP7 continues at CP7-F.
 
 
 
