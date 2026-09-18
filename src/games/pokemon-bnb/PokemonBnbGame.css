@@ -120,3 +120,14 @@
   .bnb-battle-main { grid-template-columns: 1fr; }
   .bnb-battle-log { max-height: clamp(120px, 26vh, 220px); }
 }
+
+/* CP7-F dev harness (?local=1): plain technical controls, dev/QA only. */
+.bnb-battle-harness { display: flex; flex-direction: column; gap: 6px; }
+.bnb-battle-harness-seats { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.bnb-harness-seat { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 8px 10px; border: 1px solid #33454a; }
+.bnb-harness-seat legend { padding: 0 6px; }
+.bnb-harness-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.bnb-harness-row button { padding: 6px 9px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .62rem; cursor: pointer; }
+.bnb-harness-row button:hover { border-color: #ffc857; color: #ffc857; }
+.bnb-harness-row button:disabled { border-color: #33454a; color: #5d6f72; cursor: not-allowed; }
+.bnb-harness-select { max-width: 180px; padding: 6px 8px; border: 1px solid #50676a; color: #f5f0e8; background: #16222a; font-family: 'DM Mono', monospace; font-size: .64rem; }

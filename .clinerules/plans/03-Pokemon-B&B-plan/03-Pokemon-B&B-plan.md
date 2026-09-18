@@ -50,7 +50,7 @@
         error-code → translated copy helper; 960x540 embed cap + landscape breakpoint.
   - [x] **CP7-E-e** — update `.github/diagram/architecture-flow.md` (engine module layout +
         `loading → playing` transition in the view state machine), mark E-a…E-e done.
-  - [ ] **CP7-F** — `?local=1` hot-seat harness (validation only, not player-facing).
+  - [x] **CP7-F** — `?local=1` hot-seat harness (validation only, not player-facing).
   - [ ] **CP7-G** — validate (`npm run build` + `npm run lint` + key-parity + determinism note).
 
 <!--
@@ -560,6 +560,22 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   game performs no config I/O yet (highscore/persistLocale wiring is CP10 and will add its rows
   then). Validation: `npm run build` + `npm run lint` clean (0 warnings / 0 errors). CP7-E
   sub-step E-a…E-e all complete; CP7 continues at CP7-F.
+
+- **CP7-F (done).** `?local=1` hot-seat harness in `PokemonBnbGame.tsx` (+~120 lines) + CSS —
+  dev/QA only, invisible without the URL param. `localMode` (memoized URLSearchParams read) plus
+  a once-per-load mount effect calls `beginLocalBattle()`: it skips the lobby/peer session
+  entirely, builds both seats the same deck from a fresh-seed max-packs `openPacks` pool, runs
+  `setupBattle(settingsRef.current, deck, deck, seed)` and enters `playing` on one screen. A
+  `LocalSeatControls` strip per seat drives the engine through `processAction` (attachEnergy with
+  hand + active/bench selects, playTrainer, evolve, retreatToBench, promoteActive gated on
+  `pendingPromotion`, endTurn, and one button per Active attack) — exercising every CP7-B/C/D
+  sub-phase, KO/prize/promotion, deck-out, timeout and both victory paths before CP8's real
+  interactions land. Engine rejections surface through the existing translated `battleError`
+  slot; buttons intentionally carry the technical action ids (dev identifiers, not player copy),
+  while selects use the translated zone labels. Harness styles are scoped (`bnb-harness-*`), and
+  the harness block may overflow the 16:9 stage by design (desktop page scrolls; the stage itself
+  is untouched). Validation: `npm run build` + `npm run lint` clean (0 warnings / 0 errors).
+  CP7 continues at CP7-G (final validation).
 
 
 

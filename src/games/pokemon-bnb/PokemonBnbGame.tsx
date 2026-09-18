@@ -8,7 +8,7 @@ import { getPreferredLocale, type Locale, type TranslationKey, useTranslations }
 import { SettingsModal } from '../../settings'
 import type { CardDef, CardRarity, SetId } from './cards'
 import { buildPoolIsValid, type DeckLegalityReason } from './deck'
-import { STATUS_CONDITIONS, setupBattle, type BattleLogEntry, type BattleState, type SideState } from './game-core'
+import { STATUS_CONDITIONS, processAction, setupBattle, type BattleAction, type BattleLogEntry, type BattleState, type SideState } from './game-core'
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
 import { openPacks, buildPool, type OpenedCard, type OpenedPool } from './pack'
@@ -133,6 +133,58 @@ function BattlePanel({ heading, side, prizeTotal, isSelf, t, conditionLabel }: B
   )
 }
 
+type LocalSeatControlsProps = {
+  actor: PlayerSlot
+  side: SideState
+  promotionPending: boolean
+  onAction: (action: BattleAction) => void
+  t: (key: TranslationKey) => string
+}
+
+/**
+ * CP7-F dev harness: one seat's manual controls for the `?local=1` hot-seat
+ * battle. Buttons carry the technical action ids on purpose (dev/QA only,
+ * never shown to normal players); the target select uses translated zone
+ * labels. Engine rejections surface through the translated error slot.
+ */
+function LocalSeatControls({ actor, side, promotionPending, onAction, t }: LocalSeatControlsProps) {
+  const [handIndex, setHandIndex] = useState(0)
+  const [target, setTarget] = useState<'active' | number>('active')
+  const safeIndex = Math.min(handIndex, Math.max(side.hand.length - 1, 0))
+  const active = side.active
+  return (
+    <fieldset className="bnb-harness-seat">
+      <legend className="bnb-side-name">{actor}</legend>
+      <div className="bnb-harness-row">
+        <select className="bnb-harness-select" value={safeIndex} onChange={(event) => setHandIndex(Number(event.target.value))}>
+          {side.hand.map((card, index) => <option key={`${card.id}-${index}`} value={index}>{card.name}</option>)}
+        </select>
+        <select className="bnb-harness-select" value={String(target)} onChange={(event) => setTarget(event.target.value === 'active' ? 'active' : Number(event.target.value))}>
+          <option value="active">{t('pokemonBnb.zoneActive')}</option>
+          {side.bench.map((_, index) => <option key={index} value={index}>{t('pokemonBnb.zoneBench')} {index + 1}</option>)}
+        </select>
+      </div>
+      <div className="bnb-harness-row">
+        <button type="button" onClick={() => onAction({ type: 'attachEnergy', handIndex: safeIndex, target })}>attachEnergy</button>
+        <button type="button" onClick={() => onAction({ type: 'playTrainer', handIndex: safeIndex })}>playTrainer</button>
+        <button type="button" onClick={() => onAction({ type: 'evolve', handIndex: safeIndex, target })}>evolve</button>
+      </div>
+      <div className="bnb-harness-row">
+        <button type="button" onClick={() => onAction({ type: 'retreatToBench', benchIndex: 0 })}>retreatToBench</button>
+        <button type="button" disabled={!promotionPending} onClick={() => onAction({ type: 'promoteActive', benchIndex: 0 })}>promoteActive</button>
+        <button type="button" onClick={() => onAction({ type: 'endTurn' })}>endTurn</button>
+      </div>
+      {active && (
+        <div className="bnb-harness-row">
+          {active.card.attacks.map((attack, attackIndex) => (
+            <button key={`${attack.name}-${attackIndex}`} type="button" onClick={() => onAction({ type: 'useAttack', attackIndex })}>{attack.name}</button>
+          ))}
+        </div>
+      )}
+    </fieldset>
+  )
+}
+
 type LobbyFieldsProps = {
   settings: LobbySettings
   /** Only the host edits; guests see the same fields read-only. */
@@ -235,6 +287,13 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const displayName = playerName.trim() || t('pokemonBnb.defaultName')
   const isHost = role === 'host'
 
+  /** CP7-F dev harness: `?local=1` hot-seat battle (dev/QA only). */
+  const localMode = useMemo(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('local') === '1',
+    [],
+  )
+  const localStartedRef = useRef(false)
+
   /**
    * The seeded opening pool, shared by both seats. Same seed + settings +
    * set data yields the identical card sequence on every peer, so the pools
@@ -314,6 +373,20 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
 
   const beginBattle = useCallback(() => {
     beginBattleRef.current?.()
+  }, [])
+
+  /**
+   * CP7-F dev harness: start a hot-seat battle without a peer. Both seats get
+   * the same max-pack pool deck from a fresh seed; the match runs entirely on
+   * this client through processAction (never touches the peer session).
+   */
+  const beginLocalBattle = useCallback(() => {
+    const entry = getSet(settingsRef.current.set)
+    if (!entry) return
+    const seed = randomSeed()
+    const deck: CardDef[] = openPacks(entry.data.cards, entry.pack, LOBBY_LIMITS.maxPacks, createRng(seed)).map((opened) => opened.card)
+    setBattle(setupBattle(settingsRef.current, deck, deck, seed))
+    setView('playing')
   }, [])
 
   const closeSession = useCallback(() => {
@@ -489,6 +562,14 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     if (list) list.scrollTop = list.scrollHeight
   }, [battle?.log.length])
 
+  // CP7-F dev harness: `?local=1` skips the lobby entirely and starts a
+  // hot-seat battle once per page load.
+  useEffect(() => {
+    if (!localMode || localStartedRef.current) return
+    localStartedRef.current = true
+    beginLocalBattle()
+  }, [localMode, beginLocalBattle])
+
   /** Host a new lobby, or dial the typed code. Shared setup + callbacks. */
   const beginSession = (nextRole: Role) => {
     const server = parseServerAddress(serverInput)
@@ -635,6 +716,14 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const battleErrorCopy = (code: string): string => {
     const camel = code.split('-').map((part, index) => (index === 0 ? part : part[0].toUpperCase() + part.slice(1))).join('')
     return t(`pokemonBnb.error.${camel}` as TranslationKey)
+  }
+
+  /** CP7-F dev harness: drive the engine directly; rejections surface translated. */
+  const runLocalAction = (actor: PlayerSlot, action: BattleAction) => {
+    if (!battle) return
+    const result = processAction(battle, actor, action)
+    setBattle(result.state)
+    setBattleError(result.error ?? null)
   }
 
   const copyCode = () => {
@@ -929,6 +1018,23 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               {battle.log.slice(-24).map((entry, index) => <li key={`${entry.key}-${index}`}>{logCopy(entry)}</li>)}
             </ol>
           </div>
+          {localMode && (
+            <div className="bnb-battle-harness">
+              <p className="bnb-hint">?local=1</p>
+              <div className="bnb-battle-harness-seats">
+                {(['host', 'guest'] as const).map((actor) => (
+                  <LocalSeatControls
+                    key={actor}
+                    actor={actor}
+                    side={battle[actor]}
+                    promotionPending={battle.pendingPromotion === actor}
+                    onAction={(action) => runLocalAction(actor, action)}
+                    t={t}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
           {battleError && <p className="bnb-error" role="alert">{battleErrorCopy(battleError)}</p>}
         </section>
       </main>
