@@ -37,6 +37,33 @@ before reading code, asking questions, editing files, or running commands.
 - Then **stop**. Do not start the next checkpoint until the user replies "next" (or equivalent).
 - If interrupted, re-read the plan, confirm the last completed step in Progress, and continue from there.
 
+## Cline tool-usage discipline (always — prevents false-claim defects)
+
+> Before reporting any file as created or edited, confirm the tool actually executed it and the artifact
+> exists on disk. Every defect so far came from *claiming* a change before *verifying* it.
+
+- **Create before claim.** A file is not "created" until an `editor` (create) or `editor` (insert) call
+  returns success for that exact path. If the tool returned an error, the file was not created — say so
+  plainly and fix, do not describe what was intended.
+- **Edit before claim.** A file is not "edited" until an `editor` edit call returns success for that
+  exact path and `old_text`. After editing, **re-read the file** (or `git diff -- <path>`) to confirm
+  the change landed. If the tool returned no diff, nothing changed — say so and fix.
+- **Verify on disk before summary.** After any edit or file creation, run a bounded inspection
+  (`Get-ChildItem -Path ... -Name` / `git --no-pager status --short` / `git --no-pager diff --stat`)
+  to confirm the path now exists and is staged/changed as expected. A summary that claims a file was
+  created while `git status` shows it absent is a defect.
+- **One artifact per tool call.** If you edit multiple files or multiple regions of one file, emit each
+  `editor` call separately (parallel only when regions are non-overlapping). Do not bundle unrelated
+  replacements into one call; a failure in one edit must not be masked by success in another.
+- **Match `old_text` to current disk content — never to memory.** Re-read the file if there is any doubt.
+  An edit that returns "no match" means no change was made; retry against fresh content, do not
+  pretend it succeeded.
+- **Parallel independence check.** When batching `read_files`, `search_codebase`, or `run_commands`:
+  each call must be genuinely independent (no read depending on a write from a sibling call in the same batch).
+  If a later call depends on the *result* of an earlier one, it must run in a later message, not the same batch.
+- **No ghost files.** Never describe a file as created/edited that did not appear in the tool results
+  for this turn. "I created X" without an `editor` result for X in this turn is a defect.
+
 ## Tool-use discipline (always)
 
 - Read a file before editing it; do not guess its contents from memory or a stale summary.
