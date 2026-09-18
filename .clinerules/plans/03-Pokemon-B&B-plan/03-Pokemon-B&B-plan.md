@@ -21,7 +21,7 @@
   - [x] **CP7-0** — Break down CP7 into implementation sub-steps (CP7-A through CP7-G) + confirm rulebook sources & card-data model.
   - [x] **CP7-A** — engine types + rulebook constants + `setupBattle` + mulligan.
   - [x] **CP7-B** — action dispatcher + turn manipulation sub-phases (`attachEnergy`, `playTrainer`, `evolve`, `retreatToBench`, `useAttack`, `endTurn`).
-  - [ ] **CP7-C** — attacks + effect parser + damage + KO/prize/victory.
+  - [x] **CP7-C** — attacks + effect parser + damage + KO/prize/victory.
   - [ ] **CP7-D** — turn lifecycle + statuses + timer + snapshots (`toSnapshot`/`applySnapshot`/`applyTimeout`).
   - [ ] **CP7-E** — wire `PokemonBnbGame.tsx`: `loading` → `playing` transition + `BattleState` state.
   - [ ] **CP7-F** — `?local=1` hot-seat harness (validation only, not player-facing).
@@ -378,6 +378,43 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   with `turn` starting at 0, setup Pokemon carrying `energyAttachedTurn`/`retreatedTurn` sentinels of
   `0` made every once-per-turn action fail on the first turn. Harness deleted after the run (the repo
   has no test runner); it can be re-added as a committed script on request.
+- **CP7-C (done).** Damage, effects, KO, Prizes and victory in `game-core.ts`.
+  `parseWeaknessValue` / `parseResistanceValue` (the names and `{ multiplier, reduction }` shape the
+  CP7-0 decision notes specify) replaced the earlier `weaknessMultiplier` / `resistanceReduction`;
+  both default to ×2 / −0 and now report unreadable values through
+  `pokemonBnb.log.unreadableWeakness` / `…Resistance` so a fallback is never silent.
+  `computeAttackDamage` applies the defender's weakness entry matching the attacker's type, then
+  resistance, floored at 0. `parseAttackEffects` + `applyEffect` resolve card text; `resolveAttack`
+  runs the pipeline in order (damage modifiers → Weakness/Resistance → damage → non-damage clauses →
+  Knock Out) and is called from `declareAttack`. `performKo` / `takePrizeCard` / `checkVictory` /
+  `prizesTaken` implement the rulebook order (KO'd Pokemon + attachments to discard, attacker takes
+  one Prize, then the KO'd player promotes), with deck-out defeat wired into `applyStartOfTurn`. A
+  KO blocks every other action until the KO'd side promotes via the new `promoteActive` action, so
+  there is no dead end; an empty bench loses immediately. Coin flips are seeded
+  (`createRng(seed + rngDraws)`) so both peers agree.
+  **Two findings that change the plan's premises, both verified against the data:**
+  1. **`cards.json` contains no `effectId` field at all (0 occurrences)**, so the plan's
+     `applyEffect(effectId, targets)` cannot be keyed by data id. Effects are recognised from the
+     verbatim text instead. `applyEffect` keeps the plan's name but takes `(state, effect, context)`
+     because clauses mutate zones and coin gates need the seeded rng.
+  2. **Effect coverage is low and must not be overstated**: of 154 attacks carrying effect text,
+     **35 are fully recognised, 3 partially, and 116 not at all**; **23 cards declare abilities that
+     remain unimplemented** (no action can trigger one and no CP7 sub-step covers them). Unsupported
+     text logs `pokemonBnb.log.effectUnsupported` instead of guessing — deliberately, because a wrong
+     effect is worse than a missing one (conditional clauses such as "for each Water Energy attached"
+     and "If this Pokemon has any Lightning Energy" are downgraded, never applied unconditionally).
+    Self-Knock-Out sources (attack recoil, Confusion self-hit, Poison/Burn at Checkup) are excluded
+    from CP7-C because they can KO the attacker during its own turn and need the promotion-timing
+    design that arrives with statuses in CP7-D.
+  Validation: `npm run build` + `npm run lint` clean (0 warnings / 0 errors), plus a throwaway Node
+  harness (esbuild-bundled engine, **87 assertions, all passing**) covering the parsers, damage
+  maths, Weakness/Resistance ordering, effect parsing and downgrades, KO/discard/Prize/promotion
+  flow, the `must-promote` gate, all three victory conditions, and the unreadable-value fallback.
+  Both harnesses were deleted after the run. Two harness fixture bugs surfaced during validation
+  (a `grass`-weak defender against a `darkness` attacker, and per-turn flags not reset between
+  cases); the engine was correct in every case — it rejected the stale attacks as `already-attacked`.
+  No persisted schema, default config, registry, view state machine or module wiring changed, so the
+  `.github/diagram/*` files still need no update at this checkpoint (that lands with CP7-E).
 
 
 

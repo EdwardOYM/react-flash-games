@@ -18,15 +18,26 @@
 // - `state.log` holds structured `{ key, params }` entries, never English copy:
 //   the log strip is player-facing status text, so templates are translated in
 //   the UI while card names stay verbatim data.
-// - CP7-B validates attacks but does not yet damage: damage, effects, KO,
-//   prizes and victory land at the marked seam inside `declareAttack` (CP7-C).
-//   (Named `declareAttack`, not the plan's `useAttack`, because the `use`
-//   prefix trips the repo's `react/rules-of-hooks` error; it is not a hook.)
+// - Attacks resolve through `resolveAttack`: damage modifiers, Weakness and
+//   Resistance (parsed from the verbatim value strings), damage, card-text
+//   clauses, then the Knock Out. (Named `declareAttack`, not the plan's
+//   `useAttack`, because the `use` prefix trips the repo's
+//   `react/rules-of-hooks` error; it is not a hook.)
+// - `applyEffect` is pattern-driven because 30C card data carries no `effectId`
+//   field at all (verified: 0 occurrences in cards.json) while 154 of its
+//   attacks have effect text. Unsupported text logs
+//   `pokemonBnb.log.effectUnsupported` instead of guessing, so coverage gaps
+//   stay visible rather than silently wrong.
+// - A Knock Out blocks every other action until the KO'd side promotes a
+//   benched Pokemon via `promoteActive`; an empty bench loses the match.
+// - Not yet implemented: abilities (23 cards declare them, but no action can
+//   trigger one), self-Knock-Out sources, and turn-locked / damage-prevention
+//   clauses (they are logged as unsupported).
 //
 // Rulebook sources: Pokemon TCG Rulebook (pokemon.com), Bulbapedia "Rulings",
 // "Pokemon Checkup", and "Setting Up to Play" articles.
 
-import type { CardDef, CardType, EnergyCardDef, PokemonCardDef } from './cards'
+import type { AttackDef, CardDef, CardType, EnergyCardDef, PokemonCardDef } from './cards'
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer } from './cards'
 import type { LobbySettings, PlayerSlot } from './net/protocol'
 import { createRng, shuffleCards, type Rng, randomInt } from './rng'
@@ -118,6 +129,8 @@ export type BattleState = {
   seed: number
   prizeCards: number
   timerSeconds: number
+  /** Side that must choose a new Active after a KO before anything else. */
+  pendingPromotion: PlayerSlot | null
   /** True once the current turn's start step (draw + flag reset) has run. */
   turnStarted: boolean
   log: BattleLogEntry[]
@@ -155,6 +168,7 @@ export type BattleAction =
   | { type: 'evolve'; handIndex: number; target: 'active' | number }
   | { type: 'retreatToBench'; benchIndex: number }
   | { type: 'useAttack'; attackIndex: number }
+  | { type: 'promoteActive'; benchIndex: number }
   | { type: 'endTurn' }
 
 export type ActionResult = { state: BattleState; log: BattleLogEntry[]; error?: string }
@@ -178,23 +192,30 @@ function logEvent(state: BattleState, key: string, params?: Record<string, strin
 }
 
 /**
- * Weakness multiplier from the verbatim card-data value string.
- * "×2" -> 2, "×3" -> 3, anything else -> 1 (no weakness).
- * Future sets use the same shape and need no engine changes.
+ * Weakness from the verbatim card-data value string ("×2", "×3").
+ * Unparseable values fall back to the rulebook's common ×2; the damage step
+ * emits a log note so the fallback is never silent.
  */
-export function weaknessMultiplier(value: string): number {
-  if (value.includes('×3')) return 3
-  if (value.includes('×')) return 2
-  return 1
+export function parseWeaknessValue(value: string): { multiplier: number; reduction: number } {
+  const match = value.match(/(\d+)/)
+  if (!match) return { multiplier: 2, reduction: 0 }
+  return { multiplier: Number(match[1]), reduction: 0 }
 }
 
 /**
- * Resistance reduction from the verbatim card-data value string.
- * "-30" -> 30, "-20" -> 20, anything else -> 0.
+ * Resistance from the verbatim card-data value string ("-30", "-20").
+ * Unparseable values fall back to no reduction (0).
  */
-export function resistanceReduction(value: string): number {
-  const match = value.match(/-(\d+)/)
-  return match ? Number(match[1]) : 0
+export function parseResistanceValue(value: string): { multiplier: number; reduction: number } {
+  const match = value.match(/-\s*(\d+)/)
+  if (!match) return { multiplier: 1, reduction: 0 }
+  return { multiplier: 1, reduction: Number(match[1]) }
+}
+
+/** True when a weakness/resistance value string could not be read as a number. */
+export function isUnreadableDamageValue(value: string, kind: 'weakness' | 'resistance'): boolean {
+  const pattern = kind === 'weakness' ? /(\d+)/ : /-\s*(\d+)/
+  return !pattern.test(value)
 }
 
 function makeInPlay(card: PokemonCardDef, enteredTurn: number): InPlayPokemon {
@@ -341,6 +362,7 @@ export function setupBattle(
     seed,
     prizeCards: settings.prizeCards,
     timerSeconds: settings.timerSeconds,
+    pendingPromotion: null,
     turnStarted: false,
     log: [],
     rngDraws: 0,
@@ -642,8 +664,11 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
   side.attackedThisTurn = true
   logEvent(next, 'pokemonBnb.log.attack', { player: actor, card: active.card.name, attack: attack.name })
 
-  // CP7-C seam: apply damage / effects / KO / prizes / victory to `next` here.
-  const closed = applyEndTurn(next, actor)
+  // CP7-C: damage, Weakness/Resistance, card-text clauses, KO, Prizes, victory.
+  resolveAttack(next, actor, attack, parseAttackEffects(attack.text))
+
+  // Attacking ends the turn, unless the attack already ended the match.
+  const closed = next.over ? next : applyEndTurn(next, actor)
   return { state: closed, log: tailLog(closed, logStart) }
 }
 
@@ -675,8 +700,8 @@ function applyEndTurn(state: BattleState, actor: PlayerSlot): BattleState {
  * caller runs it once after `setupBattle`, and `endTurn` runs it thereafter.
  *
  * Special-condition timing (Poison/Burn damage, Asleep/Paralyzed wake checks,
- * Confused self-hit) is added by CP7-D. Deck-out defeat is CP7-C; here it only
- * records a log entry.
+ * Confused self-hit) is added by CP7-D. Failing to draw is an immediate
+ * deck-out defeat, settled by `applyDeckOutLoss`.
  */
 export function applyStartOfTurn(state: BattleState): BattleState {
   if (state.over || state.turnStarted) return state
@@ -693,9 +718,7 @@ export function applyStartOfTurn(state: BattleState): BattleState {
   state.phase = 'main'
   state.turnStarted = true
   logEvent(state, 'pokemonBnb.log.turnStart', { player: state.activePlayer, turn: state.turn })
-  if (drawCards(side, 1).length === 0) {
-    logEvent(state, 'pokemonBnb.log.deckOut', { player: state.activePlayer })
-  }
+  if (drawCards(side, 1).length === 0) applyDeckOutLoss(state, state.activePlayer)
   return state
 }
 
@@ -708,6 +731,13 @@ export function applyStartOfTurn(state: BattleState): BattleState {
  * The `default` branch guards malformed network payloads.
  */
 export function processAction(state: BattleState, actor: PlayerSlot, action: BattleAction): ActionResult {
+  // A Knock Out blocks everything until the KO'd side has chosen a new Active.
+  if (state.pendingPromotion) {
+    if (action.type === 'promoteActive' && actor === state.pendingPromotion) {
+      return promoteActive(state, actor, action.benchIndex)
+    }
+    return failure(state, 'must-promote')
+  }
   switch (action.type) {
     case 'attachEnergy':
       return attachEnergy(state, actor, action.handIndex, action.target)
@@ -719,11 +749,415 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
       return retreatToBench(state, actor, action.benchIndex)
     case 'useAttack':
       return declareAttack(state, actor, action.attackIndex)
+    case 'promoteActive':
+      return failure(state, 'no-promotion-pending')
     case 'endTurn':
       return endTurn(state, actor)
     default:
       return failure(state, 'unknown-action')
   }
+}
+
+// -- CP7-C: damage, effects, KO, prizes, victory --
+
+/**
+ * Seeded coin flip. The shared seed is mixed with the running draw counter so
+ * consecutive flips differ, while both peers still derive identical results
+ * from the same seed (the counter lives in `BattleState`).
+ */
+export function flipCoin(state: BattleState): boolean {
+  const rng = createRng((state.seed + state.rngDraws + 1) | 0)
+  state.rngDraws += 1
+  return randomInt(rng, 2) === 0
+}
+
+/**
+ * Damage after Weakness/Resistance. Weakness is read from the *defender's*
+ * weakness entry whose type matches the attacking Pokemon's type (rulebook),
+ * applied first; Resistance then subtracts, never below zero.
+ */
+export function computeAttackDamage(
+  state: BattleState,
+  attacker: InPlayPokemon,
+  defender: InPlayPokemon,
+  baseDamage: number,
+): { damage: number; weakness: number; resistance: number } {
+  if (baseDamage <= 0) return { damage: 0, weakness: 1, resistance: 0 }
+  const attackerTypes = attacker.card.types
+  const weaknessEntry = defender.card.weaknesses.find((entry) => attackerTypes.includes(entry.type))
+  const resistanceEntry = defender.card.resistances.find((entry) => attackerTypes.includes(entry.type))
+
+  let weakness = 1
+  if (weaknessEntry) {
+    if (isUnreadableDamageValue(weaknessEntry.value, 'weakness')) {
+      logEvent(state, 'pokemonBnb.log.unreadableWeakness', { value: weaknessEntry.value })
+    }
+    weakness = parseWeaknessValue(weaknessEntry.value).multiplier
+  }
+  let resistance = 0
+  if (resistanceEntry) {
+    if (isUnreadableDamageValue(resistanceEntry.value, 'resistance')) {
+      logEvent(state, 'pokemonBnb.log.unreadableResistance', { value: resistanceEntry.value })
+    }
+    resistance = parseResistanceValue(resistanceEntry.value).reduction
+  }
+  return { damage: Math.max(0, baseDamage * weakness - resistance), weakness, resistance }
+}
+
+/**
+ * Recognised attack-effect clauses.
+ *
+ * 30C card data has **no** `effectId` field (verified: 0 occurrences in
+ * cards.json) while 154 of its attacks carry effect text, so effects are
+ * recognised from the text rather than keyed by a data id. Patterns are
+ * anchored end-to-end: a conditional clause ("for each …", "If this Pokemon
+ * has …") deliberately falls through to `unsupported` rather than being
+ * applied unconditionally, because a wrong effect is worse than a missing one.
+ */
+export type ParsedEffect =
+  | { kind: 'bonusDamage'; amount: number; coin: boolean }
+  | { kind: 'bonusDamagePerPrize'; amount: number }
+  | { kind: 'noDamageOnTails' }
+  | { kind: 'draw'; amount: number }
+  | { kind: 'heal'; amount: number }
+  | { kind: 'discardEnergy'; amount: number | 'all' }
+  | { kind: 'status'; status: StatusCondition; coin: boolean }
+  | { kind: 'unsupported'; text: string }
+
+export type EffectTiming = 'beforeDamage' | 'afterDamage'
+
+/** Damage-modifying clauses resolve before damage; the rest afterwards. */
+export function effectTiming(kind: ParsedEffect['kind']): EffectTiming {
+  if (kind === 'bonusDamage' || kind === 'bonusDamagePerPrize' || kind === 'noDamageOnTails') {
+    return 'beforeDamage'
+  }
+  return 'afterDamage'
+}
+
+/** Strip card-text markup (and collapses whitespace) so patterns match prose. */
+export function plainCardText(text: string): string {
+  return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+const STATUS_WORDS: Record<string, StatusCondition> = {
+  asleep: 'asleep',
+  poisoned: 'poisoned',
+  burned: 'burned',
+  confused: 'confused',
+  paralyzed: 'paralyzed',
+}
+
+/** Parse one attack's verbatim text into ordered effect clauses. */
+export function parseAttackEffects(text: string): ParsedEffect[] {
+  const plain = plainCardText(text)
+  if (!plain) return []
+  const effects: ParsedEffect[] = []
+  const sentences = plain.split(/(?<=\.)\s+/)
+  let pendingCoin = false
+
+  for (const sentence of sentences) {
+    if (/^flip a coin\.?$/i.test(sentence)) {
+      pendingCoin = true
+      continue
+    }
+    const perPrize = sentence.match(/^this attack does (\d+) damage for each prize card you have taken\.?$/i)
+    if (perPrize) {
+      effects.push({ kind: 'bonusDamagePerPrize', amount: Number(perPrize[1]) })
+      pendingCoin = false
+      continue
+    }
+    const coinBonus = sentence.match(/^if heads, this attack does (\d+) more damage\.?$/i)
+    if (coinBonus && pendingCoin) {
+      effects.push({ kind: 'bonusDamage', amount: Number(coinBonus[1]), coin: true })
+      pendingCoin = false
+      continue
+    }
+    const flatBonus = sentence.match(/^this attack does (\d+) more damage\.?$/i)
+    if (flatBonus && !pendingCoin) {
+      effects.push({ kind: 'bonusDamage', amount: Number(flatBonus[1]), coin: false })
+      continue
+    }
+    if (/^if tails, this attack does nothing\.?$/i.test(sentence)) {
+      effects.push({ kind: 'noDamageOnTails' })
+      pendingCoin = false
+      continue
+    }
+    const heal = sentence.match(/^heal (\d+) damage from this/i)
+    if (heal) {
+      effects.push({ kind: 'heal', amount: Number(heal[1]) })
+      pendingCoin = false
+      continue
+    }
+    const discardCount = sentence.match(/^discard (\d+) energy from this/i)
+    if (discardCount) {
+      effects.push({ kind: 'discardEnergy', amount: Number(discardCount[1]) })
+      pendingCoin = false
+      continue
+    }
+    if (/^discard all energy from this/i.test(sentence)) {
+      effects.push({ kind: 'discardEnergy', amount: 'all' })
+      pendingCoin = false
+      continue
+    }
+    if (/^draw a card\.?$/i.test(sentence)) {
+      effects.push({ kind: 'draw', amount: 1 })
+      pendingCoin = false
+      continue
+    }
+    const status = sentence.match(/is now (asleep|poisoned|burned|confused|paralyzed)/i)
+    if (status) {
+      effects.push({ kind: 'status', status: STATUS_WORDS[status[1].toLowerCase()], coin: pendingCoin })
+      pendingCoin = false
+      continue
+    }
+    effects.push({ kind: 'unsupported', text: sentence })
+    pendingCoin = false
+  }
+  return effects
+}
+
+/** Who an attack's non-damage clauses act on. */
+export type EffectContext = {
+  actor: PlayerSlot
+  attacker: InPlayPokemon
+  defender: InPlayPokemon | null
+  attackName: string
+}
+
+/**
+ * Apply one parsed clause.
+ *
+ * Named `applyEffect` per the plan, but it takes the live `state` plus an
+ * `EffectContext` instead of the plan's `(effectId, targets)`: clauses mutate
+ * zones, and coin-gated clauses need the seeded rng. `unsupported` clauses only
+ * log, so card text the engine cannot honour degrades gracefully rather than
+ * silently pretending to work.
+ */
+export function applyEffect(
+  state: BattleState,
+  effect: ParsedEffect,
+  context: EffectContext,
+): BattleLogEntry[] {
+  const logStart = state.log.length
+  const side = sideOf(state, context.actor)
+  switch (effect.kind) {
+    case 'draw': {
+      const drawn = drawCards(side, effect.amount)
+      logEvent(state, 'pokemonBnb.log.effectDraw', { player: context.actor, count: drawn.length })
+      if (drawn.length < effect.amount) applyDeckOutLoss(state, context.actor)
+      break
+    }
+    case 'heal': {
+      const healed = Math.min(effect.amount, context.attacker.damage)
+      context.attacker.damage -= healed
+      logEvent(state, 'pokemonBnb.log.effectHeal', { player: context.actor, amount: healed })
+      break
+    }
+    case 'discardEnergy': {
+      const count = effect.amount === 'all' ? context.attacker.attachedEnergy.length : effect.amount
+      const discarded = context.attacker.attachedEnergy.splice(0, count)
+      side.discard.push(...discarded)
+      logEvent(state, 'pokemonBnb.log.effectDiscardEnergy', {
+        player: context.actor,
+        count: discarded.length,
+      })
+      break
+    }
+    case 'status': {
+      const defender = context.defender
+      if (!defender) break
+      if (effect.coin && !flipCoin(state)) {
+        logEvent(state, 'pokemonBnb.log.coinTails', { player: context.actor })
+        break
+      }
+      defender.conditions[effect.status] = true
+      logEvent(state, 'pokemonBnb.log.effectStatus', {
+        player: context.actor,
+        target: defender.card.name,
+        status: effect.status,
+      })
+      break
+    }
+    case 'unsupported': {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: effect.text })
+      break
+    }
+    default:
+      break // before-damage clauses are consumed by resolveAttack
+  }
+  return tailLog(state, logStart)
+}
+
+/**
+ * Knock Out, Prizes and victory. Rulebook order: the KO'd Pokemon and every
+ * card attached to it go to its owner's discard pile, the player who scored the
+ * KO takes one Prize card, and the KO'd player must then promote a benched
+ * Pokemon — or loses immediately when their bench is empty.
+ */
+
+/** Prize cards a side has taken so far. */
+export function prizesTaken(state: BattleState, slot: PlayerSlot): number {
+  return state.prizeCards - sideOf(state, slot).prizeCount
+}
+
+/** Deck-out defeat: a player who cannot draw a card loses the match. */
+function applyDeckOutLoss(state: BattleState, slot: PlayerSlot): void {
+  if (state.over) return
+  logEvent(state, 'pokemonBnb.log.deckOut', { player: slot })
+  state.winner = foeOf(slot)
+  state.winReason = 'deck-out'
+  state.over = true
+  state.pendingPromotion = null
+}
+
+/** Victory checks: all Prizes taken first, then an empty board. */
+export function checkVictory(state: BattleState): void {
+  if (state.over) return
+  for (const slot of ['host', 'guest'] as const) {
+    if (sideOf(state, slot).prizeCount === 0) {
+      state.winner = slot
+      state.winReason = 'prizes'
+      state.over = true
+      return
+    }
+  }
+  for (const slot of ['host', 'guest'] as const) {
+    const side = sideOf(state, slot)
+    if (!side.active && side.bench.length === 0) {
+      state.winner = foeOf(slot)
+      state.winReason = 'no-pokemon'
+      state.over = true
+      return
+    }
+  }
+}
+
+/** Take one Prize card into hand; taking the last one wins the match. */
+export function takePrizeCard(state: BattleState, slot: PlayerSlot): void {
+  const side = sideOf(state, slot)
+  const prize = side.prizes.shift()
+  if (!prize) return
+  side.hand.push(prize)
+  side.prizeCount = side.prizes.length
+  logEvent(state, 'pokemonBnb.log.takePrize', { player: slot, remaining: side.prizeCount })
+  checkVictory(state)
+}
+
+/** Knock Out the Active Pokemon of `koSlot`, then settle Prize and promotion. */
+export function performKo(state: BattleState, koSlot: PlayerSlot): void {
+  const koSide = sideOf(state, koSlot)
+  const knockedOut = koSide.active
+  if (!knockedOut) return
+  koSide.active = null
+  koSide.discard.push(knockedOut.card, ...knockedOut.attachedEnergy)
+  logEvent(state, 'pokemonBnb.log.knockOut', { player: koSlot, card: knockedOut.card.name })
+
+  const beneficiary = foeOf(koSlot)
+  if (sideOf(state, beneficiary).prizeCount > 0) takePrizeCard(state, beneficiary)
+  if (state.over) return
+
+  if (koSide.bench.length > 0) {
+    state.pendingPromotion = koSlot
+    logEvent(state, 'pokemonBnb.log.mustPromote', { player: koSlot })
+  } else {
+    state.winner = beneficiary
+    state.winReason = 'no-pokemon'
+    state.over = true
+  }
+}
+
+/**
+ * Choose the new Active Pokemon after a Knock Out. Rulebook: the KO'd player
+ * picks from their Bench, and nothing else may happen first — `processAction`
+ * blocks every other action while `pendingPromotion` is set.
+ */
+export function promoteActive(state: BattleState, actor: PlayerSlot, benchIndex: number): ActionResult {
+  if (state.over) return failure(state, 'match-over')
+  if (state.pendingPromotion !== actor) return failure(state, 'no-promotion-pending')
+  const next = cloneBattleState(state)
+  const side = sideOf(next, actor)
+  const promoted = side.bench[benchIndex]
+  if (!promoted) return failure(state, 'no-target')
+
+  const logStart = next.log.length
+  side.bench.splice(benchIndex, 1)
+  side.active = promoted
+  next.pendingPromotion = null
+  logEvent(next, 'pokemonBnb.log.promote', { player: actor, card: promoted.card.name })
+  checkVictory(next)
+  return { state: next, log: tailLog(next, logStart) }
+}
+
+/**
+ * Resolve a declared attack against the opponent's Active Pokemon: damage
+ * modifiers, Weakness/Resistance, damage, the attack's non-damage clauses, then
+ * the Knock Out.
+ *
+ * Self-Knock-Out sources (attack recoil, Confusion self-hit, Poison/Burn at
+ * Checkup) are deliberately not handled here: they can KO the attacker during
+ * their own turn, which needs the promotion-timing design that arrives with
+ * statuses in CP7-D. `This Pokemon also does N damage to itself` is therefore
+ * reported as unsupported for now rather than KO'ing the wrong side.
+ */
+export function resolveAttack(
+  state: BattleState,
+  actor: PlayerSlot,
+  attack: AttackDef,
+  effects: ParsedEffect[],
+): void {
+  const attacker = sideOf(state, actor).active
+  const defenderSlot = foeOf(actor)
+  const defender = sideOf(state, defenderSlot).active
+  if (!attacker || !defender) return
+  const context: EffectContext = { actor, attacker, defender, attackName: attack.name }
+
+  // 1. Damage modifiers: flat bonuses, per-Prize-taken bonuses, coin gates.
+  let base = attack.damage
+  for (const effect of effects) {
+    if (effect.kind === 'bonusDamage') {
+      if (effect.coin && !flipCoin(state)) {
+        logEvent(state, 'pokemonBnb.log.coinTails', { player: actor })
+        continue
+      }
+      base += effect.amount
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: effect.amount })
+    } else if (effect.kind === 'bonusDamagePerPrize') {
+      const bonus = effect.amount * prizesTaken(state, actor)
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'noDamageOnTails' && !flipCoin(state)) {
+      logEvent(state, 'pokemonBnb.log.coinTails', { player: actor })
+      base = 0
+    }
+  }
+
+  // 2. Weakness / Resistance, then damage on the defender.
+  const outcome = computeAttackDamage(state, attacker, defender, base)
+  if (outcome.damage > 0) {
+    defender.damage += outcome.damage
+    logEvent(state, 'pokemonBnb.log.damageDealt', {
+      player: actor,
+      attack: context.attackName,
+      target: defender.card.name,
+      amount: outcome.damage,
+      weakness: outcome.weakness,
+      resistance: outcome.resistance,
+    })
+  } else {
+    logEvent(state, 'pokemonBnb.log.noDamage', {
+      player: actor,
+      attack: context.attackName,
+      target: defender.card.name,
+    })
+  }
+
+  // 3. Non-damage clauses (statuses, healing, energy discard, draw).
+  for (const effect of effects) {
+    if (effectTiming(effect.kind) === 'afterDamage') applyEffect(state, effect, context)
+  }
+
+  // 4. Knock Out of the defender.
+  if (isKnockedOut(defender)) performKo(state, defenderSlot)
 }
 
 
