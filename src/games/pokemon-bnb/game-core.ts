@@ -133,6 +133,11 @@ export type BattleState = {
   pendingPromotion: PlayerSlot | null
   /** True once the current turn's start step (draw + flag reset) has run. */
   turnStarted: boolean
+  /**
+   * True for a state rebuilt from a `Snapshot` (guest render model): hidden
+   * zones hold placeholders, so `processAction` refuses to run on it.
+   */
+  viewOnly: boolean
   log: BattleLogEntry[]
   rngDraws: number
 }
@@ -157,6 +162,8 @@ export type Snapshot = {
   over: boolean
   prizeCards: number
   timerSeconds: number
+  pendingPromotion: PlayerSlot | null
+  turnStarted: boolean
   log: BattleLogEntry[]
   host: SnapshotSide
   guest: SnapshotSide
@@ -364,6 +371,7 @@ export function setupBattle(
     timerSeconds: settings.timerSeconds,
     pendingPromotion: null,
     turnStarted: false,
+    viewOnly: false,
     log: [],
     rngDraws: 0,
   }
@@ -664,6 +672,21 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
   side.attackedThisTurn = true
   logEvent(next, 'pokemonBnb.log.attack', { player: actor, card: active.card.name, attack: attack.name })
 
+  // Confused (rulebook): roll first — tails means the attack does nothing and
+  // the Pokemon hurts itself instead. Declaring the attack still ends the turn.
+  if (active.conditions.confused && !flipCoin(next)) {
+    logEvent(next, 'pokemonBnb.log.coinTails', { player: actor })
+    logEvent(next, 'pokemonBnb.log.confusionSelfHit', {
+      player: actor,
+      card: active.card.name,
+      amount: CONFUSION_SELF_DAMAGE,
+    })
+    active.damage += CONFUSION_SELF_DAMAGE
+    if (isKnockedOut(active)) performKo(next, actor)
+    const selfClosed = next.over ? next : applyEndTurn(next, actor)
+    return { state: selfClosed, log: tailLog(selfClosed, logStart) }
+  }
+
   // CP7-C: damage, Weakness/Resistance, card-text clauses, KO, Prizes, victory.
   resolveAttack(next, actor, attack, parseAttackEffects(attack.text))
 
@@ -685,8 +708,13 @@ export function endTurn(state: BattleState, actor: PlayerSlot): ActionResult {
   return { state: closed, log: tailLog(closed, logStart) }
 }
 
-/** Hand the turn to the opponent, then run their start-of-turn step. */
+/**
+ * Hand the turn to the opponent, running the between-turns Pokemon Checkup
+ * (Poison/Burn damage, Asleep wake-up, Paralyzed recovery) before the switch.
+ */
 function applyEndTurn(state: BattleState, actor: PlayerSlot): BattleState {
+  applyCheckup(state, actor)
+  if (state.over) return state
   state.activePlayer = foeOf(actor)
   state.turn += 1
   state.turnStarted = false
@@ -731,6 +759,9 @@ export function applyStartOfTurn(state: BattleState): BattleState {
  * The `default` branch guards malformed network payloads.
  */
 export function processAction(state: BattleState, actor: PlayerSlot, action: BattleAction): ActionResult {
+  // A state rebuilt from a Snapshot carries placeholder hidden zones: it is a
+  // render model, never the source of truth.
+  if (state.viewOnly) return failure(state, 'view-only')
   // A Knock Out blocks everything until the KO'd side has chosen a new Active.
   if (state.pendingPromotion) {
     if (action.type === 'promoteActive' && actor === state.pendingPromotion) {
@@ -1158,6 +1189,193 @@ export function resolveAttack(
 
   // 4. Knock Out of the defender.
   if (isKnockedOut(defender)) performKo(state, defenderSlot)
+}
+
+// -- CP7-D: turn lifecycle, statuses, timer, snapshots --
+
+/**
+ * Pokemon Checkup, which happens between turns (rulebook): both Active Pokemon
+ * are checked.
+ * - Poisoned: 2 damage counters (20 damage) at every Checkup.
+ * - Burned: 20 damage, then a coin flip; tails cures Burned.
+ * - Asleep: a coin flip; heads wakes it up.
+ * - Paralyzed: cured only for the player who just finished their turn, because
+ *   Paralysis costs its victim the turn after it lands.
+ * Confused is deliberately *not* checked here: it is rolled when that Pokemon
+ * attacks (see `declareAttack`).
+ */
+export function applyCheckup(state: BattleState, justFinished: PlayerSlot): void {
+  if (state.over) return
+  for (const slot of ['host', 'guest'] as const) {
+    const pokemon = sideOf(state, slot).active
+    if (!pokemon) continue
+    const conditions = pokemon.conditions
+    if (conditions.poisoned) {
+      pokemon.damage += POISON_DAMAGE
+      logEvent(state, 'pokemonBnb.log.poisonDamage', {
+        player: slot,
+        card: pokemon.card.name,
+        amount: POISON_DAMAGE,
+      })
+    }
+    if (conditions.burned) {
+      pokemon.damage += BURN_DAMAGE
+      logEvent(state, 'pokemonBnb.log.burnDamage', {
+        player: slot,
+        card: pokemon.card.name,
+        amount: BURN_DAMAGE,
+      })
+      if (!flipCoin(state)) {
+        conditions.burned = false
+        logEvent(state, 'pokemonBnb.log.burnCured', { player: slot, card: pokemon.card.name })
+      }
+    }
+    if (conditions.asleep && flipCoin(state)) {
+      conditions.asleep = false
+      logEvent(state, 'pokemonBnb.log.wokeUp', { player: slot, card: pokemon.card.name })
+    }
+    if (conditions.paralyzed && slot === justFinished) {
+      conditions.paralyzed = false
+      logEvent(state, 'pokemonBnb.log.paralysisEnded', { player: slot, card: pokemon.card.name })
+    }
+  }
+  // Checkup damage can Knock Out either Active (poison or burn).
+  for (const slot of ['host', 'guest'] as const) {
+    const pokemon = sideOf(state, slot).active
+    if (pokemon && isKnockedOut(pokemon)) performKo(state, slot)
+    if (state.over) return
+  }
+}
+
+/**
+ * Per-turn timer expiry. The mini format simply forfeits the expired turn
+ * (no extra penalty), the rule least open to abuse. The wall clock lives in the
+ * UI, which calls this when `timerSeconds` runs out; the engine stays pure.
+ */
+export function applyTimeout(state: BattleState): BattleState {
+  if (state.over || state.timerSeconds <= 0) return state
+  const actor = state.activePlayer
+  const next = cloneBattleState(state)
+  logEvent(next, 'pokemonBnb.log.timeout', { player: actor })
+  return applyEndTurn(next, actor)
+}
+
+// -- CP7-D: host → guest render snapshots --
+
+/**
+ * Placeholder for a face-down card in a rebuilt view model. Decks, prize piles
+ * and a non-viewer's hand are unknown to the receiver, so their slots carry
+ * this sentinel instead of leaking real card data. It is never playable: the
+ * rebuilt state is view-only.
+ */
+export const HIDDEN_CARD: CardDef = {
+  id: 'hidden',
+  set: 'hidden',
+  number: '',
+  name: '',
+  rarity: 'common',
+  supertype: 'pokemon',
+  types: [],
+  hp: 0,
+  stage: 'Hidden',
+  retreat: 0,
+  weaknesses: [],
+  resistances: [],
+  attacks: [],
+  abilities: [],
+}
+
+function fillHidden(count: number): CardDef[] {
+  return Array.from({ length: count }, () => HIDDEN_CARD)
+}
+
+/** Deep-copy one in-play Pokemon (its card, energy and conditions). */
+function cloneInPlay(pokemon: InPlayPokemon): InPlayPokemon {
+  return JSON.parse(JSON.stringify(pokemon)) as InPlayPokemon
+}
+
+function snapshotSide(side: SideState, isViewer: boolean): SnapshotSide {
+  return {
+    handCount: side.hand.length,
+    deckCount: side.deck.length,
+    prizesTaken: side.prizeCount - side.prizes.length,
+    prizeCount: side.prizeCount,
+    discard: [...side.discard],
+    active: side.active ? cloneInPlay(side.active) : null,
+    bench: side.bench.map(cloneInPlay),
+    hand: isViewer ? [...side.hand] : null,
+  }
+}
+
+/**
+ * Build a render-only Snapshot of the battle for `viewer`. Public zones (both
+ * discard piles, every in-play Pokemon and its attached Energy) are copied
+ * verbatim; face-down zones (both decks, both prize piles) become counts plus
+ * `HIDDEN_CARD` placeholders; the hand is included only for the viewer
+ * (`null` for the other side). In host-authoritative play (CP9) the host sends
+ * each seat its own snapshot; the guest never sees the hidden zones.
+ */
+export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
+  return {
+    activePlayer: state.activePlayer,
+    turn: state.turn,
+    phase: state.phase,
+    winner: state.winner,
+    winReason: state.winReason,
+    over: state.over,
+    prizeCards: state.prizeCards,
+    timerSeconds: state.timerSeconds,
+    pendingPromotion: state.pendingPromotion,
+    turnStarted: state.turnStarted,
+    log: [...state.log],
+    host: snapshotSide(state.host, viewer === 'host'),
+    guest: snapshotSide(state.guest, viewer === 'guest'),
+  }
+}
+
+function snapshotSideToState(snapshot: SnapshotSide): SideState {
+  return {
+    deck: fillHidden(snapshot.deckCount),
+    hand: snapshot.hand ? [...snapshot.hand] : fillHidden(snapshot.handCount),
+    active: snapshot.active ? cloneInPlay(snapshot.active) : null,
+    bench: snapshot.bench.map(cloneInPlay),
+    prizes: fillHidden(snapshot.prizeCount - snapshot.prizesTaken),
+    prizeCount: snapshot.prizeCount,
+    discard: [...snapshot.discard],
+    lostZone: [],
+    supporterPlayedTurn: false,
+    energyAttachedThisTurn: 0,
+    attackedThisTurn: false,
+    stadiumPlayedTurn: -1,
+    mulliganCount: 0,
+  }
+}
+
+/**
+ * Rebuild a render-only BattleState from a Snapshot for display. Hidden zones
+ * hold `HIDDEN_CARD` placeholders and `viewOnly` is true, so `processAction`
+ * refuses to run on it: the authoritative seat's state stays the single source
+ * of truth.
+ */
+export function applySnapshot(snapshot: Snapshot): BattleState {
+  return {
+    activePlayer: snapshot.activePlayer,
+    turn: snapshot.turn,
+    phase: snapshot.phase,
+    winner: snapshot.winner,
+    winReason: snapshot.winReason,
+    over: snapshot.over,
+    seed: 0,
+    prizeCards: snapshot.prizeCards,
+    timerSeconds: snapshot.timerSeconds,
+    pendingPromotion: snapshot.pendingPromotion,
+    turnStarted: snapshot.turnStarted,
+    viewOnly: true,
+    log: [...snapshot.log],
+    rngDraws: 0,
+    host: snapshotSideToState(snapshot.host),
+    guest: snapshotSideToState(snapshot.guest),
+  }
 }
 
 

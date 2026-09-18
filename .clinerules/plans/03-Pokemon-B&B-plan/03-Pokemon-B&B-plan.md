@@ -22,7 +22,7 @@
   - [x] **CP7-A** — engine types + rulebook constants + `setupBattle` + mulligan.
   - [x] **CP7-B** — action dispatcher + turn manipulation sub-phases (`attachEnergy`, `playTrainer`, `evolve`, `retreatToBench`, `useAttack`, `endTurn`).
   - [x] **CP7-C** — attacks + effect parser + damage + KO/prize/victory.
-  - [ ] **CP7-D** — turn lifecycle + statuses + timer + snapshots (`toSnapshot`/`applySnapshot`/`applyTimeout`).
+  - [x] **CP7-D** — turn lifecycle + statuses + timer + snapshots (`toSnapshot`/`applySnapshot`/`applyTimeout`).
   - [ ] **CP7-E** — wire `PokemonBnbGame.tsx`: `loading` → `playing` transition + `BattleState` state.
   - [ ] **CP7-F** — `?local=1` hot-seat harness (validation only, not player-facing).
   - [ ] **CP7-G** — validate (`npm run build` + `npm run lint` + key-parity + determinism note).
@@ -415,6 +415,33 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   cases); the engine was correct in every case — it rejected the stale attacks as `already-attacked`.
   No persisted schema, default config, registry, view state machine or module wiring changed, so the
   `.github/diagram/*` files still need no update at this checkpoint (that lands with CP7-E).
+
+- **CP7-D (done).** Turn lifecycle, statuses, timer and snapshots in `game-core.ts`.
+  `applyEndTurn` runs the between-turns **Pokemon Checkup** (`applyCheckup`): Poison 20, Burn 20 +
+  a seeded coin (tails cures), Asleep coin (heads wakes), Paralysis cured only for the player who
+  just finished (it costs its victim the next turn), Confusion deliberately *not* checked here —
+  it is rolled at attack time: `declareAttack` flips a seeded coin and on tails logs
+  `confusionSelfHit`, deals the 30 self-damage (which can self-KO and set `pendingPromotion`) and
+  still ends the turn. Checkup damage can KO either Active, reusing `performKo` (promotion gate /
+  empty-bench loss). `applyTimeout` forfeits the expired turn (rule-least-open-to-abuse) and is a
+  no-op when `timerSeconds` is 0; the wall clock stays in the UI so the engine stays pure.
+  Snapshots follow the CP7-A `Snapshot`/`SnapshotSide` shape: `toSnapshot(state, viewer)` copies
+  public zones verbatim (discard piles, in-play Pokemon + attached Energy), keeps face-down zones
+  as **counts only** (`deckCount`, `prizesTaken` — never arrays over the wire) and includes the
+  hand only for the viewer (`null` for the other side); `applySnapshot` rebuilds a `viewOnly`
+  BattleState whose hidden zones hold the new `HIDDEN_CARD` placeholder, and `processAction`
+  refuses view-only states (`'view-only'` error), so a guest can never inject state.
+  Validation: `npm run build` + `npm run lint` clean (0 warnings / 0 errors), plus a throwaway Node
+  harness (esbuild-bundled engine, **43 assertions, all passing**) covering the snapshot roundtrip
+  through a JSON wire copy, the hidden-zone non-leak probe (a guest hand-only card id appears
+  nowhere in the serialized snapshot), the `viewOnly` guard, timeout end/no-op, every Checkup
+  branch with controlled seeded flips, both Confusion rolls, Checkup-KO promotion vs empty-bench
+  loss, and same-seed determinism. Both harness files were deleted after the run. All five
+  harness failures were fixture bugs, not engine bugs, each verified before fixing: the seeded
+  `openingFlip` can open with guest (tests assumed host), and two assertions read damage from the
+  immutable input state instead of `result.state` (actions clone since CP7-B). No persisted
+  schema, config, registry, view state machine or wiring changed — `.github/diagram/*` updates
+  remain due with CP7-E.
 
 
 
