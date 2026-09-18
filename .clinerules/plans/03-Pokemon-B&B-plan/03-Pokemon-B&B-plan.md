@@ -14,7 +14,7 @@
 - [x] 4 — Lobby flow (host create + settings, guest join by code, start broadcast)
 - [x] 5 — Pack opening (seeded ceremony, skip-all, PokemonCard, ready handshake)
 - [x] 6 — Deck builder (pool grid, include/exclude, legality, ready handshake)
-- [ ] 7 — Battle engine core (pure `game-core.ts`, full rulebook, local hot-seat validation)
+- [x] 7 — Battle engine core (pure `game-core.ts`, full rulebook, local hot-seat validation)
 
   Sub-steps (one per editor pass; stop between each for review):
 
@@ -51,7 +51,7 @@
   - [x] **CP7-E-e** — update `.github/diagram/architecture-flow.md` (engine module layout +
         `loading → playing` transition in the view state machine), mark E-a…E-e done.
   - [x] **CP7-F** — `?local=1` hot-seat harness (validation only, not player-facing).
-  - [ ] **CP7-G** — validate (`npm run build` + `npm run lint` + key-parity + determinism note).
+  - [x] **CP7-G** — validate (`npm run build` + `npm run lint` + key-parity + determinism note).
 
 <!--
 OPERATING CONVENTION (applies to every CP7 sub-step):
@@ -574,8 +574,17 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   slot; buttons intentionally carry the technical action ids (dev identifiers, not player copy),
   while selects use the translated zone labels. Harness styles are scoped (`bnb-harness-*`), and
   the harness block may overflow the 16:9 stage by design (desktop page scrolls; the stage itself
-  is untouched). Validation: `npm run build` + `npm run lint` clean (0 warnings / 0 errors).
-  CP7 continues at CP7-G (final validation).
+    is untouched). Validation: `npm run build` + `npm run lint` clean (0 warnings / 0 errors).
 
-
-
+- **CP7-G (done).** Final CP7 validation — throwaway script `scripts/cp7g-validate.mjs`
+  (esbuild-bundles the pure engine + sibling data modules, asserts, then is deleted), then re-ran the
+  standard gates. (1) **Determinism** — `setupBattle` + an identical `processAction` (`endTurn`)
+  sequence yields byte-identical `BattleState` for the same seed (host vs guest), and differs for a
+  different seed — seed-driven determinism confirmed (**4/4 assertions passed**), the property CP9
+  relies on for host-authoritative snapshots. (2) **Key parity** — every literal
+  `t('pokemonBnb.*')` ref in `PokemonBnbGame.tsx` resolves in en/ms/zh: **75 refs, 0 missing**.
+  `npm run build` clean (only the pre-existing >500 kB chunk-size advisory); `npm run lint` —
+  **0 warnings / 0 errors**. Throwaway script + in-tree `cp7g-entry.mjs` both removed; `git status`
+  clean of them. No persisted schema, default config, registry, view state machine, or diagram
+  changes this checkpoint; `.github/diagram/*` needs no update for CP7. **CP7 (Battle engine core)
+  is fully done — ready for CP8.**
