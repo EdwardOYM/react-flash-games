@@ -87,6 +87,8 @@ export type TranslationKey =
 
   | `bubble.${BubbleTranslationKey}`
   | `pokemonBnb.${PkmBnbTranslationKey}`
+  | `pokemonBnb.log.${PkmBnbLogTranslationKey}`
+  | `pokemonBnb.error.${PkmBnbErrorTranslationKey}`
 
   | `tron.${TronTranslationKey}`
 type BubbleTranslationKey =
@@ -299,15 +301,96 @@ type PkmBnbTranslationKey =
   | 'openingWip'
   | 'seedShared'
   | 'next'
+  | 'turnHeader'
+  | 'zoneActive'
+  | 'zoneBench'
+  | 'zoneHand'
+  | 'zoneDeck'
+  | 'zonePrizes'
+  | 'zoneDiscard'
+  | 'conditionAsleep'
+  | 'conditionParalyzed'
+  | 'conditionConfused'
+  | 'conditionPoisoned'
+  | 'conditionBurned'
+  | 'matchOverTitle'
+  | 'winReasonPrizes'
+  | 'winReasonDeckOut'
+  | 'winReasonNoPokemon'
+
+type PkmBnbLogTranslationKey =
+  | 'turnStart'
+  | 'endTurn'
+  | 'timeout'
+  | 'attachEnergy'
+  | 'playTrainer'
+  | 'evolve'
+  | 'retreat'
+  | 'attack'
+  | 'promote'
+  | 'knockOut'
+  | 'mustPromote'
+  | 'takePrize'
+  | 'deckOut'
+  | 'damageDealt'
+  | 'noDamage'
+  | 'effectBonusDamage'
+  | 'effectDiscardEnergy'
+  | 'effectDraw'
+  | 'effectHeal'
+  | 'effectStatus'
+  | 'effectUnsupported'
+  | 'coinFlip'
+  | 'coinTails'
+  | 'confusionSelfHit'
+  | 'poisonDamage'
+  | 'burnDamage'
+  | 'burnCured'
+  | 'wokeUp'
+  | 'paralysisEnded'
+  | 'noBasicToStart'
+  | 'mulligan'
+  | 'unreadableWeakness'
+  | 'unreadableResistance'
+
+type PkmBnbErrorTranslationKey =
+  | 'notYourTurn'
+  | 'notMainPhase'
+  | 'matchOver'
+  | 'viewOnly'
+  | 'mustPromote'
+  | 'noPromotionPending'
+  | 'energyLimit'
+  | 'alreadyAttached'
+  | 'notEnergy'
+  | 'noTarget'
+  | 'supporterLimit'
+  | 'stadiumLimit'
+  | 'notTrainer'
+  | 'notPokemon'
+  | 'cannotEvolve'
+  | 'playedThisTurn'
+  | 'evolvedThisTurn'
+  | 'noActive'
+  | 'cannotRetreat'
+  | 'retreatedThisTurn'
+  | 'retreatCost'
+  | 'cannotAttack'
+  | 'alreadyAttacked'
+  | 'insufficientEnergy'
+  | 'noAttack'
+  | 'unknownAction'
 
 const dictionaries: Record<Locale, TranslationDictionary> = { en, ms, zh }
 
 function readTranslation(dictionary: TranslationDictionary, key: TranslationKey): string {
-  const [group, value] = key.split('.')
-  if (value) {
-    return dictionary[group as 'gameStatus' | 'games' | 'languageNames' | 'keyNames' | 'gameInspiration' | 'bubble' | 'tron' | 'pokemonBnb'][value as never]
+  // Walks every dot segment so nested groups (e.g. `pokemonBnb.log.turnStart`)
+  // resolve the same way the two-level keys always did.
+  let node: unknown = dictionary
+  for (const segment of key.split('.')) {
+    node = (node as Record<string, unknown> | undefined)?.[segment]
   }
-  return dictionary[key as keyof TranslationDictionary] as string
+  return node as string
 }
 
 export function getPreferredLocale(): Locale {

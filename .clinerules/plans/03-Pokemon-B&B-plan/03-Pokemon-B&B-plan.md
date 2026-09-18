@@ -36,7 +36,7 @@
         existing `from './game-core'` imports keep working. Code moves verbatim; only imports change.
         The single file is deleted after the split. (User decision, 2026-09-18: full 8-module split
         for scaling + accessibility; see the checkpoint note at the bottom.)
-  - [ ] **CP7-E-b** — locale keys only (pure data): add the engine's ~33 `pokemonBnb.log.*` keys,
+  - [x] **CP7-E-b** — locale keys only (pure data): add the engine's ~33 `pokemonBnb.log.*` keys,
         the engine error-code copy (~26 `error.*` keys: not-your-turn, energy-limit, insufficient-energy,
         must-promote, view-only, …) and battle UI keys (turn header, zone labels, condition names,
         match-over banner) to en/ms/zh + the `PkmBnbTranslationKey` union; keep 3-way key parity.
@@ -490,6 +490,25 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   hoisting and documented in both module headers. No persisted schema, config, registry, view
   state machine or wiring changed; diagram updates still land with CP7-E-e. Validation:
   `npm run build` + `npm run lint` clean (0 warnings / 0 errors).
+
+- **CP7-E-b (done).** Locale keys only (pure data), 75 new keys per dictionary
+  (281 -> 356 flat keys, 3-way parity verified). Engine log keys are nested as
+  `pokemonBnb.log.*` (33 keys, exactly the strings the engine emits, so CP7-E-d can look them up
+  directly), engine error codes as `pokemonBnb.error.*` (26 keys, kebab code -> camelCase key,
+  including `notYourTurn` / `notMainPhase` which `checkTurn` returns rather than passes through
+  `failure`), plus 16 flat battle-UI keys: `turnHeader`, six zone labels (`zoneActive`/`zoneBench`/
+  `zoneHand`/`zoneDeck`/`zonePrizes`/`zoneDiscard`), five condition names
+  (`conditionAsleep`/`conditionParalyzed`/`conditionConfused`/`conditionPoisoned`/`conditionBurned`),
+  `matchOverTitle` and three win reasons (`winReasonPrizes`/`winReasonDeckOut`/`winReasonNoPokemon`).
+  Seat display names reuse the existing `hostRole`/`guestRole`. Supporting `index.ts` changes:
+  `readTranslation` now walks every dot segment (behavior-preserving for existing two-level keys)
+  so three-level keys resolve, the `TranslationKey` union gained
+  `pokemonBnb.log.${PkmBnbLogTranslationKey}` / `pokemonBnb.error.${PkmBnbErrorTranslationKey}`
+  template members, and the two new unions + 16 flat members were added. Validation: a throwaway
+  Node checker (deleted after the run) confirmed equal flat key counts (356/356/356), no pairwise
+  missing keys, and exact engine coverage (33/33 log keys, 26/26 error codes) in all three
+  dictionaries; `npm run build` + `npm run lint` clean (0 warnings / 0 errors). No component,
+  schema, registry, view-state or diagram changes.
 
 
 
