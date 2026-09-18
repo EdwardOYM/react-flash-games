@@ -10,13 +10,24 @@
 // - BENCH_TARGET = 3 (rulebook: auto-bench as many Basics as fit, up to 5).
 // - prizeCards comes from LobbySettings; decks smaller than prizeCards just
 //   have a thinner prize area (placePrizes clamps to deck size).
-// - Evolutions in 30C have no `evolvesFrom` links in TCGdex data — CP7-B uses
-//   name-chain + stage matching.
+// - Evolutions in 30C carry no `evolvesFrom` links (verified: 0 occurrences in
+//   cards.json), so CP7-B matches by stage progression + a shared type, and
+//   falls back to name matching when a future set does supply `evolvesFrom`.
+// - `InPlayPokemon.attachedEnergy` holds Energy cards, not ids, because attack
+//   costs are checked against each card's `provides`.
+// - `state.log` holds structured `{ key, params }` entries, never English copy:
+//   the log strip is player-facing status text, so templates are translated in
+//   the UI while card names stay verbatim data.
+// - CP7-B validates attacks but does not yet damage: damage, effects, KO,
+//   prizes and victory land at the marked seam inside `declareAttack` (CP7-C).
+//   (Named `declareAttack`, not the plan's `useAttack`, because the `use`
+//   prefix trips the repo's `react/rules-of-hooks` error; it is not a hook.)
 //
 // Rulebook sources: Pokemon TCG Rulebook (pokemon.com), Bulbapedia "Rulings",
 // "Pokemon Checkup", and "Setting Up to Play" articles.
 
-import type { CardDef, PokemonCardDef } from './cards'
+import type { CardDef, CardType, EnergyCardDef, PokemonCardDef } from './cards'
+import { cardIsEnergy, cardIsPokemon, cardIsTrainer } from './cards'
 import type { LobbySettings, PlayerSlot } from './net/protocol'
 import { createRng, shuffleCards, type Rng, randomInt } from './rng'
 
@@ -57,7 +68,8 @@ export type InPlayPokemon = {
   uid: string
   card: PokemonCardDef
   damage: number
-  attachedEnergy: string[]
+  /** Attached Energy cards (not ids) so attack costs can read `provides`. */
+  attachedEnergy: EnergyCardDef[]
   conditions: SpecialConditionState
   enteredTurn: number
   evolvedTurn: number
@@ -75,14 +87,29 @@ export type SideState = {
   prizeCount: number
   discard: CardDef[]
   lostZone: CardDef[]
+  /** True once a Supporter was played this turn (rulebook: one per turn). */
   supporterPlayedTurn: boolean
+  /** Energy cards attached this turn (rulebook: one Energy card per turn). */
+  energyAttachedThisTurn: number
+  /** True once this side declared an attack this turn. */
+  attackedThisTurn: boolean
+  /** Turn number a Stadium was played on, or -1 when none. */
+  stadiumPlayedTurn: number
   mulliganCount: number
 }
+
+/**
+ * Log entries stay structured (a translation key plus raw data params) so the
+ * battle-log strip can translate the template while card names stay verbatim
+ * data. Keys are `pokemonBnb.log.*`, added to en/ms/zh in CP7-E.
+ */
+export type BattleLogEntry = { key: string; params?: Record<string, string | number> }
 
 export type BattleState = {
   host: SideState
   guest: SideState
   activePlayer: PlayerSlot
+  /** Turn counter; turn 1 is the first player's opening turn. */
   turn: number
   phase: TurnPhase
   winner: PlayerSlot | null
@@ -91,7 +118,9 @@ export type BattleState = {
   seed: number
   prizeCards: number
   timerSeconds: number
-  log: string[]
+  /** True once the current turn's start step (draw + flag reset) has run. */
+  turnStarted: boolean
+  log: BattleLogEntry[]
   rngDraws: number
 }
 
@@ -115,7 +144,7 @@ export type Snapshot = {
   over: boolean
   prizeCards: number
   timerSeconds: number
-  log: string[]
+  log: BattleLogEntry[]
   host: SnapshotSide
   guest: SnapshotSide
 }
@@ -128,7 +157,7 @@ export type BattleAction =
   | { type: 'useAttack'; attackIndex: number }
   | { type: 'endTurn' }
 
-export type ActionResult = { state: BattleState; log: string[]; error?: string }
+export type ActionResult = { state: BattleState; log: BattleLogEntry[]; error?: string }
 
 // -- Pure helpers --
 
@@ -140,8 +169,12 @@ export function foeOf(slot: PlayerSlot): PlayerSlot {
   return slot === 'host' ? 'guest' : 'host'
 }
 
-function pushLog(state: BattleState, line: string): void {
-  state.log.push(line)
+/**
+ * Append one structured log entry. Templates are translation keys, never
+ * player-facing English, so the UI owns the copy (card names stay data).
+ */
+function logEvent(state: BattleState, key: string, params?: Record<string, string | number>): void {
+  state.log.push(params ? { key, params } : { key })
 }
 
 /**
@@ -221,6 +254,9 @@ export function sideEmpty(): SideState {
     discard: [],
     lostZone: [],
     supporterPlayedTurn: false,
+    energyAttachedThisTurn: 0,
+    attackedThisTurn: false,
+    stadiumPlayedTurn: -1,
     mulliganCount: 0,
   }
 }
@@ -297,7 +333,7 @@ export function setupBattle(
     host: sideEmpty(),
     guest: sideEmpty(),
     activePlayer: 'host',
-    turn: 0,
+    turn: 1,
     phase: 'main',
     winner: null,
     winReason: null,
@@ -305,6 +341,7 @@ export function setupBattle(
     seed,
     prizeCards: settings.prizeCards,
     timerSeconds: settings.timerSeconds,
+    turnStarted: false,
     log: [],
     rngDraws: 0,
   }
@@ -320,7 +357,7 @@ export function setupBattle(
   const first = openingFlip(rng)
   const second = foeOf(first)
   state.activePlayer = first
-  pushLog(state, `coin: ${first} wins the opening flip and goes first`)
+  logEvent(state, 'pokemonBnb.log.coinFlip', { player: first })
 
   // Place Active + Bench for both players (rulebook: choose 1 Basic for
   // Active, then bench Basics up to the bench limit).
@@ -328,17 +365,19 @@ export function setupBattle(
     const side = sideOf(state, slot)
     const basicIndexes = basicsIn(side.hand)
     if (basicIndexes.length === 0) {
-      pushLog(state, `${slot} has no basic pokemon to start`)
+      logEvent(state, 'pokemonBnb.log.noBasicToStart', { player: slot })
       continue
     }
     const pick = basicIndexes[randomInt(rng, basicIndexes.length)]
     const [card] = side.hand.splice(pick, 1)
-    side.active = makeInPlay(card as PokemonCardDef, 0)
+    // `enteredTurn -1` marks "placed during setup": each side's first turn
+    // adopts them, which is what blocks evolving them that turn (rulebook).
+    side.active = makeInPlay(card as PokemonCardDef, -1)
 
     while (side.bench.length < Math.min(BENCH_TARGET, MAX_BENCH) && basicsIn(side.hand).length > 0) {
       const remaining = basicsIn(side.hand)
       const [benched] = side.hand.splice(remaining[0], 1)
-      side.bench.push(makeInPlay(benched as PokemonCardDef, 0))
+      side.bench.push(makeInPlay(benched as PokemonCardDef, -1))
     }
 
     placePrizes(side, settings.prizeCards)
@@ -347,11 +386,344 @@ export function setupBattle(
   // Loser of the flip draws one extra card.
   drawCards(sideOf(state, second), 1)
 
-  if (state.host.mulliganCount > 0) pushLog(state, `host mulligans x${state.host.mulliganCount}`)
-  if (state.guest.mulliganCount > 0) pushLog(state, `guest mulligans x${state.guest.mulliganCount}`)
+  for (const slot of ['host', 'guest'] as const) {
+    const mulligans = sideOf(state, slot).mulliganCount
+    if (mulligans > 0) logEvent(state, 'pokemonBnb.log.mulligan', { player: slot, count: mulligans })
+  }
 
   state.rngDraws = rngCalls
   return state
+}
+
+// -- CP7-B: turn sub-phases + action dispatcher --
+
+/** Deep-copy plain battle data so an invalid action can never mutate input. */
+export function cloneBattleState(state: BattleState): BattleState {
+  return JSON.parse(JSON.stringify(state)) as BattleState
+}
+
+/** Stage rank from the data's stage string ('Basic' -> 0, 'Stage1' -> 1, ...). */
+export function stageRank(stage: string): number {
+  const match = stage.match(/^Stage\s*(\d+)$/i)
+  if (match) return Number(match[1])
+  return stage.trim().toLowerCase() === 'basic' ? 0 : -1
+}
+
+function inPlayOf(side: SideState, target: 'active' | number): InPlayPokemon | null {
+  return target === 'active' ? side.active : (side.bench[target] ?? null)
+}
+
+/** Every Pokemon this side has in play (Active first, then Bench). */
+function inPlayList(side: SideState): InPlayPokemon[] {
+  return side.active ? [side.active, ...side.bench] : [...side.bench]
+}
+
+/** Rejection result: the caller keeps the untouched state and gets a code. */
+function failure(state: BattleState, error: string): ActionResult {
+  return { state, log: [], error }
+}
+
+/** Shared precondition: the match is live and it is `actor`'s main phase. */
+function checkTurn(state: BattleState, actor: PlayerSlot): string | null {
+  if (state.over) return 'match-over'
+  if (state.activePlayer !== actor) return 'not-your-turn'
+  if (state.phase !== 'main') return 'not-main-phase'
+  return null
+}
+
+/** Log entries appended by the action just applied. */
+function tailLog(state: BattleState, from: number): BattleLogEntry[] {
+  return state.log.slice(from)
+}
+
+/**
+ * Attack-cost payable check. `cost` comes from card data
+ * (`['darkness', 'colorless']`) and colorless is wild. Typed requirements are
+ * matched first, then leftover Energy covers the colorless count. Energy with
+ * no `provides` (special energy) pays colorless only in v1 — a documented
+ * approximation until special-energy scripts land in the effect library.
+ */
+export function canPayCost(attached: EnergyCardDef[], cost: CardType[]): boolean {
+  const pool: CardType[] = attached.map((energy) => energy.provides ?? 'colorless')
+  const used: boolean[] = pool.map(() => false)
+  let colorlessNeeded = 0
+  for (const requirement of cost) {
+    if (requirement === 'colorless') {
+      colorlessNeeded += 1
+      continue
+    }
+    const index = pool.findIndex((type, position) => !used[position] && type === requirement)
+    if (index === -1) return false
+    used[index] = true
+  }
+  return used.filter((spent) => !spent).length >= colorlessNeeded
+}
+
+function sharesType(card: PokemonCardDef, target: PokemonCardDef): boolean {
+  return card.types.some((type) => target.types.includes(type))
+}
+
+/**
+ * Evolution legality. 30C card data carries no `evolvesFrom`, so the fallback
+ * is stage progression (Basic -> Stage1 -> Stage2) plus a shared type. Sets
+ * that do supply `evolvesFrom` are matched by name instead, so future data
+ * needs no engine change.
+ */
+export function canEvolveOnto(evolution: PokemonCardDef, target: InPlayPokemon): boolean {
+  if (stageRank(evolution.stage) <= 0) return false
+  const targetCard = target.card
+  if (evolution.evolvesFrom) {
+    const sources = evolution.evolvesFrom.split(/[,/]/).map((name) => name.trim().toLowerCase())
+    return sources.includes(targetCard.name.trim().toLowerCase())
+  }
+  return stageRank(evolution.stage) === stageRank(targetCard.stage) + 1 && sharesType(evolution, targetCard)
+}
+
+// -- Sub-phase: attach Energy --
+
+/**
+ * Attach one Energy card from hand to one of your Pokemon in play.
+ * Rulebook: one Energy card per turn (Energy already attached to a Pokemon
+ * this turn cannot take a second one).
+ */
+export function attachEnergy(
+  state: BattleState,
+  actor: PlayerSlot,
+  handIndex: number,
+  target: 'active' | number,
+): ActionResult {
+  const blocked = checkTurn(state, actor)
+  if (blocked) return failure(state, blocked)
+  const next = cloneBattleState(state)
+  const side = sideOf(next, actor)
+  const card = side.hand[handIndex]
+  if (!card || !cardIsEnergy(card)) return failure(state, 'not-energy')
+  if (side.energyAttachedThisTurn >= ENERGY_PER_TURN) return failure(state, 'energy-limit')
+  const pokemon = inPlayOf(side, target)
+  if (!pokemon) return failure(state, 'no-target')
+  if (pokemon.energyAttachedTurn === next.turn) return failure(state, 'already-attached')
+
+  const logStart = next.log.length
+  side.hand.splice(handIndex, 1)
+  pokemon.attachedEnergy.push(card)
+  pokemon.energyAttachedTurn = next.turn
+  side.energyAttachedThisTurn += 1
+  logEvent(next, 'pokemonBnb.log.attachEnergy', {
+    player: actor,
+    card: card.name,
+    target: pokemon.card.name,
+  })
+  return { state: next, log: tailLog(next, logStart) }
+}
+
+// -- Sub-phase: play a Trainer card --
+
+/**
+ * Play a Trainer card from hand. Item is unlimited; Supporter and Stadium are
+ * once per turn (the once-per-turn *name* restriction is not enforced in the
+ * mini format). Reading the card text is the effect library's job (CP7-C), so
+ * this sub-phase owns only the hand -> discard move and the turn restrictions.
+ */
+export function playTrainer(state: BattleState, actor: PlayerSlot, handIndex: number): ActionResult {
+  const blocked = checkTurn(state, actor)
+  if (blocked) return failure(state, blocked)
+  const next = cloneBattleState(state)
+  const side = sideOf(next, actor)
+  const card = side.hand[handIndex]
+  if (!card || !cardIsTrainer(card)) return failure(state, 'not-trainer')
+  const trainerType = card.trainerType.trim().toLowerCase()
+  if (trainerType === 'supporter' && side.supporterPlayedTurn) return failure(state, 'supporter-limit')
+  if (trainerType === 'stadium' && side.stadiumPlayedTurn === next.turn) return failure(state, 'stadium-limit')
+
+  const logStart = next.log.length
+  side.hand.splice(handIndex, 1)
+  side.discard.push(card)
+  if (trainerType === 'supporter') side.supporterPlayedTurn = true
+  if (trainerType === 'stadium') side.stadiumPlayedTurn = next.turn
+  logEvent(next, 'pokemonBnb.log.playTrainer', { player: actor, card: card.name })
+  return { state: next, log: tailLog(next, logStart) }
+}
+
+// -- Sub-phase: evolve --
+
+/**
+ * Evolve a Pokemon in play. Rulebook: not the turn the Pokemon was played,
+ * not twice in the same turn, and damage / attached Energy / special
+ * conditions all carry over to the evolved card.
+ */
+export function evolve(
+  state: BattleState,
+  actor: PlayerSlot,
+  handIndex: number,
+  target: 'active' | number,
+): ActionResult {
+  const blocked = checkTurn(state, actor)
+  if (blocked) return failure(state, blocked)
+  const next = cloneBattleState(state)
+  const side = sideOf(next, actor)
+  const card = side.hand[handIndex]
+  if (!card || !cardIsPokemon(card)) return failure(state, 'not-pokemon')
+  const pokemon = inPlayOf(side, target)
+  if (!pokemon) return failure(state, 'no-target')
+  if (!canEvolveOnto(card, pokemon)) return failure(state, 'cannot-evolve')
+  if (pokemon.enteredTurn === next.turn) return failure(state, 'played-this-turn')
+  if (pokemon.evolvedTurn === next.turn) return failure(state, 'evolved-this-turn')
+
+  const logStart = next.log.length
+  const previous = pokemon.card.name
+  side.hand.splice(handIndex, 1)
+  pokemon.card = card
+  pokemon.evolvedTurn = next.turn
+  logEvent(next, 'pokemonBnb.log.evolve', { player: actor, card: card.name, target: previous })
+  return { state: next, log: tailLog(next, logStart) }
+}
+
+// -- Sub-phase: retreat --
+
+/**
+ * Retreat the Active Pokemon: discard Energy from it equal to its retreat
+ * cost, then swap it with a benched Pokemon. Asleep and Paralyzed Pokemon
+ * cannot retreat (Confused can); a Pokemon that already retreated this turn
+ * cannot retreat again.
+ */
+export function retreatToBench(state: BattleState, actor: PlayerSlot, benchIndex: number): ActionResult {
+  const blocked = checkTurn(state, actor)
+  if (blocked) return failure(state, blocked)
+  const next = cloneBattleState(state)
+  const side = sideOf(next, actor)
+  const active = side.active
+  const incoming = side.bench[benchIndex]
+  if (!active) return failure(state, 'no-active')
+  if (!incoming) return failure(state, 'no-target')
+  if (active.conditions.asleep || active.conditions.paralyzed) return failure(state, 'cannot-retreat')
+  if (active.retreatedTurn === next.turn) return failure(state, 'retreated-this-turn')
+  if (active.attachedEnergy.length < active.card.retreat) return failure(state, 'retreat-cost')
+
+  const logStart = next.log.length
+  const paid = active.attachedEnergy.splice(0, active.card.retreat)
+  side.discard.push(...paid)
+  side.bench.splice(benchIndex, 1)
+  side.bench.push(active)
+  active.retreatedTurn = next.turn
+  side.active = incoming
+  logEvent(next, 'pokemonBnb.log.retreat', {
+    player: actor,
+    from: active.card.name,
+    to: incoming.card.name,
+  })
+  return { state: next, log: tailLog(next, logStart) }
+}
+
+// -- Sub-phase: declare an attack --
+
+/**
+ * Declare an attack. This sub-phase owns the action-level rules: it must be
+ * your main phase, the Active Pokemon cannot be Asleep or Paralyzed, only one
+ * attack per turn, and the attack's Energy cost must be payable. Attacking
+ * ends your turn (rulebook), so the turn closes here.
+ *
+ * Damage, Weakness/Resistance, card-text effects, KO, prizes and victory are
+ * resolved at the marked CP7-C seam below, before the turn is closed.
+ */
+export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex: number): ActionResult {
+  const blocked = checkTurn(state, actor)
+  if (blocked) return failure(state, blocked)
+  const next = cloneBattleState(state)
+  const side = sideOf(next, actor)
+  const active = side.active
+  if (!active) return failure(state, 'no-active')
+  const attack = active.card.attacks[attackIndex]
+  if (!attack) return failure(state, 'no-attack')
+  if (active.conditions.asleep || active.conditions.paralyzed) return failure(state, 'cannot-attack')
+  if (side.attackedThisTurn) return failure(state, 'already-attacked')
+  if (!canPayCost(active.attachedEnergy, attack.cost)) return failure(state, 'insufficient-energy')
+
+  const logStart = next.log.length
+  side.attackedThisTurn = true
+  logEvent(next, 'pokemonBnb.log.attack', { player: actor, card: active.card.name, attack: attack.name })
+
+  // CP7-C seam: apply damage / effects / KO / prizes / victory to `next` here.
+  const closed = applyEndTurn(next, actor)
+  return { state: closed, log: tailLog(closed, logStart) }
+}
+
+// -- Sub-phase: end the turn --
+
+/** End the turn voluntarily (the actor must own the current turn). */
+export function endTurn(state: BattleState, actor: PlayerSlot): ActionResult {
+  const blocked = checkTurn(state, actor)
+  if (blocked) return failure(state, blocked)
+  const next = cloneBattleState(state)
+  const logStart = next.log.length
+  logEvent(next, 'pokemonBnb.log.endTurn', { player: actor })
+  const closed = applyEndTurn(next, actor)
+  return { state: closed, log: tailLog(closed, logStart) }
+}
+
+/** Hand the turn to the opponent, then run their start-of-turn step. */
+function applyEndTurn(state: BattleState, actor: PlayerSlot): BattleState {
+  state.activePlayer = foeOf(actor)
+  state.turn += 1
+  state.turnStarted = false
+  state.phase = 'draw'
+  return applyStartOfTurn(state)
+}
+
+/**
+ * Start of turn: reset the active player's once-per-turn flags, then draw one
+ * card. Guarded by `turnStarted`, so calling it twice cannot double-draw — the
+ * caller runs it once after `setupBattle`, and `endTurn` runs it thereafter.
+ *
+ * Special-condition timing (Poison/Burn damage, Asleep/Paralyzed wake checks,
+ * Confused self-hit) is added by CP7-D. Deck-out defeat is CP7-C; here it only
+ * records a log entry.
+ */
+export function applyStartOfTurn(state: BattleState): BattleState {
+  if (state.over || state.turnStarted) return state
+  const side = sideOf(state, state.activePlayer)
+  side.supporterPlayedTurn = false
+  side.energyAttachedThisTurn = 0
+  side.attackedThisTurn = false
+  side.stadiumPlayedTurn = -1
+  // Pokemon placed during setup (enteredTurn -1) adopt this turn number, which
+  // is what stops them evolving on their controller's first turn (rulebook).
+  for (const pokemon of inPlayList(side)) {
+    if (pokemon.enteredTurn < 0) pokemon.enteredTurn = state.turn
+  }
+  state.phase = 'main'
+  state.turnStarted = true
+  logEvent(state, 'pokemonBnb.log.turnStart', { player: state.activePlayer, turn: state.turn })
+  if (drawCards(side, 1).length === 0) {
+    logEvent(state, 'pokemonBnb.log.deckOut', { player: state.activePlayer })
+  }
+  return state
+}
+
+/**
+ * Single entry point for the engine. Local hot-seat input and host-side
+ * network intents both go through here, so a guest can never inject state.
+ *
+ * Invalid actions return the original state untouched plus an error code
+ * (codes are technical identifiers; CP7-E maps them to translated copy).
+ * The `default` branch guards malformed network payloads.
+ */
+export function processAction(state: BattleState, actor: PlayerSlot, action: BattleAction): ActionResult {
+  switch (action.type) {
+    case 'attachEnergy':
+      return attachEnergy(state, actor, action.handIndex, action.target)
+    case 'playTrainer':
+      return playTrainer(state, actor, action.handIndex)
+    case 'evolve':
+      return evolve(state, actor, action.handIndex, action.target)
+    case 'retreatToBench':
+      return retreatToBench(state, actor, action.benchIndex)
+    case 'useAttack':
+      return declareAttack(state, actor, action.attackIndex)
+    case 'endTurn':
+      return endTurn(state, actor)
+    default:
+      return failure(state, 'unknown-action')
+  }
 }
 
 

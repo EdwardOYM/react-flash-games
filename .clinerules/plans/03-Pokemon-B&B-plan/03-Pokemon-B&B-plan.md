@@ -20,7 +20,7 @@
 
   - [x] **CP7-0** — Break down CP7 into implementation sub-steps (CP7-A through CP7-G) + confirm rulebook sources & card-data model.
   - [x] **CP7-A** — engine types + rulebook constants + `setupBattle` + mulligan.
-  - [ ] **CP7-B** — action dispatcher + turn manipulation sub-phases (`attachEnergy`, `playTrainer`, `evolve`, `retreatToBench`, `useAttack`, `endTurn`).
+  - [x] **CP7-B** — action dispatcher + turn manipulation sub-phases (`attachEnergy`, `playTrainer`, `evolve`, `retreatToBench`, `useAttack`, `endTurn`).
   - [ ] **CP7-C** — attacks + effect parser + damage + KO/prize/victory.
   - [ ] **CP7-D** — turn lifecycle + statuses + timer + snapshots (`toSnapshot`/`applySnapshot`/`applyTimeout`).
   - [ ] **CP7-E** — wire `PokemonBnbGame.tsx`: `loading` → `playing` transition + `BattleState` state.
@@ -353,6 +353,31 @@ holding the `Peer`, peer id, and event callbacks; disposed in effect cleanup per
   state funnels through `resetMatchState`; the stable message handler calls
   enter/reset through refs assigned post-render (no lint warnings). 14 new
   `pokemonBnb.*` keys (parity 103/103). Build + lint clean.
+- **CP7-B (done).** Turn sub-phases + dispatcher in `game-core.ts`:
+  `processAction(state, actor, action) -> { state, log, error? }` is the single entry point (local
+  hot-seat and host-side network intents alike); invalid actions return the untouched state plus a
+  stable error code, so a guest can never inject state. Sub-phases: `attachEnergy` (one Energy per
+  turn, plus a per-Pokemon same-turn stamp), `playTrainer` (Item unlimited, Supporter/Stadium once
+  per turn; 30C's 3 trainers are all Items), `evolve` (stage progression + shared type, because
+  30C card data contains **zero** `evolvesFrom` fields — verified by search; name matching is used
+  when a future set does supply it), `retreatToBench` (discards Energy equal to the retreat cost;
+  blocked while Asleep/Paralyzed), `declareAttack` (turn/cost/status validation; attacking ends the
+  turn per rulebook), `endTurn` + `applyStartOfTurn` (per-turn flag reset + draw, guarded by a
+  `turnStarted` flag so a double call cannot double-draw). Three CP7-A amendments, all documented in
+  the file header: `attachedEnergy` now stores Energy **cards** (cost checks read `provides`),
+  `log` is now `BattleLogEntry[]` (`{ key, params }`) because the battle-log strip is player-facing
+  status text that must be translated while card names stay verbatim data, and turn numbering now
+  starts at 1 with setup Pokemon stamped `enteredTurn: -1` and adopted on their controller's first
+  turn (this is what implements "no evolution on your first turn"). The plan's `useAttack` is
+  implemented as `declareAttack` because the `use` prefix trips the repo's `react/rules-of-hooks`
+  error, and the repo's precedent (plan 01, step 12) is to fix such findings rather than suppress
+  them. Attacks are validated but not yet damaging: damage, effects, KO, prizes and victory land at
+  the marked seam inside `declareAttack` (CP7-C). Validation: `npm run build` + `npm run lint` clean
+  (0 warnings / 0 errors), plus a throwaway Node harness (esbuild-bundled engine, **65 assertions,
+  all passing**) that exercised every sub-phase through `processAction` and caught a real defect —
+  with `turn` starting at 0, setup Pokemon carrying `energyAttachedTurn`/`retreatedTurn` sentinels of
+  `0` made every once-per-turn action fail on the first turn. Harness deleted after the run (the repo
+  has no test runner); it can be re-added as a committed script on request.
 
 
 
