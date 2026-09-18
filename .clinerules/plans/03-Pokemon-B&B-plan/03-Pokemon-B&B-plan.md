@@ -18,8 +18,8 @@
 
   Sub-steps (one per editor pass; stop between each for review):
 
-    - [x] **CP7-0** — Break down CP7 into implementation sub-steps (CP7-A through CP7-G) + confirm rulebook sources & card-data model.
-  - [ ] **CP7-A** — engine types + rulebook constants + `setupBattle` + mulligan.
+  - [x] **CP7-0** — Break down CP7 into implementation sub-steps (CP7-A through CP7-G) + confirm rulebook sources & card-data model.
+  - [x] **CP7-A** — engine types + rulebook constants + `setupBattle` + mulligan.
   - [ ] **CP7-B** — action dispatcher + turn manipulation sub-phases (`attachEnergy`, `playTrainer`, `evolve`, `retreatToBench`, `useAttack`, `endTurn`).
   - [ ] **CP7-C** — attacks + effect parser + damage + KO/prize/victory.
   - [ ] **CP7-D** — turn lifecycle + statuses + timer + snapshots (`toSnapshot`/`applySnapshot`/`applyTimeout`).
