@@ -131,12 +131,13 @@ flowchart LR
 
 ## Pokemon B&B mini view state machine (ephemeral runtime flow)
 
-`paused`, `gameover`, `victory`, and `highscore` are placeholder views until
-CP8 (battle interactions + pause) and CP10 (results + highscores); the battle
-tabletop renders from `playing` once both deck-ready handshakes have run
-`beginBattle()`. `leaveLobby()` returns to `start` from every view. From CP9
-the guest renders the battle from host snapshots (`toSnapshot` / `applySnapshot`)
-instead of its own engine state.
+`paused` is a solid state-machine transition (CP8): `playing` renders the
+battle tabletop under the pause overlay (resume/leave), with the wall-clock
+pause arriving in CP9. `gameover`, `victory`, and `highscore` stay placeholders
+until CP10 (results + highscores); the battle tabletop renders from `playing`
+once both deck-ready handshakes have run `beginBattle()`. `leaveLobby()`
+returns to `start` from every view. From CP9 the guest renders the battle from
+host snapshots (`toSnapshot` / `applySnapshot`) instead of its own engine state.
 
 ```mermaid
 flowchart LR
@@ -150,8 +151,8 @@ flowchart LR
     POPENING -->|"opening-ready handshake: both ready"| PDECK["deck"]
     PDECK -->|"deck-ready handshake: both ready -> beginBattle() runs setupBattle from the shared seed"| PLOADING["loading (500ms)"]
     PLOADING -->|"battle built"| PPLAYING["playing (battle tabletop)"]
-    PPAUSED["paused"] -.->|"resume (CP8)"| PPLAYING
-    PPLAYING -.->|"pause (CP8)"| PPAUSED
+    PPAUSED["paused"] -->|"resume"| PPLAYING
+    PPLAYING -->|"pause"| PPAUSED
     PPLAYING -.->|"victory / gameover / highscore (CP10)"| PRESULTS["victory / gameover / highscore"]
 ```
 

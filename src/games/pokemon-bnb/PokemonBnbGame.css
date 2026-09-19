@@ -91,6 +91,37 @@
 .bnb-battle-log { list-style: none; margin: 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #33454a; background: #16222a; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .62rem; line-height: 1.4; }
 .bnb-battle-log li:last-child { color: #f5f0e8; }
 
+/* CP8-E: turn action bar — flex-wrap toolbar capped at 960px, mirroring .bnb-actions rhythm. */
+.bnb-action-bar { display: flex; flex-direction: column; gap: 6px; width: min(100%, 960px); margin: 0 auto; padding: 8px 10px; border: 1px solid #33454a; background: #16222a; }
+.bnb-action-bar .bnb-actions button[aria-pressed='true'] { border-color: #ffc857; color: #ffc857; }
+.bnb-action-bar button:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+
+/* CP8-E: selectable card zones — bench grid + hand list with gold selected state. */
+.bnb-bench-list, .bnb-hand-list { list-style: none; margin: 0; padding: 0; }
+.bnb-bench-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 6px; }
+.bnb-bench-list li { margin: 0; padding: 0; min-width: 0; }
+.bnb-bench-pick { display: block; width: 100%; padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; text-align: inherit; }
+.bnb-bench-pick:hover { border-color: #50676a; }
+.bnb-bench-pick:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.bnb-bench-pick[aria-pressed='true'] { border-color: #ffc857; box-shadow: 0 0 0 1px #ffc857; }
+.bnb-bench-pick:disabled { cursor: not-allowed; }
+.bnb-bench-face { display: block; }
+.bnb-bench-list .pkm-card { min-height: 0; }
+.bnb-hand-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 4px; }
+.bnb-hand-list li { margin: 0; padding: 0; }
+.bnb-hand-pick { padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; }
+.bnb-hand-pick:hover .bnb-hand-chip { border-color: #ffc857; color: #ffc857; }
+.bnb-hand-pick:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.bnb-hand-pick[aria-pressed='true'] .bnb-hand-chip { border-color: #ffc857; color: #101820; background: #ffc857; }
+
+/* CP8-E: overlays — fixed dim layer + capped card; promote gate docks dashed-gold. */
+.bnb-overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: rgba(16, 24, 32, .72); }
+.bnb-overlay-card { width: min(100%, 480px); max-height: min(90dvh, 520px); overflow-y: auto; padding: clamp(16px, 3vw, 28px); border: 1px solid #50676a; background: #16222a; }
+.bnb-overlay-card h2 { margin: 0 0 10px; color: #ffc857; font-size: clamp(1.2rem, 3vw, 1.6rem); }
+.bnb-overlay-card .bnb-copy { margin: 0 0 18px; }
+.bnb-promote-gate { width: min(100%, 960px); margin: 0 auto; padding: 10px 12px; border: 1px dashed #ffc857; background: #1a262b; }
+.bnb-promote-title { margin: 0 0 6px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; text-transform: uppercase; }
+
 /* Mobile landscape: fixed 100dvh page, stage fits the shorter dimension. */
 @media (orientation: landscape) and (max-height: 600px) {
   .bnb-page { height: 100dvh; min-height: 0; padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); overflow: hidden; }
@@ -112,6 +143,9 @@
   .bnb-battle-main { grid-template-columns: minmax(0, 1fr) clamp(110px, 26%, 180px); }
   .bnb-side { padding: 6px 8px; gap: 4px; }
   .bnb-hand-chip { padding: 2px 6px; font-size: .58rem; }
+  /* CP8-E landscape: bar tucks under the stage with a capped log strip. */
+  .bnb-action-bar { margin-top: 6px; padding: 6px 8px; }
+  .bnb-battle-log { max-height: 18vh; }
 }
 
 /* Narrow portrait (<=520px): panels stack, the log strip drops below them. */
@@ -119,6 +153,9 @@
   .bnb-battle { height: auto; }
   .bnb-battle-main { grid-template-columns: 1fr; }
   .bnb-battle-log { max-height: clamp(120px, 26vh, 220px); }
+  /* CP8-E portrait: two-column action bar + compact bench grids, no h-scroll. */
+  .bnb-action-bar .bnb-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bnb-bench-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* CP7-F dev harness (?local=1): plain technical controls, dev/QA only. */
