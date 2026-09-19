@@ -8,7 +8,7 @@ import { getPreferredLocale, type Locale, type TranslationKey, useTranslations }
 import { SettingsModal } from '../../settings'
 import type { CardDef, CardRarity, SetId } from './cards'
 import { buildPoolIsValid, type DeckLegalityReason } from './deck'
-import { STATUS_CONDITIONS, applySnapshot, processAction, setupBattle, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
+import { STATUS_CONDITIONS, applySnapshot, applyTimeout, processAction, setupBattle, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
 import { openPacks, buildPool, type OpenedCard, type OpenedPool } from './pack'
@@ -381,8 +381,18 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const messageHandlerRef = useRef<(message: NetMessage) => void>(() => undefined)
   const battleRef = useRef<BattleState | null>(null)
   const battleLogRef = useRef<HTMLOListElement | null>(null)
+
+  /** CP7-F dev harness: `?local=1` hot-seat battle (dev/QA only). */
+  const localMode = useMemo(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('local') === '1',
+    [],
+  )
   useEffect(() => {
-    battleRef.current = battle
+    // Host-authoritative play (CP9-B) keeps the live engine state in
+    // `battleRef`; the rendered `battle` is a view-only snapshot there, so it
+    // must never sync back over the authoritative state (defect fix found
+    // while wiring the CP9-C timer).
+    if (battle && !battle.viewOnly) battleRef.current = battle
   }, [battle])
 
   /**
@@ -391,21 +401,60 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
    * guest applies the second). Host-authoritative: the host keeps the live
    * engine state in `battleRef` and both seats render from snapshots.
    */
-  const broadcastBattle = (state: BattleState) => {
+  const broadcastBattle = useCallback((state: BattleState) => {
     sessionRef.current?.send({ kind: 'battle-snapshot', snapshot: { snapshot: toSnapshot(state, 'host') } })
     sessionRef.current?.send({ kind: 'battle-snapshot', snapshot: { snapshot: toSnapshot(state, 'guest') } })
     battleRef.current = state
     setBattle(applySnapshot(toSnapshot(state, 'host')))
-  }
+  }, [])
+
+  /**
+   * CP9-C turn timer wall clock. Elapsed time is recorded per turn key (match
+   * seed + turn + seat + limit) and `secondsLeft` is derived during render, so
+   * a new turn starts from a full timer with no reset effect, a mid-turn action
+   * (which re-broadcasts a snapshot) cannot refund time, and pause/resume
+   * freezes rather than resets the clock (CP8-D note resolved). On expiry the
+   * host -- and the `?local=1` harness -- runs `applyTimeout` on the live
+   * authoritative state and broadcasts; the guest only displays. `0` disables.
+   */
+  const timerSeconds = battle?.timerSeconds ?? 0
+  const battleTurn = battle?.turn ?? 0
+  const battleActivePlayer = battle?.activePlayer
+  const battleOver = battle?.over ?? false
+  const [turnTimer, setTurnTimer] = useState<{ key: string; elapsed: number } | null>(null)
+  const timerSeedKey = `${matchSeed ?? 0}:${battleTurn}:${battleActivePlayer ?? ''}:${timerSeconds}`
+  const timerSeeded = turnTimer !== null && turnTimer.key === timerSeedKey ? turnTimer : null
+  const timerVisible = (view === 'playing' || view === 'paused') && timerSeconds > 0 && !battleOver
+  const secondsLeft = timerVisible ? Math.max(0, timerSeconds - (timerSeeded?.elapsed ?? 0)) : null
+  useEffect(() => {
+    // Ticks only while playing, so the paused table freezes the clock.
+    if (view !== 'playing' || !timerVisible) return
+    const elapsed = timerSeeded?.elapsed ?? 0
+    if (elapsed < timerSeconds) {
+      const tick = window.setTimeout(() => {
+        setTurnTimer((prev) => ({ key: timerSeedKey, elapsed: (prev && prev.key === timerSeedKey ? prev.elapsed : 0) + 1 }))
+      }, 1000)
+      return () => window.clearTimeout(tick)
+    }
+    // Expiry: only the authoritative seat forfeits the turn and broadcasts;
+    // the guest waits for the snapshot that ends this turn. Deferred to a
+    // macrotask so the effect body does not setState synchronously.
+    if (!localMode && roleRef.current !== 'host') return
+    const fire = window.setTimeout(() => {
+      const live = battleRef.current
+      if (!live || live.over || live.timerSeconds <= 0) return
+      const next = applyTimeout(live)
+      if (next === live) return
+      battleRef.current = next
+      if (localMode) setBattle(next)
+      else broadcastBattle(next)
+    }, 0)
+    return () => window.clearTimeout(fire)
+  }, [view, timerVisible, timerSeeded, timerSeconds, timerSeedKey, localMode, broadcastBattle])
 
   const displayName = playerName.trim() || t('pokemonBnb.defaultName')
   const isHost = role === 'host'
 
-  /** CP7-F dev harness: `?local=1` hot-seat battle (dev/QA only). */
-  const localMode = useMemo(
-    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('local') === '1',
-    [],
-  )
   const localStartedRef = useRef(false)
 
   /**
@@ -897,10 +946,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       setBattleError('view-only')
       return false
     }
-    if (battle.viewOnly && !localMode && roleRef.current === 'host') {
-      setBattleError('view-only')
-      return false
-    }
+    // The authoritative seat (host, or the `?local=1` harness) acts on the live
+    // engine state held in `battleRef`; `battle` is only the render snapshot.
     const live = roleRef.current === 'host' && !localMode ? (battleRef.current ?? battle) : battle
     const result = processAction(live, actor, action)
     setBattleError(result.error ?? null)
@@ -1228,7 +1275,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         )}
         <section className="bnb-battle">
           <header className="bnb-battle-head">
-            <p className="bnb-battle-turn">{substituteParams(t('pokemonBnb.turnHeader'), { turn: String(battle.turn), player: seatName(battle.activePlayer) })}</p>
+            <p className="bnb-battle-turn">
+              {substituteParams(t('pokemonBnb.turnHeader'), { turn: String(battle.turn), player: seatName(battle.activePlayer) })}
+              {secondsLeft !== null && battle.timerSeconds > 0 && (
+                <span className="bnb-timer">{substituteParams(t('pokemonBnb.timerRemaining'), { count: String(secondsLeft) })}</span>
+              )}
+            </p>
             {battle.over && battle.winner && (
               <p className="bnb-battle-banner" role="status">
                 <span>{t('pokemonBnb.matchOverTitle')}</span>

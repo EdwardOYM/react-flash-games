@@ -68,6 +68,8 @@
 .bnb-battle { display: flex; flex-direction: column; gap: 10px; width: min(100%, 960px); aspect-ratio: 16 / 9; margin: clamp(12px, 3vh, 32px) auto 0; padding: clamp(10px, 2vw, 18px); border: 1px solid #33454a; background: #121c24; }
 .bnb-battle-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
 .bnb-battle-turn { margin: 0; color: #ffc857; font-family: 'DM Mono', monospace; font-size: clamp(.8rem, 2vh, 1rem); letter-spacing: .04em; }
+/* CP9-C: per-turn countdown chip beside the turn header (tabular so it does not jitter). */
+.bnb-timer { display: inline-block; margin-left: 8px; padding: 1px 6px; border: 1px solid #50676a; color: #f5f0e8; font-size: .72em; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .bnb-battle-banner { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 10px 14px; border: 1px solid #ffc857; background: #1a262b; }
 .bnb-battle-banner span:first-child { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
 .bnb-battle-banner span:last-child { color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .95rem; }
