@@ -334,6 +334,17 @@ type PkmBnbTranslationKey =
   | 'helpBody'
   | 'pauseHint'
   | 'cancel'
+  | 'connectionLost'
+  | 'connectionRestored'
+  | 'opponentDisconnected'
+  | 'resyncNotice'
+  | 'timerRemaining'
+  | 'timerExpired'
+  | 'rematchOffer'
+  | 'rematchWaiting'
+  | 'rematchReceived'
+  | 'rematchAccept'
+  | 'rematchAccepted'
 
 type PkmBnbLogTranslationKey =
   | 'turnStart'
