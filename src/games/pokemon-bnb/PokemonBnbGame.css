@@ -73,6 +73,11 @@
 .bnb-battle-banner { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 10px 14px; border: 1px solid #ffc857; background: #1a262b; }
 .bnb-battle-banner span:first-child { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
 .bnb-battle-banner span:last-child { color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .95rem; }
+/* CP9-D: mid-battle connection banner (link down + resync pending), and the
+   colour-matched restored/left notice reused from .bnb-notice. */
+.bnb-conn-lost { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 8px 12px; border: 1px dashed #ff8a7a; background: #241a1a; }
+.bnb-conn-lost span:first-child { color: #ff8a7a; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
+.bnb-conn-lost span:last-child { color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .78rem; }
 .bnb-battle-main { display: grid; flex: 1; min-height: 0; gap: 10px; grid-template-columns: minmax(0, 1fr) clamp(150px, 24%, 240px); }
 .bnb-battle-table { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .bnb-side { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; padding: 10px 12px; border: 1px solid #33454a; background: #16222a; }

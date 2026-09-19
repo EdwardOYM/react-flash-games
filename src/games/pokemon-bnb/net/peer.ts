@@ -45,6 +45,10 @@ const PEER_PREFIX = 'pkm-bnb-'
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const CODE_LENGTH = 6
 const CODE_RETRY_LIMIT = 5
+/** CP9-D: delay before a guest re-dials after a data-channel drop. */
+const REDIAL_DELAY_MS = 1200
+/** CP9-D: bounded re-dial attempts so a dead lobby does not spin forever. */
+const REDIAL_LIMIT = 12
 
 export function randomCode(length = CODE_LENGTH): string {
   let code = ''
@@ -190,26 +194,58 @@ export function joinHost(code: string, name: string, callbacks: WireCallbacks, s
   let peer: Peer | null = null
   let conn: DataConnection | null = null
   let helloSent = false
+  let redialTimer: ReturnType<typeof setTimeout> | null = null
+  let redialAttempts = 0
 
   const normalized = code.trim().toUpperCase().replace(/\s+/g, '')
   callbacks.onStatus?.('connecting')
   peer = makePeer(undefined, server)
 
-  peer.on('open', () => {
-    if (disposed || conn) return
-    const link = peer!.connect(PEER_PREFIX + normalized, { reliable: true })
+  /**
+   * CP9-D: after a data-channel drop the broker session usually stays open, so
+   * no `open` event repeats to re-dial from. Re-dial on a timer instead (bounded
+   * by `REDIAL_LIMIT`) so the guest lands back in the same lobby: its `hello`
+   * makes the host replay the authoritative battle snapshot, and the guest
+   * renders from it without either seat losing the match.
+   */
+  const scheduleRedial = () => {
+    if (disposed || redialTimer !== null || redialAttempts >= REDIAL_LIMIT) return
+    redialTimer = setTimeout(() => {
+      redialTimer = null
+      dial()
+    }, REDIAL_DELAY_MS)
+  }
+
+  const dial = () => {
+    if (disposed || conn || !peer) return
+    let link: DataConnection
+    try {
+      link = peer.connect(PEER_PREFIX + normalized, { reliable: true })
+    } catch {
+      // The broker session is gone; Peer reports it through `error`, which the
+      // component surfaces as a translated message.
+      return
+    }
+    redialAttempts += 1
     conn = link
     attachConnection(link, callbacks)
     link.on('open', () => {
       if (disposed || helloSent) return
       helloSent = true
+      redialAttempts = 0
       link.send({ kind: 'hello', name, protocolVersion: PROTOCOL_VERSION } satisfies NetMessage)
       callbacks.onStatus?.('connected')
     })
     link.on('close', () => {
       if (conn === link) conn = null
       helloSent = false
+      callbacks.onStatus?.('waiting')
+      scheduleRedial()
     })
+  }
+
+  peer.on('open', () => {
+    dial()
   })
 
   peer.on('error', (error) => {
@@ -233,6 +269,10 @@ export function joinHost(code: string, name: string, callbacks: WireCallbacks, s
     },
     dispose() {
       disposed = true
+      if (redialTimer !== null) {
+        clearTimeout(redialTimer)
+        redialTimer = null
+      }
       callbacks.onStatus?.('closed')
       try { conn?.close() } catch { /* already gone */ }
       conn = null

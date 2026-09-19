@@ -336,6 +336,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const [playerName, setPlayerName] = useState('')
   const [opponentName, setOpponentName] = useState('')
   const [notice, setNotice] = useState<TranslationKey | null>(null)
+  /** CP9-D: peer channel down mid-match; drives the battle connection banner. */
+  const [connLost, setConnLost] = useState(false)
   const [errorKey, setErrorKey] = useState<TranslationKey | null>(null)
   const [matchSeed, setMatchSeed] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
@@ -373,6 +375,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const [helpOpen, setHelpOpen] = useState(false)
   const sessionRef = useRef<SessionBase | null>(null)
   const roleRef = useRef<Role | null>(null)
+  const viewRef = useRef<View>('start')
+  /** CP9-D mirror of `connLost` for the stable session callbacks. */
+  const connLostRef = useRef(false)
+  const noticeTimerRef = useRef<number | null>(null)
   const settingsRef = useRef<LobbySettings>(settings)
   const nameRef = useRef('')
   const openingReadyRef = useRef(false)
@@ -394,6 +400,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     // while wiring the CP9-C timer).
     if (battle && !battle.viewOnly) battleRef.current = battle
   }, [battle])
+
+  // Mirror of the current view for the stable session callbacks (CP9-D).
+  useEffect(() => { viewRef.current = view }, [view])
 
   /**
    * CP9-B host broadcast: send each seat its own privacy-scoped snapshot over
@@ -557,6 +566,20 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     sessionRef.current = null
   }, [])
 
+  /**
+   * CP9-D: transient notice that auto-clears, so a disconnect/restore message
+   * cannot outlive the moment it describes (the previous one-shot `notice`
+   * setter left stale copy on screen until the next state change).
+   */
+  const showNotice = (key: TranslationKey) => {
+    setNotice(key)
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current)
+    noticeTimerRef.current = window.setTimeout(() => {
+      noticeTimerRef.current = null
+      setNotice(null)
+    }, 6000)
+  }
+
   const readMessage = (message: NetMessage) => {
     switch (message.kind) {
       case 'hello': {
@@ -565,11 +588,26 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         // The host answers with its identity and the current lobby settings.
         sessionRef.current?.send({ kind: 'hello-ack', name: nameRef.current, protocolVersion: PROTOCOL_VERSION })
         sessionRef.current?.send({ kind: 'lobby-update', settings: clampLobbySettings(settingsRef.current) })
+        // CP9-D resync: a re-`hello` means the guest re-dialled after a blip.
+        // The host re-sends the per-seat snapshots of the live engine state so
+        // the guest can rebuild its view without restarting the match.
+        const live = battleRef.current
+        if (live && !live.over) {
+          broadcastBattle(live)
+          setStatus('connected')
+          showNotice('pokemonBnb.connectionRestored')
+        }
         return
       }
       case 'hello-ack': {
         setOpponentName(message.name)
         setNotice(null)
+        // CP9-D: the host answered our re-`hello`, so the link is live again.
+        if (connLostRef.current) {
+          connLostRef.current = false
+          setConnLost(false)
+          showNotice('pokemonBnb.connectionRestored')
+        }
         return
       }
       case 'lobby-update': {
@@ -611,17 +649,31 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         return
       }
       case 'leave': {
+        // CP9-D: if the peer leaves mid-battle, say so and stop the match
+        // locally (the opponent chose to leave; there is nothing to resync).
+        const inBattle = viewRef.current === 'playing' || viewRef.current === 'paused'
         if (roleRef.current === 'host') {
           setOpponentName('')
           setStatus('waiting')
-          setNotice('pokemonBnb.peerLeft')
+          showNotice(inBattle ? 'pokemonBnb.opponentDisconnected' : 'pokemonBnb.peerLeft')
+          if (inBattle) {
+            // The opponent chose to leave: end this match locally rather than
+            // leave the host parked in a battle that can never resume.
+            closeSession()
+            roleRef.current = null
+            setRole(null)
+            setStatus('closed')
+            setMatchSeed(null)
+            resetMatchState()
+            setView('start')
+          }
           return
         }
         closeSession()
         roleRef.current = null
         setRole(null)
         setStatus('closed')
-        setNotice('pokemonBnb.peerLeft')
+        showNotice(inBattle ? 'pokemonBnb.opponentDisconnected' : 'pokemonBnb.peerLeft')
         setView('start')
         return
       }
@@ -649,6 +701,13 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         setSelHand(null)
         setSelBench(null)
         setSelAttack(null)
+        // CP9-D: a snapshot arriving mid-battle is proof the host replayed the
+        // authoritative state after our re-dial; clear the connection banner.
+        if (connLostRef.current) {
+          connLostRef.current = false
+          setConnLost(false)
+          showNotice('pokemonBnb.connectionRestored')
+        }
         return
       }
       default:
@@ -716,6 +775,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     sessionRef.current?.dispose()
     sessionRef.current = null
     if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current)
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current)
   }, [])
 
   // Ref mirrors + ref-called implementations for the stable data-channel
@@ -746,12 +806,16 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       setOpponentDeckReady(false)
       opponentDeckReadyRef.current = false
       opponentDeckIdsRef.current = null
+      battleRef.current = null
       setBattle(null)
       setBattleError(null)
       setSelHand(null)
       setSelBench(null)
       setSelAttack(null)
       setHelpOpen(false)
+      // CP9-D: a new match/leave starts with a healthy connection banner.
+      connLostRef.current = false
+      setConnLost(false)
     }
   }, [openingReady, opponentReady, deckReady, opponentDeckReady, openedPool])
 
@@ -804,24 +868,43 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     const callbacks = {
       onMessage: (message: NetMessage) => messageHandlerRef.current(message),
       // A guest steps into the shared lobby view the moment the channel opens.
+      // CP9-D: never step in mid-battle (a channel blip re-dials without
+      // changing the view), and confirm the restore once.
       onPeerConnected: () => {
         setStatus('connected')
-        if (roleRef.current === 'guest') setView('lobby')
+        if (!connLostRef.current) return
+        // CP9-D: the channel is back. (For a guest re-dial the host replays its
+        // snapshots right after this; the view is never re-routed mid-battle.)
+        connLostRef.current = false
+        setConnLost(false)
+        showNotice('pokemonBnb.connectionRestored')
       },
+      /**
+       * CP9-D: the other seat dropped. Mid-battle the engine state stays intact
+       * (host-authoritative, so it can be re-sent on re-`hello`); the banner and
+       * `connLost` mark the link as down instead of tearing the match down.
+       */
       onPeerDisconnected: () => {
         if (closingRef.current) return
+        const inBattle = viewRef.current === 'playing' || viewRef.current === 'paused'
+        if (inBattle) {
+          connLostRef.current = true
+          setConnLost(true)
+          showNotice('pokemonBnb.opponentDisconnected')
+          return
+        }
         if (roleRef.current === 'guest') {
           closeSession()
           roleRef.current = null
           setRole(null)
           setStatus('closed')
-          setNotice('pokemonBnb.peerLeft')
+          showNotice('pokemonBnb.opponentDisconnected')
           setView('start')
           return
         }
         setOpponentName('')
         setStatus('waiting')
-        setNotice('pokemonBnb.peerLeft')
+        showNotice('pokemonBnb.opponentDisconnected')
       },
       // Reading the session's live code keeps the shown code correct when the
       // broker rejects a collision and the host auto-rolls a fresh one.
@@ -997,6 +1080,13 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     setCodeInput('')
     setOpponentName('')
     setNotice(null)
+    // CP9-D: drop the connection banner state with the session.
+    connLostRef.current = false
+    setConnLost(false)
+    if (noticeTimerRef.current !== null) {
+      window.clearTimeout(noticeTimerRef.current)
+      noticeTimerRef.current = null
+    }
     setErrorKey(null)
     setMatchSeed(null)
     resetMatchState()
@@ -1287,6 +1377,13 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                 <span>{battle.winReason ? `${seatName(battle.winner)} · ${t(WIN_REASON_KEYS[battle.winReason])}` : seatName(battle.winner)}</span>
               </p>
             )}
+            {connLost && !battle.over && (
+              <p className="bnb-conn-lost" role="status">
+                <span>{t('pokemonBnb.opponentDisconnected')}</span>
+                <span>{t('pokemonBnb.resyncNotice')}</span>
+              </p>
+            )}
+            {notice && <p className="bnb-notice" role="status">{t(notice)}</p>}
             {battle.pendingPromotion === mySlot && !battle.over && (
               <p className="bnb-notice">{battleErrorCopy('must-promote')}</p>
             )}
