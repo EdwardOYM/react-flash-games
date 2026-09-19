@@ -91,6 +91,16 @@ DECISION NOTES (from user, 2026-09-17):
   Track as a follow-up task; not part of CP7/CP8.
 -->
 - [ ] 8 — Battle UI (tabletop zones, counters, statuses, energy, log, pause)
+
+  Sub-steps (one per editor pass; stop between each for review):
+
+  - [x] **CP8-0** — Break down CP8 into implementation sub-steps (CP8-A through CP8-F) + confirm scope vs CP7-E-d render and CP7-F harness.
+  - [x] **CP8-A** — locale keys only (pure data): battle action copy (attach/play/evolve/retreat/attack/end/promote), selection labels, pause/resume/help overlay copy, turn/phase status copy in en/ms/zh + `PkmBnbTranslationKey` union; keep 3-way key parity. (Done: 18 flat `pokemonBnb.*` keys, parity 195/195/195; build + lint clean.)
+  - [ ] **CP8-B** — action driver in `PokemonBnbGame.tsx`: `runBattleAction(actor, action)` through `processAction` (local seats pre-CP9), selection state (hand/bench/attack picks), `battleError` surfacing; harness reuses the driver.
+  - [ ] **CP8-C** — tabletop upgrade: `BattlePanel` renders `PokemonCard` faces (damage counters, status pips, attached energy), bench select, own-hand interaction, prize/discard counters; foe hand stays count-only.
+  - [ ] **CP8-D** — controls + overlays: turn action bar (attach/evolve/trainer/retreat/attack/end), promotion picker gate, pause overlay (resume/leave, Tron pattern) + help overlay; `paused` becomes a solid state-machine transition.
+  - [ ] **CP8-E** — CSS in `PokemonBnbGame.css`: action bar, card zones, overlays; 960x540 embed cap + landscape breakpoint + ≤520px portrait; no global CSS.
+  - [ ] **CP8-F** — validate (`npm run build` + `npm run lint` + key-parity + three-viewport audit) + sync `.github/diagram/architecture-flow.md` (solidify pause transition).
 - [ ] 9 — P2P battle sync + timer (host-authoritative, snapshots, disconnect, rematch)
 - [ ] 10 — End flow + polish + docs (victory/defeat, highscores, settings, responsive, credits, diagrams, final validation)
 
