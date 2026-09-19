@@ -47,12 +47,15 @@ flowchart TD
         pokemonBnb -->|"openPacks(cards, pack, seed) — deterministic, identical pool on both seats"| data["pokemon-bnb data: sets.ts / cards.ts / rng.ts seeded xorshift32 / pack.ts / deck.ts legality"]
         pokemonBnb -->|"deck-ready ids resolved against the shared pool -> setupBattle(settings, hostDeck, guestDeck, seed)"| engine["game-core/ module folder — index barrel re-exports<br/>constants / types / helpers / setup / actions / effects / turns / snapshots (pure, no React / DOM / network)"]
         engine -->|"BattleState -> tabletop render: turn header, side panels, translated log strip"| pokemonBnb
+        pokemonBnb -->|"battle-action intent (guest) -> host processAction -> battle-snapshot per seat -> applySnapshot (CP9-B)"| sync["Host-authoritative sync: battleRef = live engine state (host), battle = render snapshot; the guest is view-only"]
+        sync -->|"turn timer: derived secondsLeft per turn key, host applyTimeout on expiry + broadcast (CP9-C)"| engine
+        pokemonBnb -->|"disconnect: joinHost redial + re-hello -> host replays per-seat snapshots (CP9-D); rematch offer -> host startPackOpening() fresh seed (CP9-E)"| peer
     end
 
     subgraph STATE["View state machine"]
         bubble -->|"View union"| views["start / tutorial / loading / playing / paused / remap / gameover / victory / highscore"]
         tron -->|"View union"| tronViews["start / tutorial / loading / playing / paused / gameover / victory / highscore (round-over is an overlay sub-state of playing; stick remap is an in-pause overlay, not a view)"]
-        pokemonBnb -->|"View union"| pkmViews["start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused / gameover / victory / highscore (battle tabletop renders from playing; paused + results are placeholders until CP8 / CP10)"]
+        pokemonBnb -->|"View union"| pkmViews["start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused / gameover / victory / highscore (battle tabletop renders from playing; paused is a solid transition since CP8; results are placeholders until CP10)"]
     end
 
     subgraph PERSIST["Data & persistence layer"]
@@ -132,12 +135,22 @@ flowchart LR
 ## Pokemon B&B mini view state machine (ephemeral runtime flow)
 
 `paused` is a solid state-machine transition (CP8): `playing` renders the
-battle tabletop under the pause overlay (resume/leave), with the wall-clock
-pause arriving in CP9. `gameover`, `victory`, and `highscore` stay placeholders
-until CP10 (results + highscores); the battle tabletop renders from `playing`
-once both deck-ready handshakes have run `beginBattle()`. `leaveLobby()`
-returns to `start` from every view. From CP9 the guest renders the battle from
-host snapshots (`toSnapshot` / `applySnapshot`) instead of its own engine state.
+battle tabletop under the pause overlay (resume/leave), and since CP9 the
+wall-clock countdown freezes there instead of resetting (elapsed time is kept
+per turn key and the remaining seconds are derived during render). Since CP9 the
+match is host-authoritative: the host keeps the live `BattleState` in
+`battleRef` and both seats render `applySnapshot(toSnapshot(state, seat))` from
+per-seat `battle-snapshot` frames, while a guest turn is a `battle-action`
+intent that only the host validates with `processAction` — so a guest can never
+inject state. Timer expiry runs `applyTimeout` on the host and is broadcast; a
+dropped data channel keeps the battle intact (connection-lost banner) while
+`joinHost` auto-redials and a re-`hello` makes the host replay its snapshots; a
+finished match can be replayed through the `rematch` offer, which the host
+grants by rolling a fresh seed through the normal `lobby-start` handshake (both
+seats return to `opening`). `gameover`, `victory`, and `highscore` stay
+placeholders until CP10 (results + highscores); the battle tabletop renders from
+`playing` once both `deck-ready` handshakes have run `beginBattle()`.
+`leaveLobby()` returns to `start` from every view.
 
 ```mermaid
 flowchart LR
@@ -153,6 +166,10 @@ flowchart LR
     PLOADING -->|"battle built"| PPLAYING["playing (battle tabletop)"]
     PPAUSED["paused"] -->|"resume"| PPLAYING
     PPLAYING -->|"pause"| PPAUSED
+    PPLAYING -->|"turn timer expiry: host applyTimeout() + broadcast (CP9-C)"| PPLAYING
+    PPLAYING -->|"mid-battle disconnect -> joinHost redial -> re-hello -> host replays snapshots (CP9-D)"| PRECONN["connection lost banner (battle state kept)"]
+    PRECONN -->|"battle-snapshot received"| PPLAYING
+    PPLAYING -->|"rematch accepted: host rolls a fresh seed via lobby-start (CP9-E)"| POPENING
     PPLAYING -.->|"victory / gameover / highscore (CP10)"| PRESULTS["victory / gameover / highscore"]
 ```
 
