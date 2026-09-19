@@ -345,6 +345,16 @@ type PkmBnbTranslationKey =
   | 'rematchReceived'
   | 'rematchAccept'
   | 'rematchAccepted'
+  | 'resultVictory'
+  | 'resultDefeat'
+  | 'resultReason'
+  | 'resultPrizes'
+  | 'playAgain'
+  | 'highscoreSaved'
+  | 'rank'
+  | 'player'
+  | 'wins'
+  | 'noScores'
 
 type PkmBnbLogTranslationKey =
   | 'turnStart'
