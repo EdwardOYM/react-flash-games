@@ -274,6 +274,20 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const [battle, setBattle] = useState<BattleState | null>(null)
   /** Last rejected action code from the engine; shown translated in-battle. */
   const [battleError, setBattleError] = useState<string | null>(null)
+  /** CP8-B selection state: hand/bench/attack picks for the turn action bar. */
+  const [selHand, setSelHand] = useState<number | null>(null)
+  const [selBench, setSelBench] = useState<number | null>(null)
+  const [selAttack, setSelAttack] = useState<number | null>(null)
+  const clearBattleSelection = useCallback(() => {
+    setSelHand(null)
+    setSelBench(null)
+    setSelAttack(null)
+  }, [])
+  // CP8-B state only: consumed by the CP8-C/D tabletop + action bar. This keeps
+  // the production build clean until those passes wire the selection UI.
+  void selHand
+  void selBench
+  void selAttack
   const sessionRef = useRef<SessionBase | null>(null)
   const roleRef = useRef<Role | null>(null)
   const settingsRef = useRef<LobbySettings>(settings)
@@ -544,6 +558,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       opponentDeckIdsRef.current = null
       setBattle(null)
       setBattleError(null)
+      setSelHand(null)
+      setSelBench(null)
+      setSelAttack(null)
     }
   }, [openingReady, opponentReady, deckReady, opponentDeckReady, openedPool])
 
@@ -718,12 +735,32 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     return t(`pokemonBnb.error.${camel}` as TranslationKey)
   }
 
-  /** CP7-F dev harness: drive the engine directly; rejections surface translated. */
-  const runLocalAction = (actor: PlayerSlot, action: BattleAction) => {
-    if (!battle) return
+  /**
+   * CP8-B action driver: the single entry point for local action dispatch
+   * (pre-CP9). Real play calls it with `mySlot`; `?local=1` passes the seat.
+   * Success clears the hand/bench/attack selection; failure keeps it. Guest
+   * snapshots (CP9) stay view-only and can never dispatch through this path.
+   */
+  const runBattleAction = (actor: PlayerSlot, action: BattleAction): boolean => {
+    if (!battle) return false
+    if (battle.over) {
+      setBattleError('match-over')
+      return false
+    }
+    if (battle.viewOnly) {
+      setBattleError('view-only')
+      return false
+    }
     const result = processAction(battle, actor, action)
     setBattle(result.state)
     setBattleError(result.error ?? null)
+    if (result.error == null) clearBattleSelection()
+    return result.error == null
+  }
+
+  /** CP7-F dev harness: delegates to the shared CP8-B action driver. */
+  const runLocalAction = (actor: PlayerSlot, action: BattleAction) => {
+    runBattleAction(actor, action)
   }
 
   const copyCode = () => {
