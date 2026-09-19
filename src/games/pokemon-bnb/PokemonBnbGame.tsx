@@ -359,14 +359,18 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   /** CP8-B selection state: hand/bench/attack picks for the turn action bar. */
   const [selHand, setSelHand] = useState<number | null>(null)
   const [selBench, setSelBench] = useState<number | null>(null)
-  const [selAttack, setSelAttack] = useState<number | null>(null)
+  // CP8-B reserved: attacks fire directly per-button (D-1), so this stays
+  // unused until a future pass needs an attack pick.
+  const [_selAttack, setSelAttack] = useState<number | null>(null)
   const clearBattleSelection = useCallback(() => {
     setSelHand(null)
     setSelBench(null)
     setSelAttack(null)
   }, [])
+  void _selAttack
   // CP8-C/D tabletop + action bar now consume the selection above.
-  void selAttack
+  /** CP8-D help overlay: local dialog state, cleared on match reset. */
+  const [helpOpen, setHelpOpen] = useState(false)
   const sessionRef = useRef<SessionBase | null>(null)
   const roleRef = useRef<Role | null>(null)
   const settingsRef = useRef<LobbySettings>(settings)
@@ -640,6 +644,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       setSelHand(null)
       setSelBench(null)
       setSelAttack(null)
+      setHelpOpen(false)
     }
   }, [openingReady, opponentReady, deckReady, opponentDeckReady, openedPool])
 
@@ -1100,7 +1105,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   // CP7-E-d: the battle tabletop. Both seats render their own engine state;
   // the opponent's hand stays a count-only line (privacy, per CP6) until the
   // host-authoritative snapshots of CP9 replace this with toSnapshot views.
-  if (view === 'playing' && battle) {
+  // CP8-D: the paused view renders the same tabletop under the pause overlay
+  // (CP9 adds the wall-clock pause there; the battle itself is untouched).
+  if ((view === 'playing' || view === 'paused') && battle) {
     const mySlot: PlayerSlot = role === 'guest' ? 'guest' : 'host'
     const foeSlot: PlayerSlot = mySlot === 'host' ? 'guest' : 'host'
     return (
@@ -1108,10 +1115,36 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         <header className="bnb-topbar">
           <span className="bnb-hud-label">{t('pokemonBnb.title')}</span>
           <div className="bnb-topbar-actions">
+            <button type="button" disabled={battle.over} onClick={() => setView('paused')}>{t('pokemonBnb.pause')}</button>
+            <button type="button" aria-label={t('pokemonBnb.helpTitle')} onClick={() => setHelpOpen(true)}>?</button>
             <button type="button" onClick={leaveLobby}>{t('pokemonBnb.leaveLobby')}</button>
             <button type="button" onClick={onExit}>{t('pokemonBnb.exit')}</button>
           </div>
         </header>
+        {helpOpen && (
+          <div className="bnb-overlay" role="dialog" aria-modal="true" aria-label={t('pokemonBnb.helpTitle')}>
+            <div className="bnb-overlay-card">
+              <h2>{t('pokemonBnb.helpTitle')}</h2>
+              <p className="bnb-copy">{t('pokemonBnb.helpBody')}</p>
+              <div className="bnb-actions">
+                <button className="bnb-primary" type="button" autoFocus onClick={() => setHelpOpen(false)}>{t('pokemonBnb.cancel')}</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {view === 'paused' && battle && (
+          <div className="bnb-overlay" role="dialog" aria-modal="true" aria-label={t('pokemonBnb.paused')}>
+            <div className="bnb-overlay-card">
+              <p className="eyebrow">{t('pokemonBnb.title')}</p>
+              <h2>{t('pokemonBnb.paused')}</h2>
+              <p className="bnb-copy">{t('pokemonBnb.pauseHint')}</p>
+              <div className="bnb-actions">
+                <button className="bnb-primary" type="button" onClick={() => setView('playing')}>{t('pokemonBnb.resume')}</button>
+                <button type="button" onClick={leaveLobby}>{t('pokemonBnb.leaveLobby')}</button>
+              </div>
+            </div>
+          </div>
+        )}
         <section className="bnb-battle">
           <header className="bnb-battle-head">
             <p className="bnb-battle-turn">{substituteParams(t('pokemonBnb.turnHeader'), { turn: String(battle.turn), player: seatName(battle.activePlayer) })}</p>
@@ -1125,6 +1158,102 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               <p className="bnb-notice">{battleErrorCopy('must-promote')}</p>
             )}
           </header>
+          {battle.pendingPromotion === mySlot && !battle.over
+            ? (
+              <div className="bnb-promote-gate" role="dialog" aria-modal="false" aria-label={t('pokemonBnb.promoteTitle')}>
+                <p className="bnb-promote-title">{t('pokemonBnb.promoteTitle')}</p>
+                <p className="bnb-hint">{t('pokemonBnb.selectTarget').replace('{index}', String((selBench ?? 0) + 1))}</p>
+                <div className="bnb-actions">
+                  <button
+                    className="bnb-primary"
+                    type="button"
+                    disabled={selBench === null}
+                    onClick={() => selBench !== null && runBattleAction(mySlot, { type: 'promoteActive', benchIndex: selBench })}
+                  >
+                    {t('pokemonBnb.actionPromote').replace('{name}', selBench !== null ? (battle[mySlot].bench[selBench]?.card.name ?? '') : '')}
+                  </button>
+                </div>
+              </div>
+            )
+            : localMode && battle.pendingPromotion !== null
+              ? null
+              : (() => {
+                const mySide = battle[mySlot]
+                const myHandCard = selHand !== null ? mySide.hand[selHand] ?? null : null
+                const benchTarget = selBench !== null ? mySide.bench[selBench] ?? null : null
+                const isMyTurn = !battle.over && battle.pendingPromotion === null && battle.activePlayer === (localMode ? battle.activePlayer : mySlot)
+                const actor: PlayerSlot = localMode ? battle.activePlayer : mySlot
+                const attacks = mySide.active?.card.attacks ?? []
+                return (
+                  <div className="bnb-action-bar" role="toolbar" aria-label={t('pokemonBnb.battleActions')}>
+                    {!isMyTurn && !battle.over && (
+                      <span className="bnb-waiting" aria-live="polite">
+                        {substituteParams(t('pokemonBnb.waitingTurn'), { player: seatName(battle.activePlayer) })}
+                      </span>
+                    )}
+                    {isMyTurn && <span className="bnb-hint">{t('pokemonBnb.yourTurn')}</span>}
+                    <div className="bnb-actions">
+                      <button
+                        type="button"
+                        disabled={!isMyTurn || selHand === null}
+                        onClick={() => {
+                          if (selHand === null) return
+                          const target: 'active' | number = selBench !== null ? selBench : 'active'
+                          runBattleAction(actor, { type: 'attachEnergy', handIndex: selHand, target })
+                        }}
+                      >
+                        {t('pokemonBnb.actionAttach')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!isMyTurn || selHand === null}
+                        onClick={() => selHand !== null && runBattleAction(actor, { type: 'playTrainer', handIndex: selHand })}
+                      >
+                        {t('pokemonBnb.actionPlayTrainer')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!isMyTurn || selHand === null}
+                        onClick={() => {
+                          if (selHand === null) return
+                          const target: 'active' | number = selBench !== null ? selBench : 'active'
+                          runBattleAction(actor, { type: 'evolve', handIndex: selHand, target })
+                        }}
+                      >
+                        {t('pokemonBnb.actionEvolve')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!isMyTurn || selBench === null}
+                        onClick={() => selBench !== null && runBattleAction(actor, { type: 'retreatToBench', benchIndex: selBench })}
+                      >
+                        {t('pokemonBnb.actionRetreat')}
+                      </button>
+                      {attacks.map((attack, index) => (
+                        <button
+                          key={attack.name}
+                          type="button"
+                          disabled={!isMyTurn}
+                          aria-label={`${t('pokemonBnb.actionAttack')} — ${attack.name}`}
+                          onClick={() => runBattleAction(actor, { type: 'useAttack', attackIndex: index })}
+                        >
+                          {attack.name}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={!isMyTurn}
+                        onClick={() => runBattleAction(actor, { type: 'endTurn' })}
+                      >
+                        {t('pokemonBnb.actionEndTurn')}
+                      </button>
+                    </div>
+                    {isMyTurn && selHand === null && <p className="bnb-hint">{t('pokemonBnb.selectHandCard')}</p>}
+                    {isMyTurn && myHandCard && benchTarget && <p className="bnb-hint">{myHandCard.name} → {benchTarget.card.name}</p>}
+                    {isMyTurn && myHandCard && selBench === null && <p className="bnb-hint">{myHandCard.name} → {t('pokemonBnb.zoneActive')}</p>}
+                  </div>
+                )
+              })()}
           <div className="bnb-battle-main">
             <div className="bnb-battle-table">
               <BattlePanel heading={seatName(foeSlot)} side={battle[foeSlot]} prizeTotal={battle.prizeCards} isSelf={false} t={t} conditionLabel={conditionLabel} rarityLabelFor={rarityLabel} faceDownLabel={t('pokemonBnb.cardFaceDown')} isSelectableBench={false} selectedBench={null} selectedHand={null} />
