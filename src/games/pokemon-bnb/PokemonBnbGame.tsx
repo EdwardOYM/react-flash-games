@@ -8,7 +8,7 @@ import { getPreferredLocale, type Locale, type TranslationKey, useTranslations }
 import { SettingsModal } from '../../settings'
 import type { CardDef, CardRarity, SetId } from './cards'
 import { buildPoolIsValid, type DeckLegalityReason } from './deck'
-import { STATUS_CONDITIONS, processAction, setupBattle, type BattleAction, type BattleLogEntry, type BattleState, type SideState } from './game-core'
+import { STATUS_CONDITIONS, applySnapshot, processAction, setupBattle, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
 import { openPacks, buildPool, type OpenedCard, type OpenedPool } from './pack'
@@ -379,7 +379,24 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const closingRef = useRef(false)
   const copyTimerRef = useRef<number | null>(null)
   const messageHandlerRef = useRef<(message: NetMessage) => void>(() => undefined)
+  const battleRef = useRef<BattleState | null>(null)
   const battleLogRef = useRef<HTMLOListElement | null>(null)
+  useEffect(() => {
+    battleRef.current = battle
+  }, [battle])
+
+  /**
+   * CP9-B host broadcast: send each seat its own privacy-scoped snapshot over
+   * the single peer connection (one `battle-snapshot` frame per seat; the
+   * guest applies the second). Host-authoritative: the host keeps the live
+   * engine state in `battleRef` and both seats render from snapshots.
+   */
+  const broadcastBattle = (state: BattleState) => {
+    sessionRef.current?.send({ kind: 'battle-snapshot', snapshot: { snapshot: toSnapshot(state, 'host') } })
+    sessionRef.current?.send({ kind: 'battle-snapshot', snapshot: { snapshot: toSnapshot(state, 'guest') } })
+    battleRef.current = state
+    setBattle(applySnapshot(toSnapshot(state, 'host')))
+  }
 
   const displayName = playerName.trim() || t('pokemonBnb.defaultName')
   const isHost = role === 'host'
@@ -559,6 +576,32 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         setView('start')
         return
       }
+      case 'battle-action': {
+        // Host-authoritative (CP9-B): only the host runs the engine on guest
+        // intents. The host validates via processAction, then broadcasts a
+        // per-seat snapshot to both seats.
+        if (roleRef.current !== 'host') return
+        if (!battleRef.current || message.action.player !== 'guest') return
+        const action = message.action.action as BattleAction
+        const result = processAction(battleRef.current, 'guest', action)
+        setBattleError(result.error ?? null)
+        broadcastBattle(result.state)
+        return
+      }
+      case 'battle-snapshot': {
+        // Guest render path (CP9-B): rebuild the view-only state from the
+        // host's snapshot. The guest never runs the engine on it.
+        if (roleRef.current !== 'guest') return
+        const snapshot = message.snapshot.snapshot as Snapshot
+        const next = applySnapshot(snapshot)
+        battleRef.current = next
+        setBattle(next)
+        setBattleError(null)
+        setSelHand(null)
+        setSelBench(null)
+        setSelAttack(null)
+        return
+      }
       default:
         // Battle payloads land in later checkpoints.
         return
@@ -572,6 +615,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     messageHandlerRef.current = readMessage
     // Fresh every render: setupBattle needs the final deckIds memo, the
     // opponent's deck ids, the shared seed and the locked lobby settings.
+    // CP9-B: the host runs the single authoritative setupBattle, then
+    // broadcasts per-seat snapshots so the guest renders from its own view.
     beginBattleRef.current = () => {
       if (matchSeed === null || opponentDeckIdsRef.current === null) return
       const resolveDeck = (ids: string[]): CardDef[] => {
@@ -584,12 +629,25 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       }
       const myDeck = resolveDeck(deckIds)
       const foeDeck = resolveDeck(opponentDeckIdsRef.current)
-      setBattle(setupBattle(
+      const state = setupBattle(
         settingsRef.current,
         roleRef.current === 'guest' ? foeDeck : myDeck,
         roleRef.current === 'guest' ? myDeck : foeDeck,
         matchSeed,
-      ))
+      )
+      if (localMode) {
+        battleRef.current = state
+        setBattle(state)
+        return
+      }
+      if (roleRef.current === 'host') {
+        broadcastBattle(state)
+        return
+      }
+      // Guest renders from the host's snapshot (arrives right after); nothing
+      // to show until then, so keep the loading beat waiting on battle.
+      battleRef.current = null
+      setBattle(null)
     }
   })
 
@@ -820,10 +878,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   }
 
   /**
-   * CP8-B action driver: the single entry point for local action dispatch
-   * (pre-CP9). Real play calls it with `mySlot`; `?local=1` passes the seat.
-   * Success clears the hand/bench/attack selection; failure keeps it. Guest
-   * snapshots (CP9) stay view-only and can never dispatch through this path.
+   * CP9-B host-authoritative action driver. `?local=1` and the host run the
+   * engine directly; the guest sends a `battle-action` intent and renders the
+   * host's `battle-snapshot` reply (view-only, so it can never inject state).
+   * Success clears the hand/bench/attack selection; failure keeps it.
    */
   const runBattleAction = (actor: PlayerSlot, action: BattleAction): boolean => {
     if (!battle) return false
@@ -831,15 +889,38 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       setBattleError('match-over')
       return false
     }
-    if (battle.viewOnly) {
+    if (!localMode && roleRef.current === 'guest') {
+      if (battle.viewOnly) {
+        sessionRef.current?.send({ kind: 'battle-action', action: { player: 'guest', action } })
+        return true
+      }
       setBattleError('view-only')
       return false
     }
-    const result = processAction(battle, actor, action)
-    setBattle(result.state)
+    if (battle.viewOnly && !localMode && roleRef.current === 'host') {
+      setBattleError('view-only')
+      return false
+    }
+    const live = roleRef.current === 'host' && !localMode ? (battleRef.current ?? battle) : battle
+    const result = processAction(live, actor, action)
     setBattleError(result.error ?? null)
-    if (result.error == null) clearBattleSelection()
-    return result.error == null
+    if (result.error != null) {
+      if (roleRef.current === 'host' && !localMode) {
+        battleRef.current = result.state
+        setBattle(applySnapshot(toSnapshot(result.state, 'host')))
+      } else {
+        setBattle(result.state)
+      }
+      return false
+    }
+    clearBattleSelection()
+    if (roleRef.current === 'host' && !localMode) {
+      broadcastBattle(result.state)
+    } else {
+      battleRef.current = result.state
+      setBattle(result.state)
+    }
+    return true
   }
 
   /** CP7-F dev harness: delegates to the shared CP8-B action driver. */
