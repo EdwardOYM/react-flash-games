@@ -336,8 +336,14 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const [playerName, setPlayerName] = useState('')
   const [opponentName, setOpponentName] = useState('')
   const [notice, setNotice] = useState<TranslationKey | null>(null)
+  /** CP9-D fix: values for `{name}`/`{player}` placeholders in notice copy. */
+  const [noticeParams, setNoticeParams] = useState<Record<string, string> | null>(null)
   /** CP9-D: peer channel down mid-match; drives the battle connection banner. */
   const [connLost, setConnLost] = useState(false)
+  /** CP9-E: guest asked for a rematch and is waiting on the host's accept. */
+  const [rematchSent, setRematchSent] = useState(false)
+  /** CP9-E: host holds the guest's rematch offer (shows the accept button). */
+  const [rematchOffered, setRematchOffered] = useState(false)
   const [errorKey, setErrorKey] = useState<TranslationKey | null>(null)
   const [matchSeed, setMatchSeed] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
@@ -378,7 +384,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const viewRef = useRef<View>('start')
   /** CP9-D mirror of `connLost` for the stable session callbacks. */
   const connLostRef = useRef(false)
+  /** CP9-E mirror of `rematchSent` (the guest's `lobby-start` reply reads it). */
+  const rematchSentRef = useRef(false)
   const noticeTimerRef = useRef<number | null>(null)
+  /** CP9-D: opponent name for disconnect/rematch copy, read from refs so the
+   * stable session callbacks never render a stale closure value. */
+  const opponentNameRef = useRef('')
   const settingsRef = useRef<LobbySettings>(settings)
   const nameRef = useRef('')
   const openingReadyRef = useRef(false)
@@ -571,14 +582,26 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
    * cannot outlive the moment it describes (the previous one-shot `notice`
    * setter left stale copy on screen until the next state change).
    */
-  const showNotice = (key: TranslationKey) => {
+  const showNotice = (key: TranslationKey, params?: Record<string, string>) => {
     setNotice(key)
+    // CP9-D fix: `{name}`/`{player}` default to the other seat's display name,
+    // so no call site can render a literal placeholder token to the player.
+    const other = opponentNameRef.current || t('pokemonBnb.defaultName')
+    setNoticeParams({ name: other, player: other, ...params })
     if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current)
     noticeTimerRef.current = window.setTimeout(() => {
       noticeTimerRef.current = null
       setNotice(null)
+      setNoticeParams(null)
     }, 6000)
   }
+
+  /**
+   * CP9-D fix: notice copy with `{name}`/`{player}` placeholders filled. Every
+   * notice call site renders this instead of the raw key, so copy such as
+   * "{name} disconnected." never reaches the player with a literal token.
+   */
+  const noticeText = notice === null ? null : substituteParams(t(notice), noticeParams ?? {})
 
   const readMessage = (message: NetMessage) => {
     switch (message.kind) {
@@ -616,12 +639,19 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       }
       case 'lobby-start': {
         if (roleRef.current !== 'guest') return
+        // CP9-E: a `lobby-start` that answers our own rematch request is the
+        // acceptance; keep its notice instead of clearing the strip.
+        const wasRematch = rematchSentRef.current
+        rematchSentRef.current = false
+        setRematchSent(false)
+        setRematchOffered(false)
         setSettings(clampLobbySettings(message.settings))
         setMatchSeed(message.seed)
         resetMatchState()
         setNotice(null)
         setErrorKey(null)
         setView('opening')
+        if (wasRematch) showNotice('pokemonBnb.rematchAccepted')
         return
       }
       case 'opening-ready': {
@@ -677,6 +707,16 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         setView('start')
         return
       }
+      case 'rematch': {
+        // CP9-E: the guest asks for a rematch; only the host can grant one (it
+        // owns the seed and settings), so record the offer and show the accept
+        // button. Offers outside a finished match are ignored.
+        if (roleRef.current !== 'host') return
+        const live = battleRef.current
+        if (!live || !live.over) return
+        setRematchOffered(true)
+        return
+      }
       case 'battle-action': {
         // Host-authoritative (CP9-B): only the host runs the engine on guest
         // intents. The host validates via processAction, then broadcasts a
@@ -720,6 +760,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   useEffect(() => {
     settingsRef.current = settings
     nameRef.current = displayName
+    opponentNameRef.current = opponentName
     messageHandlerRef.current = readMessage
     // Fresh every render: setupBattle needs the final deckIds memo, the
     // opponent's deck ids, the shared seed and the locked lobby settings.
@@ -813,6 +854,16 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       setSelBench(null)
       setSelAttack(null)
       setHelpOpen(false)
+      // CP9-E: a fresh match (or leave) clears the rematch offer flags so the
+      // stale "waiting for…" / "wants a rematch" copy cannot survive a reseed.
+      rematchSentRef.current = false
+      setRematchSent(false)
+      setRematchOffered(false)
+      setNoticeParams(null)
+      // CP9-E: drop the turn timer record too, so a rematch cannot inherit the
+      // previous match's elapsed seconds (the key includes the seed, but the
+      // host rolls a fresh one per rematch and this keeps that independent).
+      setTurnTimer(null)
       // CP9-D: a new match/leave starts with a healthy connection banner.
       connLostRef.current = false
       setConnLost(false)
@@ -944,6 +995,26 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     resetMatchState()
     sessionRef.current?.send({ kind: 'lobby-start', seed, settings: payload })
     setView('opening')
+  }
+
+  /**
+   * CP9-E rematch. The guest offers and the host grants (it owns the seed and
+   * the locked settings), reusing the existing wire kinds: `rematch` carries
+   * the offer, and the host answers with the normal `lobby-start` handshake --
+   * a fresh seed, both pools/decks reset, both seats back to `opening`.
+   */
+  const requestRematch = () => {
+    if (localMode || roleRef.current !== 'guest' || rematchSent) return
+    rematchSentRef.current = true
+    setRematchSent(true)
+    sessionRef.current?.send({ kind: 'rematch' })
+  }
+
+  const acceptRematch = () => {
+    if (localMode || roleRef.current !== 'host') return
+    setRematchOffered(false)
+    // Rolls a fresh seed, resets both seats' match state and broadcasts it.
+    startPackOpening()
   }
 
   /** Reveal the next card, or everything at once. */
@@ -1184,7 +1255,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
           </div>
           <LobbyFields settings={settings} editable={isHost} idPrefix="bnb-lobby" t={t} onChange={updateSettings} />
           {!isHost && <p className="bnb-hint">{t('pokemonBnb.hostOnlyNote')}</p>}
-          {notice && <p className="bnb-notice" role="status">{t(notice)}</p>}
+          {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
           {errorKey && <p className="bnb-error" role="alert">{t(errorKey)}</p>}
           <div className="bnb-actions">
             {isHost
@@ -1232,7 +1303,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               )
             })}
           </ol>
-          {notice && <p className="bnb-notice" role="status">{t(notice)}</p>}
+          {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
           {opponentReady && <p className="bnb-notice" role="status">{substituteParams(t('pokemonBnb.opponentReady'), { name: opponentName || t('pokemonBnb.defaultName') })}</p>}
           {errorKey && <p className="bnb-error" role="alert">{t(errorKey)}</p>}
           <div className="bnb-actions">
@@ -1309,7 +1380,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
             </p>
           ))}
           {opponentDeckReady && <p className="bnb-notice" role="status">{substituteParams(t('pokemonBnb.opponentReady'), { name: opponentName || t('pokemonBnb.defaultName') })}</p>}
-          {notice && <p className="bnb-notice" role="status">{t(notice)}</p>}
+          {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
           {errorKey && <p className="bnb-error" role="alert">{t(errorKey)}</p>}
           <div className="bnb-actions">
             {!deckReady && <button className="bnb-primary" type="button" disabled={!deckCheck.ok} onClick={markDeckReady}>{t('pokemonBnb.deckSubmit')}</button>}
@@ -1377,13 +1448,33 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                 <span>{battle.winReason ? `${seatName(battle.winner)} · ${t(WIN_REASON_KEYS[battle.winReason])}` : seatName(battle.winner)}</span>
               </p>
             )}
+            {/*
+             * CP9-E rematch controls. The guest offers (`rematch`), the host
+             * grants (fresh seed via `lobby-start`), both seats return to
+             * `opening`. Hidden in `?local=1`, where both seats share a screen.
+             */}
+            {battle.over && !localMode && role !== null && (
+              <div className="bnb-rematch">
+                {role === 'guest' && (
+                  rematchSent
+                    ? <p className="bnb-hint">{substituteParams(t('pokemonBnb.rematchWaiting'), { player: seatName('host') })}</p>
+                    : <button type="button" onClick={requestRematch}>{t('pokemonBnb.rematchOffer')}</button>
+                )}
+                {role === 'host' && rematchOffered && (
+                  <>
+                    <p className="bnb-hint">{substituteParams(t('pokemonBnb.rematchReceived'), { player: seatName('guest') })}</p>
+                    <button className="bnb-primary" type="button" onClick={acceptRematch}>{t('pokemonBnb.rematchAccept')}</button>
+                  </>
+                )}
+              </div>
+            )}
             {connLost && !battle.over && (
               <p className="bnb-conn-lost" role="status">
-                <span>{t('pokemonBnb.opponentDisconnected')}</span>
+                <span>{noticeText ?? substituteParams(t('pokemonBnb.opponentDisconnected'), { name: opponentName || t('pokemonBnb.defaultName') })}</span>
                 <span>{t('pokemonBnb.resyncNotice')}</span>
               </p>
             )}
-            {notice && <p className="bnb-notice" role="status">{t(notice)}</p>}
+            {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
             {battle.pendingPromotion === mySlot && !battle.over && (
               <p className="bnb-notice">{battleErrorCopy('must-promote')}</p>
             )}
@@ -1539,7 +1630,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
             <div><dt>{t('pokemonBnb.prizeCardsLabel')}</dt><dd>{settings.prizeCards}</dd></div>
             <div><dt>{t('pokemonBnb.timerLabel')}</dt><dd>{settings.timerSeconds === 0 ? t('pokemonBnb.timerOff') : substituteParams(t('pokemonBnb.timerSeconds'), { count: String(settings.timerSeconds) })}</dd></div>
           </dl>
-          {notice && <p className="bnb-notice" role="status">{t(notice)}</p>}
+          {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
           {errorKey && <p className="bnb-error" role="alert">{t(errorKey)}</p>}
           <p className="bnb-hint">{matchSeed === null ? '' : substituteParams(t('pokemonBnb.seedShared'), { seed: String(matchSeed) })}</p>
         </div>
@@ -1571,7 +1662,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
           <button className="bnb-primary" type="button" onClick={() => beginSession('host')}>{t('pokemonBnb.createLobby')}</button>
           <button type="button" onClick={() => { setErrorKey(null); setNotice(null); setView('lobbyJoin') }}>{t('pokemonBnb.joinLobby')}</button>
         </div>
-        {notice && <p className="bnb-notice" role="status">{t(notice)}</p>}
+        {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
       </div>
       {settingsOpen && <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} />}
     </main>
