@@ -84,15 +84,30 @@ type BattlePanelProps = {
   isSelf: boolean
   t: (key: TranslationKey) => string
   conditionLabel: (status: string) => string
+  /** CP8-C: translated rarity chip for PokemonCard faces. */
+  rarityLabelFor: (rarity: CardRarity) => string
+  /** CP8-C: translated face-down back label for PokemonCard. */
+  faceDownLabel: string
+  /** CP8-C: only the viewer's own bench is selectable. */
+  isSelectableBench: boolean
+  selectedBench: number | null
+  onSelectBench?: (index: number | null) => void
+  /** CP8-C: own-hand pick; the foe's hand stays count-only. */
+  selectedHand: number | null
+  onSelectHand?: (index: number | null) => void
 }
 
-/** One battle side panel: zone counters, Active line, bench, own hand. */
-function BattlePanel({ heading, side, prizeTotal, isSelf, t, conditionLabel }: BattlePanelProps) {
+/** One battle side panel: zone counters, Active face, bench, own hand. */
+function BattlePanel({ heading, side, prizeTotal, isSelf, t, conditionLabel, rarityLabelFor, faceDownLabel, isSelectableBench, selectedBench, onSelectBench, selectedHand, onSelectHand }: BattlePanelProps) {
   const active = side.active
   const activeConditions: string[] = []
+  const activeStatuses: string[] = []
   if (active) {
     for (const status of STATUS_CONDITIONS) {
-      if (active.conditions[status]) activeConditions.push(conditionLabel(status))
+      if (active.conditions[status]) {
+        activeConditions.push(conditionLabel(status))
+        activeStatuses.push(status)
+      }
     }
   }
   return (
@@ -111,22 +126,89 @@ function BattlePanel({ heading, side, prizeTotal, isSelf, t, conditionLabel }: B
       </header>
       <div className="bnb-side-active">
         {active
-          ? <>
-              <span className="bnb-side-card">{active.card.name}</span>
-              <span className="bnb-side-hp">{active.card.hp} HP</span>
-              {active.damage > 0 && <span className="bnb-side-dmg">−{active.damage}</span>}
-              <span className="bnb-side-energy">⚡{active.attachedEnergy.length}</span>
-              {activeConditions.length > 0 && <span className="bnb-side-conditions">{activeConditions.join(' / ')}</span>}
-            </>
+          ? (
+            <div className="bnb-active-face">
+              <PokemonCard
+                card={active.card}
+                rarityLabel={rarityLabelFor(active.card.rarity)}
+                faceDownLabel={faceDownLabel}
+                damage={active.damage}
+                statuses={activeStatuses}
+              />
+              <p className="bnb-side-energy-line">
+                <span className="bnb-side-energy">⚡{active.attachedEnergy.length}</span>
+                {activeConditions.length > 0 && <span className="bnb-side-conditions">{activeConditions.join(' / ')}</span>}
+              </p>
+            </div>
+          )
           : <span className="bnb-side-card">{t('pokemonBnb.zoneActive')}: —</span>}
       </div>
-      <p className="bnb-side-bench">
+      <div className="bnb-side-bench">
         <span className="bnb-side-bench-label">{t('pokemonBnb.zoneBench')}</span>
-        {side.bench.length > 0 ? side.bench.map((pokemon) => pokemon.card.name).join(' / ') : '—'}
-      </p>
+        {side.bench.length > 0
+          ? (
+            <ol className="bnb-bench-list">
+              {side.bench.map((pokemon, index) => {
+                const benchStatuses: string[] = []
+                for (const status of STATUS_CONDITIONS) {
+                  if (pokemon.conditions[status]) benchStatuses.push(status)
+                }
+                const selected = isSelectableBench && selectedBench === index
+                const targetHint = substituteParams(t('pokemonBnb.selectTarget'), { index: String(index + 1) })
+                const face = (
+                  <span className="bnb-bench-face">
+                    <PokemonCard
+                      card={pokemon.card}
+                      rarityLabel={rarityLabelFor(pokemon.card.rarity)}
+                      faceDownLabel={faceDownLabel}
+                      damage={pokemon.damage}
+                      statuses={benchStatuses}
+                    />
+                    <span className="bnb-side-energy">⚡{pokemon.attachedEnergy.length}</span>
+                  </span>
+                )
+                return (
+                  <li key={pokemon.uid}>
+                    {isSelectableBench
+                      ? (
+                        <button
+                          type="button"
+                          className="bnb-bench-pick"
+                          aria-pressed={selected}
+                          aria-label={`${pokemon.card.name} — ${targetHint}`}
+                          onClick={() => onSelectBench?.(selected ? null : index)}
+                        >
+                          {face}
+                        </button>
+                      )
+                      : face}
+                  </li>
+                )
+              })}
+            </ol>
+          )
+          : <span aria-hidden="true">—</span>}
+      </div>
       {isSelf && side.hand.length > 0 && (
         <div className="bnb-side-hand">
-          {side.hand.map((card, index) => <span key={`${card.id}-${index}`} className="bnb-hand-chip">{card.name}</span>)}
+          <ol className="bnb-hand-list">
+            {side.hand.map((card, index) => {
+              const selected = selectedHand === index
+              return (
+                <li key={`${card.id}-${index}`}>
+                  <button
+                    type="button"
+                    className="bnb-hand-pick"
+                    aria-pressed={selected}
+                    aria-label={`${t('pokemonBnb.selectHandCard')} — ${card.name}`}
+                    onClick={() => onSelectHand?.(selected ? null : index)}
+                  >
+                    <span className="bnb-hand-chip">{card.name}</span>
+                  </button>
+                </li>
+              )
+            })}
+          </ol>
         </div>
       )}
     </section>
@@ -283,10 +365,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     setSelBench(null)
     setSelAttack(null)
   }, [])
-  // CP8-B state only: consumed by the CP8-C/D tabletop + action bar. This keeps
-  // the production build clean until those passes wire the selection UI.
-  void selHand
-  void selBench
+  // CP8-C/D tabletop + action bar now consume the selection above.
   void selAttack
   const sessionRef = useRef<SessionBase | null>(null)
   const roleRef = useRef<Role | null>(null)
@@ -1048,8 +1127,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
           </header>
           <div className="bnb-battle-main">
             <div className="bnb-battle-table">
-              <BattlePanel heading={seatName(foeSlot)} side={battle[foeSlot]} prizeTotal={battle.prizeCards} isSelf={false} t={t} conditionLabel={conditionLabel} />
-              <BattlePanel heading={seatName(mySlot)} side={battle[mySlot]} prizeTotal={battle.prizeCards} isSelf t={t} conditionLabel={conditionLabel} />
+              <BattlePanel heading={seatName(foeSlot)} side={battle[foeSlot]} prizeTotal={battle.prizeCards} isSelf={false} t={t} conditionLabel={conditionLabel} rarityLabelFor={rarityLabel} faceDownLabel={t('pokemonBnb.cardFaceDown')} isSelectableBench={false} selectedBench={null} selectedHand={null} />
+              <BattlePanel heading={seatName(mySlot)} side={battle[mySlot]} prizeTotal={battle.prizeCards} isSelf t={t} conditionLabel={conditionLabel} rarityLabelFor={rarityLabel} faceDownLabel={t('pokemonBnb.cardFaceDown')} isSelectableBench selectedBench={selBench} onSelectBench={setSelBench} selectedHand={selHand} onSelectHand={setSelHand} />
             </div>
             <ol className="bnb-battle-log" ref={battleLogRef}>
               {battle.log.slice(-24).map((entry, index) => <li key={`${entry.key}-${index}`}>{logCopy(entry)}</li>)}
