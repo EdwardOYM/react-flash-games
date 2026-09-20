@@ -418,5 +418,29 @@
       "noAttack": "那只宝可梦不会这个招式。",
       "unknownAction": "该操作无效。"
     }
+  },
+  "packBattle": {
+    "title": "宝可梦补充包对战",
+    "description": "创建联机大厅，约定 1 至 36 包补充包，然后一起一次开一包、一次揭一张。任意一方的揭卡对双方有效，稀有度总分最高者获胜。",
+    "start": "创建大厅",
+    "exit": "退出",
+    "back": "返回",
+    "tutorial": "帮助 / 教程",
+    "tutorialTitle": "游戏玩法",
+    "tutorialLobby": "创建大厅或使用代码加入，然后约定 1 至 36 包进行对战。",
+    "tutorialOpen": "一次开一包、一次揭一张。任意一方的揭卡对双方都有效。",
+    "tutorialScore": "稀有卡得分：普通闪 1 分，全图 2 分，插画稀有 3 分。彩虹和金卡 4 分，特殊插画 5 分。总分最高者获胜。",
+    "tutorialComplete": "干得好——你已经准备好对战了！",
+    "tutorialSkip": "跳过教程",
+    "finish": "完成",
+    "next": "下一步",
+    "previous": "上一步",
+    "comingSoon": "大厅将在下一个检查点到来——开始、教程和设置已就绪。",
+    "inspiredBy": "灵感来自宝可梦集换式卡牌社区补充包对战玩法",
+    "highscore": "最高分",
+    "rank": "排名",
+    "player": "玩家",
+    "wins": "胜场",
+    "noScores": "还没有记录任何对战。"
   }
 }

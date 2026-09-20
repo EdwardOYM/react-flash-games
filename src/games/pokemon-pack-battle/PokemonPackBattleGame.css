@@ -8,6 +8,20 @@
 .ppb-shell { width: min(100%, 760px); margin: clamp(48px, 9vh, 120px) auto 0; }
 .ppb-shell h1 { font-size: clamp(2.2rem, 6vw, 4.6rem); }
 .ppb-copy { max-width: 560px; margin: 26px 0 38px; color: #aeb9b9; font-size: 1.05rem; line-height: 1.6; }
+.ppb-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.ppb-actions button { padding: 12px 16px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .7rem; text-transform: uppercase; cursor: pointer; }
+.ppb-actions button:hover { border-color: #ffc857; color: #ffc857; }
+.ppb-actions button:focus, .ppb-actions button:focus-visible { color: #aeb9b9; outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.ppb-actions .ppb-primary { border-color: #ffc857; color: #101820; background: #ffc857; }
+.ppb-actions .ppb-primary:focus, .ppb-actions .ppb-primary:focus-visible { color: #aeb9b9; }
+.ppb-actions button:disabled { border-color: #33454a; color: #5d6f72; background: transparent; cursor: not-allowed; }
+.ppb-actions .ppb-primary:disabled { border-color: #33454a; color: #5d6f72; background: #1a262b; }
+.ppb-inspired { margin-top: 18px; font-size: .85rem; }
+.ppb-highscores { width: min(100%, 960px); margin: 8px 0 24px; }
+.ppb-tutorial-card { width: min(100%, 760px); }
+.ppb-tutorial-steps { display: flex; gap: 8px; margin: 18px 0 6px; }
+.ppb-tutorial-steps span { width: 44px; height: 4px; background: #33454a; }
+.ppb-tutorial-steps .ppb-tutorial-step-done { background: #ffc857; }
 
 @media (orientation: landscape) and (max-height: 600px) {
   .ppb-page { overflow: hidden; padding: calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
@@ -15,4 +29,5 @@
 
 @media (max-width: 520px) {
   .ppb-topbar button { min-height: 42px; }
+  .ppb-actions button { min-height: 42px; }
 }

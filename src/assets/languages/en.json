@@ -418,5 +418,29 @@
       "noAttack": "That Pokemon does not know that attack.",
       "unknownAction": "That action is not valid here."
     }
+  },
+  "packBattle": {
+    "title": "Pokemon Pack Battle",
+    "description": "Host a peer lobby, agree on 1 to 36 packs, then open one pack and one card at a time together. Either player's reveal counts for both seats, and the highest rarity score wins.",
+    "start": "Open a lobby",
+    "exit": "Exit",
+    "back": "Back",
+    "tutorial": "Help / tutorial",
+    "tutorialTitle": "How to play",
+    "tutorialLobby": "Create a lobby or join with a code, then agree on 1 to 36 packs to battle.",
+    "tutorialOpen": "Open one pack at a time and reveal one card at a time. Either player's reveal counts for both seats.",
+    "tutorialScore": "Rare hits score: standard holo 1, full art 2, illustration rare 3. Rainbow and gold 4, special art 5. Highest total wins.",
+    "tutorialComplete": "Nice work — you are ready to battle!",
+    "tutorialSkip": "Skip tutorial",
+    "finish": "Finish",
+    "next": "Next",
+    "previous": "Previous",
+    "comingSoon": "The lobby arrives in the next checkpoint — start, tutorial, and settings are ready now.",
+    "inspiredBy": "Inspired by the community Pokemon TCG pack battle format",
+    "highscore": "Highscore",
+    "rank": "Rank",
+    "player": "Player",
+    "wins": "Wins",
+    "noScores": "No battles recorded yet."
   }
 }

@@ -418,5 +418,29 @@
       "noAttack": "Pokemon itu tidak tahu serangan itu.",
       "unknownAction": "Tindakan itu tidak sah di sini."
     }
+  },
+  "packBattle": {
+    "title": "Pertarungan Pek Pokemon",
+    "description": "Buka lobi rakan, setuju 1 hingga 36 pek, kemudian buka satu pek dan satu kad pada satu masa bersama. Dedahan mana-mana pemain dikira untuk kedua-dua pihak, dan skor kelangkaan tertinggi menang.",
+    "start": "Buka lobi",
+    "exit": "Keluar",
+    "back": "Kembali",
+    "tutorial": "Bantuan / tutorial",
+    "tutorialTitle": "Cara bermain",
+    "tutorialLobby": "Cipta lobi atau sertai dengan kod, kemudian setuju 1 hingga 36 pek untuk bertarung.",
+    "tutorialOpen": "Buka satu pek pada satu masa dan dedahkan satu kad pada satu masa. Dedahan mana-mana pemain dikira untuk kedua-dua pihak.",
+    "tutorialScore": "Skor kad rare: holo biasa 1, full art 2, illustration rare 3. Rainbow dan emas 4, seni khas 5. Jumlah tertinggi menang.",
+    "tutorialComplete": "Bagus — anda sudah bersedia untuk bertarung!",
+    "tutorialSkip": "Langkau tutorial",
+    "finish": "Selesai",
+    "next": "Seterusnya",
+    "previous": "Sebelumnya",
+    "comingSoon": "Lobi tiba di checkpoint seterusnya — mula, tutorial dan tetapan sudah sedia.",
+    "inspiredBy": "Diilhamkan oleh format pertarungan pek komuniti Pokemon TCG",
+    "highscore": "Skor tertinggi",
+    "rank": "Kedudukan",
+    "player": "Pemain",
+    "wins": "Kemenangan",
+    "noScores": "Tiada pertarungan direkodkan lagi."
   }
 }

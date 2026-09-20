@@ -95,6 +95,9 @@ export type TranslationKey =
   | `pokemonBnb.error.${PkmBnbErrorTranslationKey}`
 
   | `tron.${TronTranslationKey}`
+
+  | `packBattle.${PackBattleTranslationKey}`
+
 type BubbleTranslationKey =
   | 'title'
   | 'description'
@@ -422,6 +425,30 @@ type PkmBnbErrorTranslationKey =
   | 'insufficientEnergy'
   | 'noAttack'
   | 'unknownAction'
+
+type PackBattleTranslationKey =
+  | 'title'
+  | 'description'
+  | 'start'
+  | 'exit'
+  | 'back'
+  | 'tutorial'
+  | 'tutorialTitle'
+  | 'tutorialLobby'
+  | 'tutorialOpen'
+  | 'tutorialScore'
+  | 'tutorialComplete'
+  | 'tutorialSkip'
+  | 'finish'
+  | 'next'
+  | 'previous'
+  | 'comingSoon'
+  | 'inspiredBy'
+  | 'highscore'
+  | 'rank'
+  | 'player'
+  | 'wins'
+  | 'noScores'
 
 const dictionaries: Record<Locale, TranslationDictionary> = { en, ms, zh }
 
