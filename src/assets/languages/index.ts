@@ -19,6 +19,8 @@ export type TranslationKey =
   | 'settings'
   | 'music'
   | 'musicCredit'
+  | 'artwork'
+  | 'artworkCredit'
   | 'musicOn'
   | 'musicOff'
   | 'sfx'

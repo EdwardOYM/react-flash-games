@@ -1,7 +1,9 @@
 # Pokemon TCG B&B Mini — Set Data
 
 Static, build-time card data for the Pokemon B&B mini game (`src/games/pokemon-bnb/`).
-No runtime API calls: card data is bundled, so the game is fully offline-playable once loaded.
+Card data is bundled (no runtime API calls for data); card artwork is hotlinked at
+runtime from TCGdex's hosted CDN (see Credits below) and falls back to the bundled
+typographic facsimile when unreachable.
 
 ## Layout
 
@@ -55,7 +57,28 @@ reporting (DigitalTQ 30th Celebration pull rates); tweak them there without touc
 ## Credits / sources
 
 - Card data: [TCGdex](https://tcgdex.dev) open API (free, no key).
+- Card artwork: hotlinked at runtime from TCGdex's hosted image CDN
+  (`https://assets.tcgdex.net/en/me/30th/<number>/low.png`, see
+  `src/games/pokemon-bnb/cardImage.ts`). Nothing is downloaded or stored in the
+  repo (user decision, CP11). The typographic facsimile is the semantic layer;
+  the artwork renders behind it and falls back to facsimile-only on load error
+  (e.g. offline).
 - Pull-rate reference: DigitalTQ "Pokemon TCG 30th Celebration Pull Rates".
 - Gameplay rules: Pokemon TCG rulebook (`par_rulebook_en.pdf`, pokemon.com).
-- Pokemon and Pokemon TCG are trademarks of Nintendo / Creatures Inc. / GAME FREAK inc.
-  This fan project renders typographic card facsimiles only (no card scans/artwork).
+- Pokemon and Pokemon TCG are trademarks of Nintendo / Creatures Inc. / GAME
+  FREAK inc.; card images and artwork are © their rights holders and the listed
+  illustrators. This fan project is non-commercial and uses the hosted artwork
+  under the fair-use concept.
+
+### Removing the hosted artwork (one commit)
+
+If the hotlinking is ever challenged, the artwork strips cleanly:
+
+1. Delete `src/games/pokemon-bnb/cardImage.ts`.
+2. Remove the `CardArt` component + `cardImageUrl` import + art render line from
+   `src/games/pokemon-bnb/PokemonCard.tsx` (the art rules in
+   `PokemonCard.css` and the `isolation: isolate` on `.pkm-card` can stay or go).
+3. Drop the "Card artwork" credit row from `src/credits/CreditsPage.tsx` and the
+   `artwork`/`artworkCredit` keys from the three language dictionaries.
+
+The game reverts to the fully offline typographic facsimile with no other changes.
