@@ -54,7 +54,8 @@
     "memory": "Original concept",
     "bubbleTrouble": "Bubble Trouble from Miniclip",
     "tron": "Tron light-cycle genre (1982 film)",
-    "pokemonBnbMini": "Pokemon TCG (Build & Battle limited format)"
+    "pokemonBnbMini": "Pokemon TCG (Build & Battle limited format)",
+    "pokemonPackBattle": "Pokemon TCG community pack battle"
   },
   "languageNames": {
     "en": "English",
@@ -193,7 +194,8 @@
     "memory": "Memory Bloom",
     "bubbleTrouble": "Bubble Trouble",
     "tron": "Tron",
-    "pokemonBnbMini": "Pokemon TCG B&B mini"
+    "pokemonBnbMini": "Pokemon TCG B&B mini",
+    "pokemonPackBattle": "Pokemon Pack Battle"
   },
   "pokemonBnb": {
     "title": "Pokemon TCG B&B mini",

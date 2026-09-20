@@ -24,6 +24,7 @@ flowchart TD
         registry --> bubble["bubble-trouble/BubbleTroubleGame.tsx"]
         registry --> tron["tron/TronGame.tsx"]
         registry --> pokemonBnb["pokemon-bnb/PokemonBnbGame.tsx"]
+        registry --> packBattle["pokemon-pack-battle/PokemonPackBattleGame.tsx"]
     end
 
     subgraph GAME_LOOP["Bubble Trouble runtime"]
@@ -57,10 +58,18 @@ flowchart TD
         pokemonBnb -->|"disconnect: joinHost redial + re-hello -> host replays per-seat snapshots (CP9-D); rematch offer -> host startPackOpening() fresh seed (CP9-E)"| peer
     end
 
+    subgraph PACKBATTLE["Pokemon Pack Battle runtime"]
+        packBattle -->|"hello / lobby-update / lobby-start with shared seed / pack-open / card-reveal / battle-done / leave"| packPeer["pokemon-pack-battle/net: protocol.ts fork (packs 1-36, 6 cards/pack) + bnb-style PeerJS host/guest sessions"]
+        packPeer -->|"onMessage handler (single stable closure via refs)"| packBattle
+        packBattle -->|"shared seed -> identical 6-card battle packs (energy, common, common, pikachu-ir, common-or-better, uncommon-or-better)"| packData["battlePack.ts PACK_BATTLE_30C + scoring.ts tier/points + shared 30c set data"]
+        packBattle -->|"pointsForCard per reveal; tier-0..5 flair; packs-left counter"| packData
+    end
+
     subgraph STATE["View state machine"]
         bubble -->|"View union"| views["start / tutorial / loading / playing / paused / remap / gameover / victory / highscore"]
         tron -->|"View union"| tronViews["start / tutorial / loading / playing / paused / gameover / victory / highscore (round-over is an overlay sub-state of playing; stick remap is an in-pause overlay, not a view)"]
         pokemonBnb -->|"View union"| pkmViews["start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused / gameover / victory / highscore (battle tabletop renders from playing; paused solid since CP8; results solid since CP10 — settleMatchOver routes the winning seat to victory, the losing seat to gameover, and highscore is reachable from both results views)"]
+        packBattle -->|"View union"| packViews["start / tutorial / lobby / lobbyJoin / opening / results / highscore (opening renders 1 pack and 1 card at a time with a packs-left counter; either seat reveals both seats)"]
     end
 
     subgraph PERSIST["Data & persistence layer"]
@@ -69,11 +78,13 @@ flowchart TD
         highscores["bubble-trouble/highscores.ts"]
         tronHs["tron/highscores.ts"]
         pkmHs["pokemon-bnb/highscores.ts"]
+        packHs["pokemon-pack-battle/highscores.ts"]
         l10n["assets/languages/index.ts"]
         defaults --> cfg
         highscores --> cfg
         tronHs --> cfg
         pkmHs --> cfg
+        packHs --> cfg
         l10n --> cfg
         settingsModal -->|"audio (music / sfx / mute) / locale / keys"| cfg
         uiSounds -.->|"readConfig() — settings.sfx / muted / sfxVolume"| cfg
@@ -86,6 +97,9 @@ flowchart TD
         tronHs -->|"readHighscores()"| tron
         pokemonBnb -->|"recordMatchWin() once per match (settleMatchOver)"| pkmHs
         pkmHs -->|"readHighscores()"| pokemonBnb
+        packBattle -->|"recordPackBattleWin() once per battle"| packHs
+        packHs -->|"readPackBattleHighscores()"| packBattle
+        packBattle -->|"persistLocale()"| l10n
         l10nD["locale JSON files (en / ms / zh)"] --> l10n
         cfg --> ls[("localStorage<br/>flash-games.config")]
     end

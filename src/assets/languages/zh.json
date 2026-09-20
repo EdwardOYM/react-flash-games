@@ -54,7 +54,8 @@
     "memory": "原创概念",
     "bubbleTrouble": "Miniclip 的 Bubble Trouble",
     "tron": "光轮赛车题材（1982 年电影）",
-    "pokemonBnbMini": "宝可梦集换式卡牌（Build & Battle 限制赛制）"
+    "pokemonBnbMini": "宝可梦集换式卡牌（Build & Battle 限制赛制）",
+    "pokemonPackBattle": "宝可梦集换式卡牌补充包对战"
   },
   "languageNames": {
     "en": "英语",
@@ -193,7 +194,8 @@
     "memory": "记忆花园",
     "bubbleTrouble": "Bubble Trouble",
     "tron": "光轮",
-    "pokemonBnbMini": "宝可梦集换式卡牌 B&B mini"
+    "pokemonBnbMini": "宝可梦集换式卡牌 B&B mini",
+    "pokemonPackBattle": "宝可梦补充包对战"
   },
   "pokemonBnb": {
     "title": "宝可梦集换式卡牌 B&B mini",

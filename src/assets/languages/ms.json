@@ -54,7 +54,8 @@
     "memory": "Konsep asli",
     "bubbleTrouble": "Bubble Trouble daripada Miniclip",
     "tron": "Genre siklus cahaya Tron (filem 1982)",
-    "pokemonBnbMini": "Pokemon TCG (format terhad Build & Battle)"
+    "pokemonBnbMini": "Pokemon TCG (format terhad Build & Battle)",
+    "pokemonPackBattle": "Pertarungan pek komuniti Pokemon TCG"
   },
   "languageNames": {
     "en": "Inggeris",
@@ -193,7 +194,8 @@
     "memory": "Kembangan Memori",
     "bubbleTrouble": "Bubble Trouble",
     "tron": "Tron",
-    "pokemonBnbMini": "Pokemon TCG B&B mini"
+    "pokemonBnbMini": "Pokemon TCG B&B mini",
+    "pokemonPackBattle": "Pertarungan Pek Pokemon"
   },
   "pokemonBnb": {
     "title": "Pokemon TCG B&B mini",

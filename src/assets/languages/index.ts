@@ -83,9 +83,11 @@ export type TranslationKey =
   | 'gameInspiration.bubbleTrouble'
   | 'gameInspiration.tron'
   | 'gameInspiration.pokemonBnbMini'
+  | 'gameInspiration.pokemonPackBattle'
 
   | 'games.tron'
   | 'games.pokemonBnbMini'
+  | 'games.pokemonPackBattle'
 
   | `bubble.${BubbleTranslationKey}`
   | `pokemonBnb.${PkmBnbTranslationKey}`

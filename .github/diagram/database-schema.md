@@ -67,20 +67,20 @@ erDiagram
     }
 
     GAME_CATALOG {
-        string id PK "currently: bubble-trouble, tron, pokemon-bnb"
-        string titleKey "games.bubbleTrouble, games.tron, games.pokemonBnbMini"
+        string id PK "currently: bubble-trouble, tron, pokemon-bnb, pokemon-pack-battle"
+        string titleKey "games.bubbleTrouble, games.tron, games.pokemonBnbMini, games.pokemonPackBattle"
         string statusKey "ready | comingSoon"
     }
     GAME_CATALOG ||--o| HIGHSCORE_BUCKETS : "game.id = bucket key"
 
     HIGHSCORE_BUCKETS {
-        string gameId PK "e.g. bubble-trouble, tron, pokemon-bnb"
+        string gameId PK "e.g. bubble-trouble, tron, pokemon-bnb, pokemon-pack-battle"
     }
     HIGHSCORE_BUCKETS ||--o{ HIGHSCORE_ENTRY : "holds top-10"
     HIGHSCORE_ENTRY {
         int rank "implicit 1-10 (insertion order)"
         string name "player name"
-        number score "sorted descending; tron / pokemon-bnb: lifetime match wins per player name (aggregated)"
+        number score "sorted descending; tron / pokemon-bnb / pokemon-pack-battle: lifetime match wins per player name (aggregated)"
     }
 
     LOCALE_DICTIONARY ||..|| APPCONFIG : "settings.locale indexes"
@@ -100,4 +100,4 @@ erDiagram
 | **Persistence API** | `src/config/index.ts` | `readConfig()` / `writeConfig()` / `updateConfig()` + `mergeConfig()` deep-merge over defaults |
 | **Persisted document** | `localStorage['flash-games.config']` | Single `AppConfig` record: settings + per-game highscores |
 | **Static data** | `games/index.ts`, `assets/languages/*.json` | Game registry (read-only), en/ms/zh translation dictionaries |
-| **Ephemeral state** | `BubbleTroubleGame.tsx`, `tron/TronGame.tsx`, `pokemon-bnb/PokemonBnbGame.tsx` | Per-session runtimes + view state machines (never persisted); Tron adds session-only match options (rounds-to-win 1-9, per-player colors, per-player display names); Pokemon adds session-only lobby settings (set 30C, packs 1-6, prize cards 2-6, timer off/45/60/90s) that deliberately stay out of `AppConfig` |
+| **Ephemeral state** | `BubbleTroubleGame.tsx`, `tron/TronGame.tsx`, `pokemon-bnb/PokemonBnbGame.tsx`, `pokemon-pack-battle/PokemonPackBattleGame.tsx` | Per-session runtimes + view state machines (never persisted); Tron adds session-only match options (rounds-to-win 1-9, per-player colors, per-player display names); Pokemon adds session-only lobby settings (set 30C, packs 1-6, prize cards 2-6, timer off/45/60/90s) that deliberately stay out of `AppConfig`; Pack Battle adds session-only lobby settings (set 30C, packs 1-36) that deliberately stay out of `AppConfig` |
