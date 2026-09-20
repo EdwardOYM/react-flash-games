@@ -5,7 +5,9 @@
 > document in `localStorage`. Static data (game registry, locale dictionaries,
 > Pokemon set data) is bundled at build time. The one runtime external-data
 > dependency besides PeerJS signaling is card artwork for the Pokemon game,
-> hotlinked from the TCGdex CDN with a facsimile-only fallback on load error.
+> hotlinked from the TCGdex CDN. A face with no reachable artwork falls back to
+> a data-free type tint of the same size, so no `cards.json` text is ever
+> rendered and no card ever changes size.
 
 ## Architecture flowchart
 
@@ -47,7 +49,7 @@ flowchart TD
         pokemonBnb -->|"hello / lobby-update / lobby-start with shared seed / opening-ready / deck-ready ids / leave"| peer["pokemon-bnb/net: peer.ts createHost / joinHost (PeerJS Cloud default or self-hosted server) + protocol.ts message envelope and LobbySettings"]
         peer -->|"onMessage handler (single stable closure via refs)"| pokemonBnb
         pokemonBnb -->|"openPacks(cards, pack, seed) — deterministic, identical pool on both seats"| data["pokemon-bnb data: sets.ts / cards.ts / rng.ts seeded xorshift32 / pack.ts / deck.ts legality"]
-        pokemonBnb -->|"PokemonCard faces: cardImage.ts cardImageUrl(card) builds the TCGdex asset URL per card number (CP11); hosted artwork renders behind the facsimile, facsimile-only fallback on load error / offline"| cardArt["pokemon-bnb/cardImage.ts — hotlinks assets.tcgdex.net/en/me/30th/&lt;number&gt;/low.png at runtime; nothing downloaded or stored (set id → TCGdex path registry); synthetic energies have no art"]
+        pokemonBnb -->|"PokemonCard faces: cardImage.ts cardImageUrl(card) builds the TCGdex asset URL per card number (CP11); the hosted artwork IS the card face, at one uniform 8 by 11 size — no cards.json text is ever rendered, and a failed or absent load falls back to a data-free type tint of that same size (CP11-E)"| cardArt["pokemon-bnb/cardImage.ts — hotlinks assets.tcgdex.net/en/me/30th/&lt;number&gt;/low.png at runtime; nothing downloaded or stored (set id to TCGdex path registry); synthetic basic energies have no art and use their type tint"]
         pokemonBnb -->|"deck-ready ids resolved against the shared pool -> setupBattle(settings, hostDeck, guestDeck, seed)"| engine["game-core/ module folder — index barrel re-exports<br/>constants / types / helpers / setup / actions / effects / turns / snapshots (pure, no React / DOM / network)"]
         engine -->|"BattleState -> tabletop render: turn header, side panels, translated log strip"| pokemonBnb
         pokemonBnb -->|"battle-action intent (guest) -> host processAction -> battle-snapshot per seat -> applySnapshot (CP9-B)"| sync["Host-authoritative sync: battleRef = live engine state (host), battle = render snapshot; the guest is view-only"]

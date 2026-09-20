@@ -57,7 +57,7 @@
 .bnb-dot-error { background: #ff8a7a; }
 .bnb-dot-closed { background: #5d6f72; }
 /* Pack opening: responsive card-facsimile grid inside the 960px shell. */
-.bnb-card-grid { list-style: none; margin: 16px 0 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.bnb-card-grid { list-style: none; margin: 16px 0 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--pkm-card-w, 168px), 1fr)); gap: 12px; align-items: start; justify-items: center; }
 .bnb-card-grid li { margin: 0; padding: 0; }
 .bnb-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 0 0 18px; }
 .bnb-summary dt { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; }
@@ -65,7 +65,7 @@
 @keyframes bnb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
 /* Battle: 16:9 tabletop stage capped at the 960x540 embed width. */
-.bnb-battle { display: flex; flex-direction: column; gap: 10px; width: min(100%, 960px); aspect-ratio: 16 / 9; margin: clamp(12px, 3vh, 32px) auto 0; padding: clamp(10px, 2vw, 18px); border: 1px solid #33454a; background: #121c24; }
+.bnb-battle { display: flex; flex-direction: column; gap: 10px; width: min(100%, 960px); aspect-ratio: 16 / 9; margin: clamp(12px, 3vh, 32px) auto 0; padding: clamp(10px, 2vw, 18px); border: 1px solid #33454a; background: #121c24; --pkm-card-w: clamp(56px, 9vh, 76px); }
 .bnb-battle-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
 .bnb-battle-turn { margin: 0; color: #ffc857; font-family: 'DM Mono', monospace; font-size: clamp(.8rem, 2vh, 1rem); letter-spacing: .04em; }
 /* CP9-C: per-turn countdown chip beside the turn header (tabular so it does not jitter). */
@@ -102,7 +102,7 @@
 .bnb-side-dmg { color: #ff8a7a; font-family: 'DM Mono', monospace; font-size: .76rem; }
 .bnb-side-energy { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .76rem; }
 .bnb-side-conditions { color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .64rem; }
-.bnb-side-bench { margin: 0; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .7rem; line-height: 1.45; }
+.bnb-side-bench { margin: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .7rem; line-height: 1.45; }
 .bnb-side-bench-label { margin-right: 6px; color: #ffc857; font-size: .64rem; text-transform: uppercase; }
 .bnb-side-hand { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 4px; }
 .bnb-hand-chip { padding: 3px 7px; border: 1px solid #33454a; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .62rem; }
@@ -116,7 +116,7 @@
 
 /* CP8-E: selectable card zones — bench grid + hand list with gold selected state. */
 .bnb-bench-list, .bnb-hand-list { list-style: none; margin: 0; padding: 0; }
-.bnb-bench-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 6px; }
+.bnb-bench-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--pkm-card-w, 168px), 1fr)); gap: 8px; margin-top: 6px; align-items: start; justify-items: center; }
 .bnb-bench-list li { margin: 0; padding: 0; min-width: 0; }
 .bnb-bench-pick { display: block; width: 100%; padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; text-align: inherit; }
 .bnb-bench-pick:hover { border-color: #50676a; }
@@ -124,7 +124,8 @@
 .bnb-bench-pick[aria-pressed='true'] { border-color: #ffc857; box-shadow: 0 0 0 1px #ffc857; }
 .bnb-bench-pick:disabled { cursor: not-allowed; }
 .bnb-bench-face { display: block; }
-.bnb-bench-list .pkm-card { min-height: 0; }
+/* No per-zone card overrides: a bench `min-height: 0` here is what used to let
+ * the track crush bench faces while the active face stayed full size. */
 .bnb-hand-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 4px; }
 .bnb-hand-list li { margin: 0; padding: 0; }
 .bnb-hand-pick { padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; }
@@ -143,6 +144,10 @@
 /* Mobile landscape: fixed 100dvh page, stage fits the shorter dimension. */
 @media (orientation: landscape) and (max-height: 600px) {
   .bnb-page { height: 100dvh; min-height: 0; padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); overflow: hidden; }
+  /* CP11-E landscape: outside the stage (pack opening, deck builder) cards share
+     one token sized to the short viewport, so every face stays identical and no
+     card is clipped by the hidden overflow. The stage keeps its own token. */
+  .bnb-page { --pkm-card-w: clamp(72px, 15vh, 132px); }
   .bnb-shell, .bnb-panel { margin: clamp(18px, 6vh, 56px) auto 0; }
   .bnb-shell-lobby { width: min(100%, 960px); margin: max(14px, env(safe-area-inset-top)) auto 0; }
   .bnb-copy { margin: 16px 0 22px; }
@@ -173,6 +178,10 @@
 
 /* Narrow portrait (<=520px): panels stack, the log strip drops below them. */
 @media (max-width: 520px) {
+  /* CP11-E portrait: the two-column grids halve the content width, so the shared
+     token drops to fit. Still ONE size per viewport — no card is smaller than
+     another, and none overflows its track. The battle stage keeps its own token. */
+  .bnb-page { --pkm-card-w: clamp(112px, 34vw, 168px); }
   .bnb-battle { height: auto; }
   .bnb-battle-main { grid-template-columns: 1fr; }
   .bnb-battle-log { max-height: clamp(120px, 26vh, 220px); }
