@@ -81,6 +81,14 @@
 /* CP9-E: rematch offer/accept row under the match-over banner. */
 .bnb-rematch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
 .bnb-rematch .bnb-hint { margin: 0; }
+/* CP10-E: rematch buttons mirror the .bnb-actions rhythm (results view). */
+.bnb-rematch button { padding: 10px 14px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
+.bnb-rematch button:hover { border-color: #ffc857; color: #ffc857; }
+.bnb-rematch button:focus, .bnb-rematch button:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.bnb-rematch .bnb-primary { border-color: #ffc857; color: #101820; background: #ffc857; }
+/* CP10-E: results view — tighter summary rhythm below the big result title. */
+.bnb-results .bnb-summary { margin: 0 0 22px; }
+.bnb-results .bnb-actions { margin-top: 2px; }
 .bnb-battle-main { display: grid; flex: 1; min-height: 0; gap: 10px; grid-template-columns: minmax(0, 1fr) clamp(150px, 24%, 240px); }
 .bnb-battle-table { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .bnb-side { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; padding: 10px 12px; border: 1px solid #33454a; background: #16222a; }
@@ -156,6 +164,11 @@
   /* CP8-E landscape: bar tucks under the stage with a capped log strip. */
   .bnb-action-bar { margin-top: 6px; padding: 6px 8px; }
   .bnb-battle-log { max-height: 18vh; }
+  /* CP10-E landscape: results/highscore fit the short viewport — the hidden
+     scroll never traps the actions, and the table scrolls internally. */
+  .bnb-results .bnb-copy { margin: 10px 0 12px; }
+  .bnb-results .bnb-summary { margin: 0 0 12px; }
+  .bnb-highscore .highscore-table { max-height: max(120px, calc(100dvh - 244px)); overflow-y: auto; overscroll-behavior: contain; }
 }
 
 /* Narrow portrait (<=520px): panels stack, the log strip drops below them. */
@@ -166,6 +179,10 @@
   /* CP8-E portrait: two-column action bar + compact bench grids, no h-scroll. */
   .bnb-action-bar .bnb-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bnb-bench-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* CP10-E portrait: touch-friendly targets + stacked results summary. */
+  .bnb-actions button, .bnb-rematch button, .bnb-topbar button { min-height: 42px; }
+  .bnb-results .bnb-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bnb-highscore .highscore-table-head, .bnb-highscore .highscore-row { grid-template-columns: 44px minmax(0, 1fr) 56px; gap: 10px; }
 }
 
 /* CP7-F dev harness (?local=1): plain technical controls, dev/QA only. */

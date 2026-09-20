@@ -5,7 +5,8 @@
 // short beat (Tron's 500 ms pattern) before the battle view (E-d renders it).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getPreferredLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
-import { SettingsModal } from '../../settings'
+import { readConfig } from '../../config'
+import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import type { CardDef, CardRarity, SetId } from './cards'
 import { buildPoolIsValid, type DeckLegalityReason } from './deck'
 import { STATUS_CONDITIONS, applySnapshot, applyTimeout, processAction, setupBattle, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
@@ -18,6 +19,23 @@ import { readHighscores, recordMatchWin } from './highscores'
 import { PokemonCard } from './PokemonCard'
 import { HighscoreTable } from '../highscore/HighscoreTable'
 import './PokemonBnbGame.css'
+
+/**
+ * CP10-D: remappable ceremony keys (settings → controllers → extra bindings,
+ * persisted in `AppConfig.settings.keybindings`). Confirm advances the shared
+ * beats (pack reveal → ready-up → deck submit → promotion), Skip reveals the
+ * whole pack at once. Labels reuse the global `keyNames.*` copy.
+ */
+const pokemonKeyBindings: AdditionalKeyBinding[] = [
+  { id: 'pokemon-confirm', labelKey: 'keyNames.confirm', defaultKey: 'Enter' },
+  { id: 'pokemon-skip', labelKey: 'keyNames.skip', defaultKey: 'S' },
+]
+
+/** Live binding for an id, falling back to the declared default. */
+function readBinding(id: string, fallback: string) {
+  return readConfig().settings.keybindings[id] ?? fallback
+}
+
 
 type View =
   | 'start'
@@ -393,6 +411,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const resultRecordedRef = useRef(false)
   /** CP10-C: post-render implementation of the match-over settle logic. */
   const settleMatchOverRef = useRef<(next: BattleState) => void>(() => {})
+  /** CP10-D: post-render Confirm/Skip key handler (ref pattern). */
+  const keyHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {})
   /** CP9-D: opponent name for disconnect/rematch copy, read from refs so the
    * stable session callbacks never render a stale closure value. */
   const opponentNameRef = useRef('')
@@ -1176,6 +1196,52 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     }
   })
 
+  // CP10-D: Confirm/Skip keys drive the shared ceremony beats. The handler is
+  // re-assigned every render (ref pattern, no listener churn) and events from
+  // interactive elements are ignored so focused buttons and inputs keep their
+  // native handling (no double reveal / double submit).
+  useEffect(() => {
+    keyHandlerRef.current = (event: KeyboardEvent) => {
+      if (event.repeat) return
+      const target = event.target
+      if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement || target instanceof HTMLButtonElement) return
+      const isConfirm = event.key === readBinding('pokemon-confirm', 'Enter')
+      const skipKey = readBinding('pokemon-skip', 'S').toLowerCase()
+      const isSkip = skipKey.length > 0 && event.key.toLowerCase() === skipKey
+      if (!isConfirm && !isSkip) return
+      const mySlot: PlayerSlot = role === 'guest' ? 'guest' : 'host'
+      const total = openedCards.length
+      const fullyRevealed = total > 0 && revealedCount >= total
+      if (view === 'opening') {
+        if (isSkip && !fullyRevealed) {
+          revealAll()
+          return
+        }
+        if (isConfirm) {
+          if (!fullyRevealed) revealNext()
+          else if (!openingReady) markOpeningReady()
+        }
+        return
+      }
+      if (view === 'deck' && isConfirm) {
+        markDeckReady()
+        return
+      }
+      if (isConfirm && (view === 'playing' || view === 'paused') && battle && !battle.over && battle.pendingPromotion === mySlot && selBench !== null) {
+        runBattleAction(mySlot, { type: 'promoteActive', benchIndex: selBench })
+      }
+    }
+  })
+
+  useEffect(() => {
+    // Overlays own the keyboard while open; the hot-seat harness keeps its own
+    // on-screen controls, so keys stay idle there too.
+    if (localMode || settingsOpen || helpOpen) return
+    const listener = (event: KeyboardEvent) => keyHandlerRef.current(event)
+    window.addEventListener('keydown', listener)
+    return () => window.removeEventListener('keydown', listener)
+  }, [localMode, settingsOpen, helpOpen])
+
   const copyCode = () => {
     const clipboard = navigator.clipboard
     if (!clipboard) return
@@ -1672,7 +1738,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
             <button type="button" onClick={onExit}>{t('pokemonBnb.exit')}</button>
           </div>
         </header>
-        <div className="bnb-shell">
+        <div className="bnb-shell bnb-results">
           <p className="eyebrow">{t('games.pokemonBnbMini')}</p>
           <h1>{won ? substituteParams(t('pokemonBnb.victory'), { player: seatName(battle.winner) }) : t('pokemonBnb.gameOver')}</h1>
           <p className="bnb-copy">{won ? t('pokemonBnb.resultVictory') : t('pokemonBnb.resultDefeat')}</p>
@@ -1740,7 +1806,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
             <button type="button" onClick={onExit}>{t('pokemonBnb.exit')}</button>
           </div>
         </header>
-        <div className="bnb-shell">
+        <div className="bnb-shell bnb-highscore">
           <p className="eyebrow">{t('games.pokemonBnbMini')}</p>
           <h1>{t('pokemonBnb.highscore')}</h1>
           <HighscoreTable
@@ -1814,7 +1880,15 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         </div>
         {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
       </div>
-      {settingsOpen && <SettingsModal locale={locale} onClose={() => setSettingsOpen(false)} onLocaleChange={changeLocale} t={t} />}
+      {settingsOpen && (
+        <SettingsModal
+          locale={locale}
+          additionalBindings={pokemonKeyBindings}
+          onClose={() => setSettingsOpen(false)}
+          onLocaleChange={changeLocale}
+          t={t}
+        />
+      )}
     </main>
   )
 }
