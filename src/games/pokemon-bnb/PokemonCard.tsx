@@ -1,9 +1,13 @@
-// Reusable Pokemon TCG card face for B&B mini. Typographic facsimile only
-// (no scans/artwork): rarity chip, name, HP, type line, attacks, abilities,
-// trainer/energy text, plus a face-down back for the opening ceremony.
+// Reusable Pokemon TCG card face for B&B mini. Typographic facsimile with a
+// hotlinked artwork layer behind the text (CP11-B): the hosted TCGdex image
+// (cardImage.ts) renders full-bleed behind the facsimile under a light veil —
+// zero layout shift in any view, all text/chips stay readable and on top, and
+// onError unmounts the art so the facsimile stands alone (offline-safe).
 // Card content (names, attack text) is data and renders verbatim — only the
 // rarity chip and back label arrive pre-translated via props.
+import { useState } from 'react'
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, type CardDef } from './cards'
+import { cardImageUrl } from './cardImage'
 import './PokemonCard.css'
 
 type PokemonCardProps = {
@@ -20,6 +24,26 @@ type PokemonCardProps = {
   statuses?: string[]
 }
 
+/** Hosted artwork behind the facsimile; unmounts itself on load failure. */
+function CardArt({ url }: { url: string }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) return null
+  return (
+    <span className="pkm-card-artwrap" aria-hidden="true">
+      <img
+        className="pkm-card-art"
+        src={url}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        draggable={false}
+        onError={() => setFailed(true)}
+      />
+      <i className="pkm-card-artveil" />
+    </span>
+  )
+}
+
 export function PokemonCard({ card, faceDown, rarityLabel, faceDownLabel, damage, statuses }: PokemonCardProps) {
   if (faceDown) {
     return (
@@ -31,10 +55,13 @@ export function PokemonCard({ card, faceDown, rarityLabel, faceDownLabel, damage
 
   const typeLine = card.supertype === 'pokemon' ? card.types.join(' · ') : card.supertype
   const statusList = statuses ?? []
+  const artUrl = cardImageUrl(card)
 
   return (
     <article className={`pkm-card pkm-card-${card.supertype} pkm-card-rarity-${card.rarity}`} aria-label={card.name}>
+      {artUrl && <CardArt key={artUrl} url={artUrl} />}
       <header className="pkm-card-head">
+
         <span className="pkm-card-name">{card.name}</span>
         {cardIsPokemon(card) && <span className="pkm-card-hp">{card.hp} HP</span>}
       </header>
