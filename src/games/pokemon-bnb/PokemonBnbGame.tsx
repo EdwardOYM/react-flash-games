@@ -14,7 +14,9 @@ import { createHost, joinHost, parseServerAddress, type PeerStatus, type Session
 import { openPacks, buildPool, type OpenedCard, type OpenedPool } from './pack'
 import { createRng, randomSeed } from './rng'
 import { getSet, listSets } from './sets'
+import { readHighscores, recordMatchWin } from './highscores'
 import { PokemonCard } from './PokemonCard'
+import { HighscoreTable } from '../highscore/HighscoreTable'
 import './PokemonBnbGame.css'
 
 type View =
@@ -387,6 +389,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   /** CP9-E mirror of `rematchSent` (the guest's `lobby-start` reply reads it). */
   const rematchSentRef = useRef(false)
   const noticeTimerRef = useRef<number | null>(null)
+  /** CP10-C: one-shot guard so a match records its highscore entry once. */
+  const resultRecordedRef = useRef(false)
+  /** CP10-C: post-render implementation of the match-over settle logic. */
+  const settleMatchOverRef = useRef<(next: BattleState) => void>(() => {})
   /** CP9-D: opponent name for disconnect/rematch copy, read from refs so the
    * stable session callbacks never render a stale closure value. */
   const opponentNameRef = useRef('')
@@ -429,6 +435,17 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   }, [])
 
   /**
+   * CP10-C: one-shot match-over settle (record + notice + results routing).
+   * The implementation is assigned post-render (the effect after the action
+   * driver) so the stable call sites -- the action driver, the timer
+   * macrotask and the guest snapshot handler -- can invoke it without
+   * declaration-order constraints.
+   */
+  const settleMatchOver = useCallback((next: BattleState) => {
+    settleMatchOverRef.current?.(next)
+  }, [])
+
+  /**
    * CP9-C turn timer wall clock. Elapsed time is recorded per turn key (match
    * seed + turn + seat + limit) and `secondsLeft` is derived during render, so
    * a new turn starts from a full timer with no reset effect, a mid-turn action
@@ -468,9 +485,11 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       battleRef.current = next
       if (localMode) setBattle(next)
       else broadcastBattle(next)
+      // CP10-C: a timeout can end the match (deck-out style forfeit); settle.
+      settleMatchOver(next)
     }, 0)
     return () => window.clearTimeout(fire)
-  }, [view, timerVisible, timerSeeded, timerSeconds, timerSeedKey, localMode, broadcastBattle])
+  }, [view, timerVisible, timerSeeded, timerSeconds, timerSeedKey, localMode, broadcastBattle, settleMatchOver])
 
   const displayName = playerName.trim() || t('pokemonBnb.defaultName')
   const isHost = role === 'host'
@@ -741,6 +760,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         setSelHand(null)
         setSelBench(null)
         setSelAttack(null)
+        // CP10-C: the snapshot may be the first sight of the match result on
+        // this seat; settle (record + route) exactly once.
+        settleMatchOver(next)
         // CP9-D: a snapshot arriving mid-battle is proof the host replayed the
         // authoritative state after our re-dial; clear the connection banner.
         if (connLostRef.current) {
@@ -848,6 +870,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       opponentDeckReadyRef.current = false
       opponentDeckIdsRef.current = null
       battleRef.current = null
+      resultRecordedRef.current = false
       setBattle(null)
       setBattleError(null)
       setSelHand(null)
@@ -1115,6 +1138,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       return false
     }
     clearBattleSelection()
+    // CP10-C: a finishing action settles the match exactly once.
+    settleMatchOver(result.state)
     if (roleRef.current === 'host' && !localMode) {
       broadcastBattle(result.state)
     } else {
@@ -1128,6 +1153,28 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const runLocalAction = (actor: PlayerSlot, action: BattleAction) => {
     runBattleAction(actor, action)
   }
+
+  // CP10-C: fresh-every-render assignment of the match-over settle logic so
+  // the stable call sites always run the current names/labels. It records the
+  // winner's tally exactly once per match on this device (both seats see the
+  // public winner in their snapshot, so each device records consistently) and
+  // routes the local seat to `victory` (it won, or the hot-seat match ended)
+  // or `gameover` (the opponent won). No setState runs in the effect body
+  // itself; the closure only fires from engine/handler call sites.
+  useEffect(() => {
+    settleMatchOverRef.current = (next: BattleState) => {
+      if (!next.over || next.winner === null) return
+      if (!resultRecordedRef.current) {
+        resultRecordedRef.current = true
+        const name = seatName(next.winner)
+        recordMatchWin(name)
+        showNotice('pokemonBnb.highscoreSaved', { name })
+      }
+      if (viewRef.current === 'playing' || viewRef.current === 'paused') {
+        setView(localMode || next.winner === (role === 'guest' ? 'guest' : 'host') ? 'victory' : 'gameover')
+      }
+    }
+  })
 
   const copyCode = () => {
     const clipboard = navigator.clipboard
@@ -1607,10 +1654,113 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     )
   }
 
-  // Placeholder seat for the post-deck views the battle render does not cover
-  // yet (loading beat, pause, results). It shows the locked-in match settings
+  // CP10-C results: victory when the local seat won (any winner in the
+  // hot-seat harness), gameover when the opponent won. Every path out is
+  // offered here: rematch (guest offer / host accept, the CP9-E handshake),
+  // retry (the host reseeds via startPackOpening; the hot-seat harness
+  // restarts locally), the highscore view and back-to-start.
+  if ((view === 'victory' || view === 'gameover') && battle?.over && battle.winner !== null) {
+    const mySlot: PlayerSlot = role === 'guest' ? 'guest' : 'host'
+    const won = localMode || battle.winner === mySlot
+    const myPrizes = battle.prizeCards - battle[mySlot].prizeCount
+    return (
+      <main className="bnb-page">
+        <header className="bnb-topbar">
+          <span className="bnb-hud-label">{t('pokemonBnb.title')}</span>
+          <div className="bnb-topbar-actions">
+            <button type="button" onClick={leaveLobby}>{t('pokemonBnb.leaveLobby')}</button>
+            <button type="button" onClick={onExit}>{t('pokemonBnb.exit')}</button>
+          </div>
+        </header>
+        <div className="bnb-shell">
+          <p className="eyebrow">{t('games.pokemonBnbMini')}</p>
+          <h1>{won ? substituteParams(t('pokemonBnb.victory'), { player: seatName(battle.winner) }) : t('pokemonBnb.gameOver')}</h1>
+          <p className="bnb-copy">{won ? t('pokemonBnb.resultVictory') : t('pokemonBnb.resultDefeat')}</p>
+          {battle.winReason && (
+            <p className="bnb-copy">{substituteParams(t('pokemonBnb.resultReason'), { reason: t(WIN_REASON_KEYS[battle.winReason]) })}</p>
+          )}
+          <p className="bnb-copy">{substituteParams(t('pokemonBnb.resultPrizes'), { taken: String(myPrizes), total: String(battle.prizeCards) })}</p>
+          <dl className="bnb-summary">
+            <div><dt>{t('pokemonBnb.setLabel')}</dt><dd>{setLabel(settings.set, t)}</dd></div>
+            <div><dt>{t('pokemonBnb.packsLabel')}</dt><dd>{settings.packs}</dd></div>
+            <div><dt>{t('pokemonBnb.prizeCardsLabel')}</dt><dd>{settings.prizeCards}</dd></div>
+            <div><dt>{t('pokemonBnb.timerLabel')}</dt><dd>{settings.timerSeconds === 0 ? t('pokemonBnb.timerOff') : substituteParams(t('pokemonBnb.timerSeconds'), { count: String(settings.timerSeconds) })}</dd></div>
+          </dl>
+          {/*
+           * CP9-E rematch controls, repeated on the results screen: the guest
+           * offers (`rematch`), the host grants (fresh seed via `lobby-start`),
+           * both seats return to `opening`. Hidden in `?local=1`.
+           */}
+          {!localMode && role !== null && (
+            <div className="bnb-rematch">
+              {role === 'guest' && (
+                rematchSent
+                  ? <p className="bnb-hint">{substituteParams(t('pokemonBnb.rematchWaiting'), { player: seatName('host') })}</p>
+                  : <button type="button" onClick={requestRematch}>{t('pokemonBnb.rematchOffer')}</button>
+              )}
+              {role === 'host' && rematchOffered && (
+                <>
+                  <p className="bnb-hint">{substituteParams(t('pokemonBnb.rematchReceived'), { player: seatName('guest') })}</p>
+                  <button className="bnb-primary" type="button" onClick={acceptRematch}>{t('pokemonBnb.rematchAccept')}</button>
+                </>
+              )}
+            </div>
+          )}
+          <div className="bnb-actions">
+            {localMode && (
+              <button className="bnb-primary" type="button" onClick={() => { resetMatchState(); beginLocalBattle() }}>{t('pokemonBnb.playAgain')}</button>
+            )}
+            {role === 'host' && (
+              <button className="bnb-primary" type="button" onClick={startPackOpening}>{t('pokemonBnb.retry')}</button>
+            )}
+            <button type="button" onClick={() => setView('highscore')}>{t('pokemonBnb.highscore')}</button>
+            <button type="button" onClick={leaveLobby}>{t('pokemonBnb.backToStart')}</button>
+          </div>
+          {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
+          <p className="bnb-hint">{matchSeed === null ? '' : substituteParams(t('pokemonBnb.seedShared'), { seed: String(matchSeed) })}</p>
+        </div>
+      </main>
+    )
+  }
+
+  // CP10-C highscores: the shared table over this device's pokemon-bnb
+  // bucket, reachable from the results views and leaveable back to them (or
+  // to the start view once the lobby is gone).
+  if (view === 'highscore') {
+    const mySlot: PlayerSlot = role === 'guest' ? 'guest' : 'host'
+    const backView: View = battle?.over && battle.winner !== null
+      ? (localMode || battle.winner === mySlot ? 'victory' : 'gameover')
+      : 'start'
+    return (
+      <main className="bnb-page">
+        <header className="bnb-topbar">
+          <span className="bnb-hud-label">{t('pokemonBnb.title')}</span>
+          <div className="bnb-topbar-actions">
+            <button type="button" onClick={leaveLobby}>{t('pokemonBnb.leaveLobby')}</button>
+            <button type="button" onClick={onExit}>{t('pokemonBnb.exit')}</button>
+          </div>
+        </header>
+        <div className="bnb-shell">
+          <p className="eyebrow">{t('games.pokemonBnbMini')}</p>
+          <h1>{t('pokemonBnb.highscore')}</h1>
+          <HighscoreTable
+            entries={readHighscores()}
+            labels={{ rank: t('pokemonBnb.rank'), playerName: t('pokemonBnb.player'), score: t('pokemonBnb.wins'), noScores: t('pokemonBnb.noScores') }}
+          />
+          <div className="bnb-actions">
+            {backView === 'start'
+              ? <button type="button" onClick={() => setView('start')}>{t('pokemonBnb.backToStart')}</button>
+              : <button type="button" onClick={() => setView(backView)}>{t('pokemonBnb.back')}</button>}
+          </div>
+        </div>
+      </main>
+    )
+  }
+
+  // Placeholder seat for the loading beat (the only post-deck view the battle
+  // and results renders do not cover). It shows the locked-in match settings
   // so both clients can verify they agree.
-  if (view === 'loading' || view === 'playing' || view === 'paused' || view === 'gameover' || view === 'victory' || view === 'highscore') {
+  if (view === 'loading') {
     return (
       <main className="bnb-page">
         <header className="bnb-topbar">
