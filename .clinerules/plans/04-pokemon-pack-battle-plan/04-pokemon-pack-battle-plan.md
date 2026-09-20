@@ -9,7 +9,8 @@
 - [x] CP0 — Pure core scaffold (unregistered): scoring, protocol fork, battlePack, highscores
 - [x] CP1 — Registry + config seed + diagrams
 - [x] CP2 — Start / tutorial / settings shell
-- [ ] CP3 — Lobby flow (PeerJS, packs 1-36, seed broadcast)
+- [x] CP3 — Lobby flow (PeerJS, packs 1-36, seed broadcast)
+- [ ] CP4 — Opening ceremony (1 pack/1 card, counter, synced reveal, flair + scoring)
 - [ ] CP4 — Opening ceremony (1 pack/1 card, counter, synced reveal, flair + scoring)
 - [ ] CP5 — Results / highscore / credits
 - [ ] CP6 — Responsive + i18n + final validation

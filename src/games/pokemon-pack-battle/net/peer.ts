@@ -74,8 +74,9 @@ export function parsePackBattleServerAddress(input: string): PackBattleServerCon
 type WireCallbacks = Partial<PackBattleSessionCallbacks>
 
 function makePackBattlePeer(id: string | undefined, server: PackBattleServerChoice): Peer {
-  if (!server) return new Peer(id ?? randomPackBattleCode(16))
-  return new Peer(id, {
+  const peerId = id ?? randomPackBattleCode(16)
+  if (!server) return new Peer(peerId)
+  return new Peer(peerId, {
     host: server.host,
     port: server.port,
     path: server.path,
@@ -101,13 +102,13 @@ function attachPackBattleConnection(conn: DataConnection, callbacks: WireCallbac
     }
   })
   conn.on('close', () => callbacks.onPeerDisconnected?.())
-    conn.on('error', (error) => callbacks.onError?.(String(error)))
+  conn.on('error', (error) => callbacks.onError?.(String(error)))
 }
 
 /** Host a lobby and accept one guest. Sends `hello-ack` on channel open. */
 export function createPackBattleHost(
   name: string,
-  settings: { set: string; packs: number },
+  _settings: { set: string; packs: number },
   callbacks: WireCallbacks,
   server: PackBattleServerChoice = null,
 ): PackBattleHostSession {
@@ -183,7 +184,7 @@ export function createPackBattleHost(
       callbacks.onStatus?.('closed')
       cleanup()
     },
-    }\
+  }
 }
 
 /** Join a lobby by its short code. Sends `hello` once the channel opens. */
@@ -272,7 +273,6 @@ export function joinPackBattleHost(
       conn = null
       try { peer?.destroy() } catch { /* already gone */ }
       peer = null
-cleanup()
-  conn.on('close', () => callbacks.onPeerDisconnected?.())
-  conn.on('error', (error) => callbacks.onError?.(String(error)))
+    },
+  }
 }

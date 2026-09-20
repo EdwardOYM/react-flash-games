@@ -437,6 +437,11 @@
     "previous": "上一步",
     "comingSoon": "大厅将在下一个检查点到来——开始、教程和设置已就绪。",
     "createLobby": "创建大厅",
+    "inspiredBy": "灵感来自宝可梦集换式卡牌社区补充包对战玩法",
+    "highscore": "最高分",
+    "rank": "排名",
+    "player": "玩家",
+    "wins": "胜场",
     "noScores": "还没有记录任何对战。",
     "joinLobby": "使用代码加入",
     "displayName": "显示名称",
@@ -465,12 +470,5 @@
     "errorPeerUnavailable": "找不到大厅。请检查代码后重试。",
     "errorVersion": "版本不一致。请双方重新加载最新版本。",
     "errorGeneric": "连接失败。请检查代码或服务器后重试。"
-  }
-    "inspiredBy": "灵感来自宝可梦集换式卡牌社区补充包对战玩法",
-    "highscore": "最高分",
-    "rank": "排名",
-    "player": "玩家",
-    "wins": "胜场",
-    "noScores": "还没有记录任何对战。"
   }
 }

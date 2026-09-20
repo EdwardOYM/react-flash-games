@@ -1,13 +1,12 @@
 // 04-pokemon-pack-battle — CP2 shell header (imports, bindings, view state).
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { getPreferredLocale, persistLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
 import { readConfig, updateConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import { HighscoreTable } from '../highscore/HighscoreTable'
-import { readPackBattleHighscores, recordPackBattleWin } from './highscores'
+import { readPackBattleHighscores } from './highscores'
 import {
   PACK_BATTLE_LIMITS,
-  PACK_BATTLE_PROTOCOL_VERSION,
   clampPackBattleSettings,
   defaultPackBattleSettings,
   type PackBattleMessage,
@@ -22,7 +21,7 @@ import {
   type PackBattleServerChoice,
 } from './net/peer'
 import { listSets } from './sets'
-import { PACK_BATTLE_30C } from './battlePack'
+import { LobbyView } from './LobbyView'
 import './PokemonPackBattleGame.css'
 
 const packBattleKeyBindings: AdditionalKeyBinding[] = [
@@ -59,7 +58,7 @@ const SET_ENTRIES = listSets()
 const DEFAULT_SET_ID = SET_ENTRIES[0].id
 
 export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: PokemonPackBattleProps) {
-    const [activeLocale, setActiveLocale] = useState<Locale>(() => locale ?? getPreferredLocale())
+  const [activeLocale, setActiveLocale] = useState<Locale>(() => locale ?? getPreferredLocale())
   const fallbackTranslate = useTranslations(activeLocale)
   const translate = t ?? fallbackTranslate
   const [view, setView] = useState<View>('start')
@@ -82,7 +81,8 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   const guestNameRef = useRef<string>('')
   const matchSeedRef = useRef<number>(0)
   const packsRef = useRef<PackBattleSettings>(defaultPackBattleSettings(DEFAULT_SET_ID))
-  const localRoleRef = useRef<'host' | 'guest'>('host')
+
+  const [localRole, setLocalRole] = useState<'host' | 'guest'>('host')
 
   const changeLocale = (nextLocale: Locale) => {
     setActiveLocale(nextLocale)
@@ -122,14 +122,14 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   const beginSession = (role: 'host' | 'guest') => {
     const name = lobby.name.trim() || 'Pack'
     const server: PackBattleServerChoice = lobby.server ? parsePackBattleServerAddress(lobby.server) : null
-    localRoleRef.current = role
+    setLocalRole(role)
     const settings = clampPackBattleSettings({ set: DEFAULT_SET_ID, packs: lobby.packs })
 
     messageHandlerRef.current = (message) => {
       if (message.kind === 'hello') {
         guestNameRef.current = message.name || ''
         setLobby((current) => ({ ...current, guestName: message.name || null, status: 'connected' }))
-        if (localRoleRef.current === 'host' && matchSeedRef.current) {
+        if (localRole === 'host' && matchSeedRef.current) {
           sessionRef.current?.send({ kind: 'lobby-start', seed: matchSeedRef.current, settings: packsRef.current })
         }
       } else if (message.kind === 'hello-ack') {
@@ -291,12 +291,25 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
         <div className="ppb-shell">
           <p className="eyebrow">{translate('games.pokemonPackBattle')}</p>
           <h1>{translate('packBattle.title')}</h1>
-          <p className="ppb-copy">{translate('packBattle.comingSoon')}</p>
-          <div className="ppb-actions">
-            <button type="button" onClick={() => setView('start')}>
-              {translate('packBattle.back')}
-            </button>
-          </div>
+          <LobbyView
+            role={localRole}
+            status={lobby.status}
+            name={lobby.name}
+            codeInput={lobby.codeInput}
+            packs={lobby.packs}
+            server={lobby.server}
+            hostName={lobby.hostName}
+            guestName={lobby.guestName}
+            onNameChange={handleNameChange}
+            onCodeChange={handleCodeChange}
+            onServerChange={handleServerChange}
+            onPacksChange={handlePacks}
+            onCreate={() => beginSession('host')}
+            onJoin={() => beginSession('guest')}
+            onLeave={leaveLobby}
+            onStartMatch={startMatch}
+            t={translate}
+          />
         </div>
       </main>
     )

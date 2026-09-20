@@ -23,6 +23,33 @@
 .ppb-tutorial-steps span { width: 44px; height: 4px; background: #33454a; }
 .ppb-tutorial-steps .ppb-tutorial-step-done { background: #ffc857; }
 
+/* Lobby */
+.ppb-lobby { width: min(100%, 560px); }
+.ppb-lobby-tabs { display: flex; gap: 10px; margin-bottom: 24px; }
+.ppb-lobby-tabs button { flex: 1; padding: 14px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .75rem; text-transform: uppercase; cursor: pointer; }
+.ppb-lobby-tabs button:hover { border-color: #ffc857; color: #ffc857; }
+.ppb-lobby-tabs button.ppb-primary { border-color: #ffc857; color: #101820; background: #ffc857; }
+.ppb-lobby-tabs button.ppb-primary:hover { background: #ffd569; color: #101820; }
+.ppb-lobby-form { display: flex; flex-direction: column; gap: 18px; }
+.ppb-field { display: flex; flex-direction: column; gap: 6px; }
+.ppb-field-label { font-size: .7rem; text-transform: uppercase; color: #ffc857; font-family: 'DM Mono', monospace; }
+.ppb-input { padding: 12px 14px; border: 1px solid #50676a; background: transparent; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .9rem; }
+.ppb-input:focus { outline: none; border-color: #ffc857; }
+.ppb-input::placeholder { color: #5d6f72; }
+.ppb-packs-control { display: flex; align-items: center; gap: 12px; }
+.ppb-control-button { width: 40px; height: 40px; border: 1px solid #50676a; background: transparent; color: #f5f0e8; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.ppb-control-button:hover:not(:disabled) { border-color: #ffc857; color: #ffc857; }
+.ppb-control-button:disabled { border-color: #33454a; color: #5d6f72; cursor: not-allowed; }
+.ppb-packs-value { font-size: 1.4rem; font-family: 'DM Mono', monospace; color: #ffc857; min-width: 40px; text-align: center; }
+.ppb-status { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border: 1px solid #50676a; }
+.ppb-status-label { color: #aeb9b9; font-size: .75rem; text-transform: uppercase; font-family: 'DM Mono', monospace; }
+.ppb-status-value { color: #f5f0e8; font-size: .85rem; }
+.ppb-status-value.ppb-status-connected { color: #7ddf9a; }
+.ppb-status-value.ppb-status-error { color: #ff7878; }
+.ppb-opponent-info { display: flex; align-items: center; gap: 8px; margin-top: 20px; padding: 10px 14px; border: 1px solid #50676a; text-align: center; }
+.ppb-opponent-label { color: #aeb9b9; font-size: .75rem; text-transform: uppercase; font-family: 'DM Mono', monospace; }
+.ppb-opponent-name { color: #ffc857; font-size: 1rem; font-family: 'DM Mono', monospace; }
+
 @media (orientation: landscape) and (max-height: 600px) {
   .ppb-page { overflow: hidden; padding: calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
 }
@@ -30,4 +57,5 @@
 @media (max-width: 520px) {
   .ppb-topbar button { min-height: 42px; }
   .ppb-actions button { min-height: 42px; }
+  .ppb-control-button { width: 48px; height: 48px; }
 }
