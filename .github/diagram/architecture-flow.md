@@ -55,7 +55,7 @@ flowchart TD
     subgraph STATE["View state machine"]
         bubble -->|"View union"| views["start / tutorial / loading / playing / paused / remap / gameover / victory / highscore"]
         tron -->|"View union"| tronViews["start / tutorial / loading / playing / paused / gameover / victory / highscore (round-over is an overlay sub-state of playing; stick remap is an in-pause overlay, not a view)"]
-        pokemonBnb -->|"View union"| pkmViews["start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused / gameover / victory / highscore (battle tabletop renders from playing; paused is a solid transition since CP8; results are placeholders until CP10)"]
+        pokemonBnb -->|"View union"| pkmViews["start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused / gameover / victory / highscore (battle tabletop renders from playing; paused solid since CP8; results solid since CP10 — settleMatchOver routes the winning seat to victory, the losing seat to gameover, and highscore is reachable from both results views)"]
     end
 
     subgraph PERSIST["Data & persistence layer"]
@@ -63,10 +63,12 @@ flowchart TD
         defaults["config/default.config.json — immutable seed"]
         highscores["bubble-trouble/highscores.ts"]
         tronHs["tron/highscores.ts"]
+        pkmHs["pokemon-bnb/highscores.ts"]
         l10n["assets/languages/index.ts"]
         defaults --> cfg
         highscores --> cfg
         tronHs --> cfg
+        pkmHs --> cfg
         l10n --> cfg
         settingsModal -->|"audio (music / sfx / mute) / locale / keys"| cfg
         uiSounds -.->|"readConfig() — settings.sfx / muted / sfxVolume"| cfg
@@ -77,6 +79,8 @@ flowchart TD
         tron -->|"persistLocale()"| l10n
         tron -->|"recordMatchWin() on match end"| tronHs
         tronHs -->|"readHighscores()"| tron
+        pokemonBnb -->|"recordMatchWin() once per match (settleMatchOver)"| pkmHs
+        pkmHs -->|"readHighscores()"| pokemonBnb
         l10nD["locale JSON files (en / ms / zh)"] --> l10n
         cfg --> ls[("localStorage<br/>flash-games.config")]
     end
@@ -147,9 +151,16 @@ dropped data channel keeps the battle intact (connection-lost banner) while
 `joinHost` auto-redials and a re-`hello` makes the host replay its snapshots; a
 finished match can be replayed through the `rematch` offer, which the host
 grants by rolling a fresh seed through the normal `lobby-start` handshake (both
-seats return to `opening`). `gameover`, `victory`, and `highscore` stay
-placeholders until CP10 (results + highscores); the battle tabletop renders from
-`playing` once both `deck-ready` handshakes have run `beginBattle()`.
+seats return to `opening`). Since CP10 the results are solid transitions: when
+`battle.over` first becomes true on a seat, `settleMatchOver()` records the
+winner once per device via `pokemon-bnb/highscores.recordMatchWin` and routes
+the seat to `victory` (it won, or any winner in the `?local=1` hot-seat) or
+`gameover`; from there both seats can offer/accept a rematch, the host can
+retry (fresh seed → `opening`), open the shared `highscore` table (which
+returns with `back`), or leave to `start`. Confirm/Skip keys (remappable as
+`pokemon-confirm` / `pokemon-skip` in settings) advance the reveal, skip it,
+submit the deck, and confirm the promotion gate. The battle tabletop renders
+from `playing` once both `deck-ready` handshakes have run `beginBattle()`.
 `leaveLobby()` returns to `start` from every view.
 
 ```mermaid
@@ -170,7 +181,12 @@ flowchart LR
     PPLAYING -->|"mid-battle disconnect -> joinHost redial -> re-hello -> host replays snapshots (CP9-D)"| PRECONN["connection lost banner (battle state kept)"]
     PRECONN -->|"battle-snapshot received"| PPLAYING
     PPLAYING -->|"rematch accepted: host rolls a fresh seed via lobby-start (CP9-E)"| POPENING
-    PPLAYING -.->|"victory / gameover / highscore (CP10)"| PRESULTS["victory / gameover / highscore"]
+    PPLAYING -->|"match over: settleMatchOver() records the winner once + routes the seat (CP10)"| PRESULTS["victory / gameover"]
+    PPAUSED -->|"match over while paused (same settle)"| PRESULTS
+    PRESULTS -->|"rematch accepted (CP9-E handshake) or host retry (fresh seed)"| POPENING
+    PRESULTS -->|"highscores"| PHIGHSCORE["highscore (shared HighscoreTable)"]
+    PHIGHSCORE -->|"back"| PRESULTS
+    PRESULTS -->|"backToStart (leaveLobby())"| PSTART
 ```
 
 ## Persistence call sites
@@ -185,6 +201,7 @@ flowchart LR
 | `TronGame.changeLocale` | `persistLocale()` → `updateConfig(...)` | `settings.locale` |
 | `TronGame.saveControllerAdjustment` | `updateConfig(...)` | `settings.mobileControls` |
 | `tron/highscores.recordMatchWin` (TronGame victory effect) | `updateConfig(...)` | `highscores['tron']` (per-player match-win tally, top-10 by wins) |
+| `pokemon-bnb/highscores.recordMatchWin` (PokemonBnbGame `settleMatchOver`, once per match per device) | `updateConfig(...)` | `highscores['pokemon-bnb']` (per-player match-win tally, top-10 by wins) |
 
 ### Config change subscriptions
 

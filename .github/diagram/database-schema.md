@@ -19,11 +19,11 @@ AppConfig
 │   ├── locale: 'en' | 'ms' | 'zh'
 │   ├── music: boolean
 │   ├── primaryKey: string                                 (default "Space")
-│   ├── keybindings: Record<string, string>                (e.g. bubble-shoot → ArrowUp, tron-p1-up → w)
+│   ├── keybindings: Record<string, string>                (e.g. bubble-shoot → ArrowUp, tron-p1-up → w, pokemon-confirm → Enter)
 │   └── mobileControls
 │       ├── movement: { x, y, scale }                      (percent pos + 0.5–2.5 scale)
 │       └── shoot: { x, y, scale }
-└── highscores: Record<gameId, { name, score }[]>          (top-10, sorted desc; tron score = lifetime match wins per player name)
+└── highscores: Record<gameId, { name, score }[]>          (top-10, sorted desc; tron + pokemon-bnb score = lifetime match wins per player name)
 ```
 
 ## ER diagram
@@ -67,20 +67,20 @@ erDiagram
     }
 
     GAME_CATALOG {
-        string id PK "currently: bubble-trouble, tron"
-        string titleKey "games.bubbleTrouble, games.tron"
+        string id PK "currently: bubble-trouble, tron, pokemon-bnb"
+        string titleKey "games.bubbleTrouble, games.tron, games.pokemonBnbMini"
         string statusKey "ready | comingSoon"
     }
     GAME_CATALOG ||--o| HIGHSCORE_BUCKETS : "game.id = bucket key"
 
     HIGHSCORE_BUCKETS {
-        string gameId PK "e.g. bubble-trouble, tron"
+        string gameId PK "e.g. bubble-trouble, tron, pokemon-bnb"
     }
     HIGHSCORE_BUCKETS ||--o{ HIGHSCORE_ENTRY : "holds top-10"
     HIGHSCORE_ENTRY {
         int rank "implicit 1-10 (insertion order)"
         string name "player name"
-        number score "sorted descending; tron: lifetime match wins per player name (aggregated)"
+        number score "sorted descending; tron / pokemon-bnb: lifetime match wins per player name (aggregated)"
     }
 
     LOCALE_DICTIONARY ||..|| APPCONFIG : "settings.locale indexes"
@@ -100,4 +100,4 @@ erDiagram
 | **Persistence API** | `src/config/index.ts` | `readConfig()` / `writeConfig()` / `updateConfig()` + `mergeConfig()` deep-merge over defaults |
 | **Persisted document** | `localStorage['flash-games.config']` | Single `AppConfig` record: settings + per-game highscores |
 | **Static data** | `games/index.ts`, `assets/languages/*.json` | Game registry (read-only), en/ms/zh translation dictionaries |
-| **Ephemeral state** | `BubbleTroubleGame.tsx`, `tron/TronGame.tsx` | Per-session runtimes + view state machines (never persisted); Tron adds session-only match options (rounds-to-win 1-9, per-player colors, per-player display names) that deliberately stay out of `AppConfig` |
+| **Ephemeral state** | `BubbleTroubleGame.tsx`, `tron/TronGame.tsx`, `pokemon-bnb/PokemonBnbGame.tsx` | Per-session runtimes + view state machines (never persisted); Tron adds session-only match options (rounds-to-win 1-9, per-player colors, per-player display names); Pokemon adds session-only lobby settings (set 30C, packs 1-6, prize cards 2-6, timer off/45/60/90s) that deliberately stay out of `AppConfig` |
