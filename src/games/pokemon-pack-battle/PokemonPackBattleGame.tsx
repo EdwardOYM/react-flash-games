@@ -1,10 +1,28 @@
 // 04-pokemon-pack-battle — CP2 shell header (imports, bindings, view state).
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getPreferredLocale, persistLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
 import { readConfig, updateConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import { HighscoreTable } from '../highscore/HighscoreTable'
-import { readPackBattleHighscores } from './highscores'
+import { readPackBattleHighscores, recordPackBattleWin } from './highscores'
+import {
+  PACK_BATTLE_LIMITS,
+  PACK_BATTLE_PROTOCOL_VERSION,
+  clampPackBattleSettings,
+  defaultPackBattleSettings,
+  type PackBattleMessage,
+  type PackBattleSettings,
+} from './net/protocol'
+import {
+  createPackBattleHost,
+  joinPackBattleHost,
+  parsePackBattleServerAddress,
+  type PackBattlePeerStatus,
+  type PackBattleSessionBase,
+  type PackBattleServerChoice,
+} from './net/peer'
+import { listSets } from './sets'
+import { PACK_BATTLE_30C } from './battlePack'
 import './PokemonPackBattleGame.css'
 
 const packBattleKeyBindings: AdditionalKeyBinding[] = [
@@ -12,7 +30,7 @@ const packBattleKeyBindings: AdditionalKeyBinding[] = [
   { id: 'pokemon-pack-skip', labelKey: 'keyNames.skip', defaultKey: 'S' },
 ]
 
-type View = 'start' | 'tutorial' | 'lobby'
+type View = 'start' | 'tutorial' | 'lobby' | 'lobbyJoin' | 'opening' | 'results' | 'highscore'
 
 type PokemonPackBattleProps = {
   locale?: Locale
@@ -27,8 +45,21 @@ const TUTORIAL_STEPS: TranslationKey[] = [
   'packBattle.tutorialScore',
 ]
 
+interface LobbyState {
+  packs: number
+  codeInput: string
+  name: string
+  server: string
+  status: PackBattlePeerStatus
+  hostName: string | null
+  guestName: string | null
+}
+
+const SET_ENTRIES = listSets()
+const DEFAULT_SET_ID = SET_ENTRIES[0].id
+
 export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: PokemonPackBattleProps) {
-  const [activeLocale, setActiveLocale] = useState<Locale>(() => locale ?? getPreferredLocale())
+    const [activeLocale, setActiveLocale] = useState<Locale>(() => locale ?? getPreferredLocale())
   const fallbackTranslate = useTranslations(activeLocale)
   const translate = t ?? fallbackTranslate
   const [view, setView] = useState<View>('start')
@@ -36,6 +67,22 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [musicOn, setMusicOn] = useState(() => readConfig().settings.music)
   const [highscores, setHighscores] = useState(() => readPackBattleHighscores())
+  const [lobby, setLobby] = useState<LobbyState>({
+    packs: defaultPackBattleSettings(DEFAULT_SET_ID).packs,
+    codeInput: '',
+    name: '',
+    server: '',
+    status: 'waiting',
+    hostName: null,
+    guestName: null,
+  })
+
+  const sessionRef = useRef<PackBattleSessionBase | null>(null)
+  const hostNameRef = useRef<string>('')
+  const guestNameRef = useRef<string>('')
+  const matchSeedRef = useRef<number>(0)
+  const packsRef = useRef<PackBattleSettings>(defaultPackBattleSettings(DEFAULT_SET_ID))
+  const localRoleRef = useRef<'host' | 'guest'>('host')
 
   const changeLocale = (nextLocale: Locale) => {
     setActiveLocale(nextLocale)
@@ -52,6 +99,117 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     const next = !musicOn
     setMusicOn(next)
     updateConfig((config) => ({ ...config, settings: { ...config.settings, music: next } }))
+  }
+
+    const handlePacks = (delta: number) => {
+    setLobby((current) => ({
+      ...current,
+      packs: Math.min(
+        PACK_BATTLE_LIMITS.maxPacks,
+        Math.max(PACK_BATTLE_LIMITS.minPacks, Math.round(current.packs + delta)),
+      ),
+    }))
+  }
+
+  const handleCodeChange = (value: string) => setLobby((current) => ({ ...current, codeInput: value }))
+  const handleNameChange = (value: string) => setLobby((current) => ({ ...current, name: value }))
+  const handleServerChange = (value: string) => setLobby((current) => ({ ...current, server: value }))
+
+  // Wire the peerjs session: inbound packets route through a stable ref closure
+  // so the host can replay state (seed/cursor/scores) on a guest re-hello.
+  const messageHandlerRef = useRef<((message: PackBattleMessage) => void) | null>(null)
+
+  const beginSession = (role: 'host' | 'guest') => {
+    const name = lobby.name.trim() || 'Pack'
+    const server: PackBattleServerChoice = lobby.server ? parsePackBattleServerAddress(lobby.server) : null
+    localRoleRef.current = role
+    const settings = clampPackBattleSettings({ set: DEFAULT_SET_ID, packs: lobby.packs })
+
+    messageHandlerRef.current = (message) => {
+      if (message.kind === 'hello') {
+        guestNameRef.current = message.name || ''
+        setLobby((current) => ({ ...current, guestName: message.name || null, status: 'connected' }))
+        if (localRoleRef.current === 'host' && matchSeedRef.current) {
+          sessionRef.current?.send({ kind: 'lobby-start', seed: matchSeedRef.current, settings: packsRef.current })
+        }
+      } else if (message.kind === 'hello-ack') {
+        hostNameRef.current = message.name || ''
+        setLobby((current) => ({ ...current, hostName: message.name || null, status: 'connected' }))
+      } else if (message.kind === 'lobby-start') {
+        matchSeedRef.current = message.seed
+        packsRef.current = message.settings
+        setView('opening')
+      } else if (message.kind === 'leave') {
+        sessionRef.current?.dispose()
+        sessionRef.current = null
+        setLobby((current) => ({ ...current, status: 'waiting', hostName: null, guestName: null }))
+        setView('start')
+      }
+    }
+
+    if (role === 'host') {
+      const session = createPackBattleHost(
+        name,
+        settings,
+        {
+          onMessage: (message) => messageHandlerRef.current?.(message),
+          onPeerConnected: () => setLobby((current) => ({ ...current, status: 'connected' })),
+          onPeerDisconnected: () => setLobby((current) => ({ ...current, status: 'waiting' })),
+          onStatus: (status) => setLobby((current) => ({ ...current, status })),
+          onError: () => setLobby((current) => ({ ...current, status: 'error' })),
+        },
+        server,
+      )
+      sessionRef.current = session
+      setLobby((current) => ({ ...current, status: 'waiting' }))
+    } else {
+      const session = joinPackBattleHost(
+        lobby.codeInput,
+        name,
+        {
+          onMessage: (message) => messageHandlerRef.current?.(message),
+          onPeerConnected: () => setLobby((current) => ({ ...current, status: 'connected' })),
+          onPeerDisconnected: () => setLobby((current) => ({ ...current, status: 'waiting' })),
+          onStatus: (status) => setLobby((current) => ({ ...current, status })),
+          onError: (error) => {
+            void error
+            setLobby((current) => ({ ...current, status: 'error' }))
+          },
+        },
+        server,
+      )
+      sessionRef.current = session
+    }
+  }
+
+      const startMatch = () => {
+    const session = sessionRef.current
+    if (!session) return
+    const settings = clampPackBattleSettings({ set: DEFAULT_SET_ID, packs: lobby.packs })
+    matchSeedRef.current = Math.floor(Math.random() * 0x7fffffff)
+    packsRef.current = settings
+    session.send({ kind: 'lobby-update', settings })
+    session.send({ kind: 'lobby-start', seed: matchSeedRef.current, settings })
+    setView('opening')
+  }
+
+  const leaveLobby = () => {
+    if (sessionRef.current) {
+      sessionRef.current.send({ kind: 'leave' })
+      sessionRef.current.dispose()
+    }
+    sessionRef.current = null
+    messageHandlerRef.current = null
+    setLobby((current) => ({
+      ...current,
+      codeInput: '',
+      name: '',
+      server: '',
+      status: 'waiting',
+      hostName: null,
+      guestName: null,
+    }))
+    setView('start')
   }
 
   const openLobby = () => {
