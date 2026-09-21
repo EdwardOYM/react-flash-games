@@ -477,6 +477,18 @@ type PackBattleTranslationKey =
   | 'player'
   | 'wins'
   | 'noScores'
+  | 'hostRole'
+  | 'guestRole'
+  | 'lobbyTitle'
+  | 'serverHint'
+  | 'serverInvalid'
+  | 'defaultName'
+  | 'peerLeft'
+  | 'opponentDisconnected'
+  | 'waitingForHost'
+  | 'hostOnlyNote'
+  | 'openingTitle'
+  | 'seedShared'
 
 const dictionaries: Record<Locale, TranslationDictionary> = { en, ms, zh }
 

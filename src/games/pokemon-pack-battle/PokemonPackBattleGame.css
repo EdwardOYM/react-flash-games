@@ -23,39 +23,67 @@
 .ppb-tutorial-steps span { width: 44px; height: 4px; background: #33454a; }
 .ppb-tutorial-steps .ppb-tutorial-step-done { background: #ffc857; }
 
-/* Lobby */
-.ppb-lobby { width: min(100%, 560px); }
-.ppb-lobby-tabs { display: flex; gap: 10px; margin-bottom: 24px; }
-.ppb-lobby-tabs button { flex: 1; padding: 14px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .75rem; text-transform: uppercase; cursor: pointer; }
-.ppb-lobby-tabs button:hover { border-color: #ffc857; color: #ffc857; }
-.ppb-lobby-tabs button.ppb-primary { border-color: #ffc857; color: #101820; background: #ffc857; }
-.ppb-lobby-tabs button.ppb-primary:hover { background: #ffd569; color: #101820; }
-.ppb-lobby-form { display: flex; flex-direction: column; gap: 18px; }
-.ppb-field { display: flex; flex-direction: column; gap: 6px; }
-.ppb-field-label { font-size: .7rem; text-transform: uppercase; color: #ffc857; font-family: 'DM Mono', monospace; }
-.ppb-input { padding: 12px 14px; border: 1px solid #50676a; background: transparent; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .9rem; }
-.ppb-input:focus { outline: none; border-color: #ffc857; }
+/* Lobby: the shared settings stage, capped at the 960x540 embed width. */
+.ppb-shell-lobby { width: min(100%, 960px); margin: clamp(24px, 5vh, 64px) auto 0; }
+.ppb-form, .ppb-fields { display: grid; gap: 16px; width: min(100%, 960px); }
+.ppb-fields { margin: 10px 0 4px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.ppb-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ppb-field-label { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
+.ppb-field-value { color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .8rem; }
+.ppb-input { width: 100%; padding: 11px 12px; border: 1px solid #50676a; color: #f5f0e8; background: #16222a; font-family: 'DM Mono', monospace; font-size: .8rem; }
+.ppb-input:focus, .ppb-input:focus-visible { border-color: #ffc857; outline: 2px solid #f5f0e8; outline-offset: 2px; }
 .ppb-input::placeholder { color: #5d6f72; }
-.ppb-packs-control { display: flex; align-items: center; gap: 12px; }
-.ppb-control-button { width: 40px; height: 40px; border: 1px solid #50676a; background: transparent; color: #f5f0e8; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.ppb-control-button:hover:not(:disabled) { border-color: #ffc857; color: #ffc857; }
-.ppb-control-button:disabled { border-color: #33454a; color: #5d6f72; cursor: not-allowed; }
-.ppb-packs-value { font-size: 1.4rem; font-family: 'DM Mono', monospace; color: #ffc857; min-width: 40px; text-align: center; }
-.ppb-status { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border: 1px solid #50676a; }
-.ppb-status-label { color: #aeb9b9; font-size: .75rem; text-transform: uppercase; font-family: 'DM Mono', monospace; }
-.ppb-status-value { color: #f5f0e8; font-size: .85rem; }
-.ppb-status-value.ppb-status-connected { color: #7ddf9a; }
-.ppb-status-value.ppb-status-error { color: #ff7878; }
-.ppb-opponent-info { display: flex; align-items: center; gap: 8px; margin-top: 20px; padding: 10px 14px; border: 1px solid #50676a; text-align: center; }
-.ppb-opponent-label { color: #aeb9b9; font-size: .75rem; text-transform: uppercase; font-family: 'DM Mono', monospace; }
-.ppb-opponent-name { color: #ffc857; font-size: 1rem; font-family: 'DM Mono', monospace; }
+.ppb-input-code { letter-spacing: .32em; text-transform: uppercase; }
+.ppb-shell > .ppb-field { width: min(100%, 960px); margin: 18px 0 20px; }
+.ppb-segmented, .ppb-stepper { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; }
+.ppb-segmented button, .ppb-stepper button { padding: 9px 12px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
+.ppb-segmented button:hover, .ppb-stepper button:hover { border-color: #ffc857; color: #ffc857; }
+.ppb-segmented button:focus, .ppb-segmented button:focus-visible, .ppb-stepper button:focus, .ppb-stepper button:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.ppb-segmented button[aria-pressed='true'] { border-color: #ffc857; color: #101820; background: #ffc857; }
+.ppb-stepper { flex-wrap: nowrap; }
+.ppb-stepper-value { display: flex; align-items: center; justify-content: center; min-width: 46px; border: 1px solid #50676a; color: #f5f0e8; background: #16222a; font-family: 'DM Mono', monospace; font-size: .82rem; }
+.ppb-stepper button:disabled { border-color: #33454a; color: #5d6f72; cursor: not-allowed; }
+.ppb-code-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 4px 0 18px; }
+.ppb-code-label { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
+.ppb-code { padding: 8px 14px; border: 1px dashed #ffc857; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: 1.05rem; letter-spacing: .3em; }
+.ppb-code-row button { padding: 9px 12px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
+.ppb-code-row button:hover { border-color: #ffc857; color: #ffc857; }
+.ppb-code-row button:disabled { border-color: #33454a; color: #5d6f72; cursor: not-allowed; }
+.ppb-status, .ppb-waiting, .ppb-hint, .ppb-notice, .ppb-error { margin: 0; font-family: 'DM Mono', monospace; font-size: .74rem; line-height: 1.5; }
+.ppb-status { display: flex; align-items: center; gap: 9px; color: #aeb9b9; margin: 0 0 18px; }
+.ppb-waiting { color: #aeb9b9; }
+.ppb-hint { color: #7f8f92; }
+.ppb-hint-warn, .ppb-error { color: #ff8a7a; }
+.ppb-notice { color: #ffc857; margin: 12px 0 0; }
+.ppb-error { margin: 12px 0 0; }
+.ppb-dot { width: 9px; height: 9px; border-radius: 50%; background: #5d6f72; flex: none; }
+.ppb-dot-connecting { background: #ffc857; animation: ppb-pulse 1s ease-in-out infinite; }
+.ppb-dot-waiting { background: #ffc857; }
+.ppb-dot-connected { background: #7ee0a7; }
+.ppb-dot-error { background: #ff8a7a; }
+.ppb-dot-closed { background: #5d6f72; }
+.ppb-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 0 0 18px; }
+.ppb-summary dt { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; }
+.ppb-summary dd { margin: 4px 0 0; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .9rem; }
+@keyframes ppb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
+/* Mobile landscape: fixed 100dvh page, lobby fits the shorter dimension. */
 @media (orientation: landscape) and (max-height: 600px) {
-  .ppb-page { overflow: hidden; padding: calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left)); }
+  .ppb-page { height: 100dvh; min-height: 0; overflow: hidden; padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+  .ppb-shell, .ppb-shell-lobby { margin: max(14px, env(safe-area-inset-top)) auto 0; }
+  .ppb-shell h1 { font-size: clamp(1.5rem, 4vh, 2.2rem); }
+  .ppb-copy { margin: 16px 0 22px; }
+  /* Settings stack into a single tight column so the start button stays visible. */
+  .ppb-fields, .ppb-form { grid-template-columns: 1fr; gap: 8px; }
+  .ppb-status { margin: 0 0 8px; }
+  .ppb-code-row { margin: 0 0 8px; gap: 8px; }
+  .ppb-input { padding: 8px 10px; }
+  .ppb-segmented button, .ppb-stepper button { padding: 7px 10px; }
+  .ppb-summary { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0 0 8px; }
 }
 
+/* Narrow portrait (<=520px): touch-friendly targets, stacked fields. */
 @media (max-width: 520px) {
-  .ppb-topbar button { min-height: 42px; }
-  .ppb-actions button { min-height: 42px; }
-  .ppb-control-button { width: 48px; height: 48px; }
+  .ppb-topbar button, .ppb-actions button, .ppb-segmented button, .ppb-stepper button { min-height: 42px; }
+  .ppb-fields { grid-template-columns: 1fr; }
 }

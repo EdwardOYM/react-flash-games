@@ -11,7 +11,6 @@
 - [x] CP2 — Start / tutorial / settings shell
 - [x] CP3 — Lobby flow (PeerJS, packs 1-36, seed broadcast)
 - [ ] CP4 — Opening ceremony (1 pack/1 card, counter, synced reveal, flair + scoring)
-- [ ] CP4 — Opening ceremony (1 pack/1 card, counter, synced reveal, flair + scoring)
 - [ ] CP5 — Results / highscore / credits
 - [ ] CP6 — Responsive + i18n + final validation
 
@@ -66,6 +65,19 @@ Session-only lobby settings (never in `AppConfig`).
 - Start/Help-Tutorial/Settings/music-toggle/Exit via SettingsModal.
 - Tutorial slideshow next/previous/close-finish.
 - Bindings pokemon-pack-confirm / pokemon-pack-skip.
+
+## CP3 — Done
+
+- Lobby mirrors 03 bnb exactly: start (server field + create/join) → host `lobby`
+  (code row + copy, name, set + packs stepper 1-36, status dot, start) / guest
+  `lobbyJoin` (name + code + server form) that steps into the shared lobby on
+  `hello-ack`; host edits broadcast `lobby-update`; `lobby-start` carries the
+  shared seed to the opening placeholder; `leave` returns to start from every view.
+- LobbyView.tsx (CP2 tabs) replaced by LobbyFields.tsx (bnb LobbyFields pattern).
+- Stable ref-closure message handler; auto-clear notices; translated errors;
+  name re-announce on edit; guest redial replays hello-ack + lobby-update (+ lobby-start once seeded).
+- i18n: 12 new packBattle keys in en/ms/zh (+ parametrized statusConnected); parity verified.
+- Validation: `npm run build` ✓ (2.07s), `npm run lint` ✓ (0/0).
 
 ## CP3 — Lobby flow
 
