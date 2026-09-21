@@ -4,19 +4,26 @@
  * default 168px) at the TCGdex art ratio 8/11 (the art is 245x337, so
  * object-fit never crops). The box never shrinks or stretches with its
  * container — containers place fixed-width tracks and centre the card — so no
- * container can render one card smaller than another. The only token overrides
- * live on the game's view roots (PokemonBnbGame.css): `.bnb-battle` for the
- * battle stage's compact side panels, plus `.bnb-page` under the mobile
- * landscape and narrow portrait breakpoints. Within one viewport every card is
- * identical — the battle's active and bench faces are the same box. Faces with
+ * container can render one card smaller than another. Token overrides live only
+ * on each game's view roots: PokemonBnbGame.css `.bnb-battle` for the battle
+ * stage's compact side panels and `.bnb-page` under the mobile landscape and
+ * narrow portrait breakpoints, plus PokemonPackBattleGame.css `.ppb-page` /
+ * `.ppb-pair` for the pack-battle ceremony rows. Within one viewport every card
+ * is identical — the battle's active and bench faces are the same box. Faces with
  * no hosted art (synthetic basic energies) or a failed load fall back to a
- * data-free type tint of the same size. Co-located with PokemonCard.tsx. */
+ * data-free type tint of the same size, printing the card's name and its
+ * translated rarity as text (the .pkm-card-textface rules below) so a missing
+ * image never leaves a blank, unlabelled tile. Co-located with PokemonCard.tsx. */
 .pkm-card { position: relative; isolation: isolate; display: block; flex: none; align-self: start; justify-self: center; width: var(--pkm-card-w, 168px); aspect-ratio: 8 / 11; margin-inline: auto; border: 1px solid #50676a; border-radius: 10px; color: #101820; background: #eef1f2; font-family: 'DM Mono', monospace; overflow: hidden; }
-.pkm-card-artwrap { position: absolute; inset: 0; z-index: -1; border-radius: inherit; overflow: hidden; }
+.pkm-card-artwrap { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
 .pkm-card-art { display: block; width: 100%; height: 100%; object-fit: cover; }
 .pkm-card-rarity-rare { border-color: #ffc857; box-shadow: 0 0 0 1px #ffc857; }
 .pkm-card-rarity-ultraRare { border-color: #e08bff; box-shadow: 0 0 0 1px #e08bff, 0 0 14px rgba(224, 139, 255, .35); }
 .pkm-card-rarity-illustrationRare { border-color: #ff9d5c; box-shadow: 0 0 0 1px #ff9d5c, 0 0 18px rgba(255, 157, 92, .45); }
+/* Unrevealed side: the dark back must never hint the hidden face's rarity
+ * border or glow, and readability of the waffle beats hiding the article's
+ * own border — so the face-down override wins over the rarity rules above. */
+.pkm-card-face-down { border-color: #ffc857; box-shadow: none; }
 /* Data-free type tints (see tintClass): the whole face whenever no hosted
  * artwork paints it — synthetic basic energies, or any card whose art fails
  * to load. Keyed by CardType, plus 'normal' (special energy) and 'pokemon'
@@ -33,6 +40,18 @@
 .pkm-card-tint-metal { background: linear-gradient(165deg, #eef1f2 0, #bcc6cb 70%); }
 .pkm-card-tint-dragon { background: linear-gradient(165deg, #efe9fb 0, #b6a5e5 70%); }
 .pkm-card-tint-colorless { background: linear-gradient(165deg, #f5f2ec 0, #d7d0c1 70%); }
+/* Text face — printed whenever no artwork paints the card (a synthetic basic
+ * energy, which has no hosted art, or an <img> that failed to load: offline,
+ * blocked or missing asset). It states what the artwork would have shown — the
+ * card's own name plus the caller's already-translated rarity — centred over
+ * the data-free type tint, so a missing image can never leave a blank,
+ * unlabelled tile. Type scales off the same --pkm-card-w token that sizes the
+ * box, so the face stays legible in the battle side panels, the 3x2 ceremony
+ * rows, portrait 2-col and mobile landscape alike; the artwork and the text
+ * face occupy the same fixed 8/11 frame, so the box metrics never change. */
+.pkm-card-textface { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--pkm-card-w, 168px) * .08); padding: 12% 10%; text-align: center; }
+.pkm-card-name { max-width: 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; font-size: calc(var(--pkm-card-w, 168px) * .105); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+.pkm-card-textface-rarity { max-width: 100%; padding: 2px 8px; border: 1px solid #50676a; border-radius: 999px; background: rgba(255, 255, 255, .72); font-size: calc(var(--pkm-card-w, 168px) * .062); line-height: 1.4; letter-spacing: .06em; text-transform: uppercase; overflow-wrap: anywhere; }
 /* Translated rarity chip — the only overlay every face carries, so it needs
  * to stay legible over artwork. */
 .pkm-card-rarity { position: absolute; top: 6px; left: 6px; padding: 2px 8px; border-radius: 999px; border: 1px solid #50676a; background: rgba(255, 255, 255, .86); font-size: .6rem; text-transform: uppercase; letter-spacing: .06em; }
@@ -41,5 +60,28 @@
 .pkm-card-damage { position: absolute; right: 6px; bottom: 6px; min-width: 26px; height: 26px; padding: 0 6px; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: #a33; color: #fff; font-size: .72rem; font-weight: 700; }
 .pkm-card-statuses { position: absolute; left: 6px; bottom: 6px; display: flex; gap: 5px; }
 .pkm-card-status { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #101820; background: #7ee0a7; }
-.pkm-card-back { display: grid; place-items: center; background: radial-gradient(circle at 50% 38%, #2c3a4d 0, #101820 68%); border-color: #ffc857; }
+/* Reveal flip (face-down -> face-up): the article is a 3D stage and the
+ * flipper rotates from 0 to 180deg when the parent clears `faceDown`
+ * (`.pkm-card-flipped`). Both sides render at once — the back stays mounted
+ * under the face — so the reveal passes through a true edge-on frame instead
+ * of swapping one tile for another. Each side hides its own reverse
+ * (`backface-visibility: hidden`) and the face side is pre-rotated 180deg, so
+ * exactly one side ever reads legible. The art can keep lazy-loading under
+ * the back: a still-loading reveal flips to the type tint first, then the art
+ * paints over it without a second motion. Box metrics never change — the
+ * flipper is inset 0 and both sides are absolutely stacked.
+ *
+ * Motion safety: the flip runs only when the flipper actually transitions
+ * between the two resting rotations; there is no looping keyframe, so nothing
+ * can re-trigger on re-render or re-mount. `prefers-reduced-motion` skips the
+ * rotation and swaps sides instantly (both resting states remain reachable). */
+.pkm-card { perspective: 700px; }
+.pkm-card-flipper { position: absolute; inset: 0; border-radius: inherit; transform-style: preserve-3d; transform: rotateY(0deg); transition: transform .55s cubic-bezier(.3, .7, .3, 1); }
+.pkm-card-flipped .pkm-card-flipper { transform: rotateY(180deg); }
+.pkm-card-side { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.pkm-card-back { display: grid; place-items: center; background: radial-gradient(circle at 50% 38%, #2c3a4d 0, #101820 68%); }
+.pkm-card-frontface { transform: rotateY(180deg); }
 .pkm-card-back-mark { color: #ffc857; font-size: 2.4rem; }
+@media (prefers-reduced-motion: reduce) {
+  .pkm-card-flipper { transition: none; }
+}

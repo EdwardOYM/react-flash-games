@@ -14,6 +14,8 @@
 - [x] CP5 — Results / highscore / credits
 - [x] CP6 — Responsive + i18n + final validation
 - [x] CP7 — Paired-pack ceremony (side-by-side per-seat packs, synced matching-card reveal)
+- [x] CP8 — Guaranteed Pikachu IR scores 0 (identity-aware scoring)
+- [x] CP9 — Card text face when no artwork paints the card (name + translated rarity)
 
 ## Overview
 
@@ -204,6 +206,55 @@ Session-only lobby settings (never in `AppConfig`).
   Engine check (esbuild bundle + node, temp files removed): over 400 packs every one holds
   exactly one 0-point `pikachu-ir` slot, all other slots score per rarity, and no ladder IR
   resolves to the guaranteed pool.
+
+## CP9 — Done
+
+- Player-reported defect: some cards rendered as a blank, unlabelled tile. Two offline-verified
+  causes: the synthetic basic energies (`name: "Fire Energy"`, `number: "E-fire"`), which
+  `cardImageUrl` resolves to `undefined` and which occupy a slot in **every** pack, and any `<img>`
+  that fails at runtime (offline, blocked CDN, missing asset). All 158 set cards do have hosted art,
+  so the blank tiles were the art-less energies plus load failures.
+- `PokemonCard.tsx`: on any failure to paint (no URL, or the URL that errored), the face now prints
+  the card's own name plus the caller's already-translated rarity over the type tint
+  (`.pkm-card-textface` / `.pkm-card-name` / `.pkm-card-textface-rarity`). The `onError` state is the
+  failed **URL** (not a boolean), so a changed card can never inherit a stale failure, and the
+  artwork branch is skipped for that URL. The duplicate rarity chip is suppressed while the text face
+  is showing, and the card's accessible name becomes `name — rarity` in that state so the fallback is
+  announced, not just drawn.
+- Scope held: the face prints a name and a rarity line only — never HP/attacks/rules — so the CP11-E
+  rule ("no `cards.json` text is rendered, the artwork IS the face") still holds for every card with
+  working art, and the box metrics never change: both faces fill the same 8/11 frame.
+- `PokemonCard.css`: text-face rules scale off the shared `--pkm-card-w` token (name ~10.5%, rarity
+  ~6.2%, 3-line clamp, `overflow-wrap: anywhere`), so the face stays legible across the battle side
+  panels, the pack-battle 3x2 ceremony rows, portrait 2-col and mobile landscape without any
+  per-breakpoint CSS. The header comment's token-override list was stale (it named only
+  PokemonBnbGame.css) and now also names the pack-battle roots `.ppb-page` / `.ppb-pair` the text
+  face relies on — comment-only fix, no rule change.
+- Localization: no new keys — card names are dataset proper nouns and the rarity is the caller's
+  translated copy, which all six `PokemonCard` call sites already pass.
+- Validation: `npm run build` ✓ (tsc -b + vite, 1.68s), `npm run lint` ✓ (0 warnings / 0 errors on
+  53 files).
+- Rendered the real component through `renderToStaticMarkup` (esbuild bundle + node, temp files
+  removed): 33/33 assertions pass, run against a **real seeded pack** (engine output, not fixtures),
+  covering the art-less energy (text face + translated rarity, no duplicate chip, `name — rarity`
+  label, type tint kept), a card with art (image at the resolved URL, no text face, plain chip, no
+  visible dataset text), the face-down back, and the exported `cardImage.ts` `cardFaceShowsText` rule
+  the component renders from
+  (no URL -> text; resolvable URL -> artwork; that exact URL failed -> text; a *different* failed URL
+  is not inherited), with the rule's verdict cross-checked against the markup actually rendered for
+  both the energy and the art card. The same run re-checks CP8 on that real pack: the `pikachu-ir`
+  card is tier 0 / 0 points while the other cards still score per rarity. Observed pack row from the
+  run: `30c-energy-lightning:common:0 | 30c-006:common:0 | 30c-072:common:0 | 30c-033:illustrationRare:0
+  | 30c-059:common:0 | 30c-157:ultraRare:2` — the guaranteed IR is worth 0 despite its rarity, a
+  ladder ultra rare still scores 2. The same run re-checks 200 seeds for exactly one guaranteed
+  0-point Pikachu per pack.
+- Scope note (no false claim): the `onError` *event* itself is not simulated — no DOM library
+  (`jsdom` / `linkedom` / `happy-dom`) or test renderer is installed, and a function component's
+  element tree cannot be walked pre-render. What is proven in-process is the decision rule and both
+  rendered branches; the component derives its face from that same exported predicate, so the
+  remaining DOM-level confirmation is the human in-browser check below.
+- Remaining manual QA (human): confirm in-browser that the energy tile and an offline load both show
+  the name + rarity text.
 
 ## Hard rules
 

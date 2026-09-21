@@ -5,19 +5,33 @@
 // the pre-translated rarity chip stay on top.
 //
 // Text fallback (player-reported): when no artwork paints the face — a card
-// with no hosted art (synthetic basic energies) or an <img> that failed to load
-// — the card shows its own name and its translated rarity as text over the type
-// tint, so a missing image can never leave a blank tile. Card names are dataset
-// values (proper nouns), the rarity is the caller's translated copy, and the box
-// never changes size either way: only ever a name + rarity line, never rules.
+// with no hosted art (synthetic basic energies, `cardImageUrl` -> undefined) or
+// an <img> that failed to load (offline, blocked or missing asset) — the face
+// states in text what the artwork would have shown: the card's own name plus the
+// caller's translated rarity, over the type tint. So a missing image can never
+// leave a blank, unlabelled tile. Card names are dataset values (proper nouns),
+// the rarity is the caller's translated copy, and the box never changes size
+// either way: only ever a name + rarity line, never rules. The decision rule
+// itself is cardImage.ts `cardFaceShowsText` (pure, no React).
+//
+// Flip transition (face-down -> revealed): both sides render at once inside a
+// shared 3D flipper — the back stays mounted under the face, so when `faceDown`
+// clears the card rotates edge-on and lands face-up (`.pkm-card-flipped`), like
+// a physical card turned over. The parent keys one <PokemonCard> per slot, so
+// the same flipper element persists across the reveal; a boolean swaps which
+// side reads legible, never which element exists. Rank/energy overlays ride the
+// face side. The back keeps its own artwork-free gradient (there is no hosted
+// card-back asset on TCGdex — see cardImage.ts), so nothing extra can fail to
+// load mid-flip.
 import { useState } from 'react'
 import { cardIsEnergy, type CardDef } from './cards'
-import { cardImageUrl } from './cardImage'
+import { cardFaceShowsText, cardImageUrl } from './cardImage'
 import './PokemonCard.css'
 
 type PokemonCardProps = {
   card: CardDef
-  /** Face-down back instead of the face (unrevealed ceremony cards). */
+  /** Face-down back instead of the face (unrevealed ceremony cards). Clearing
+   *  it on a mounted card plays the flip transition to the face. */
   faceDown?: boolean
   /** Translated rarity chip, e.g. t('pokemonBnb.rarityRare'). */
   rarityLabel?: string
@@ -29,26 +43,7 @@ type PokemonCardProps = {
   statuses?: string[]
 }
 
-/** Hosted artwork face; unmounts itself on load failure (tint shows through). */
-function CardArt({ url }: { url: string }) {
-  const [failed, setFailed] = useState(false)
-  if (failed) return null
-  return (
-    <span className="pkm-card-artwrap" aria-hidden="true">
-      <img
-        className="pkm-card-art"
-        src={url}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        draggable={false}
-        onError={() => setFailed(true)}
-      />
-    </span>
-  )
-}
-
-/** Data-free colour identity, used when no hosted art paints the face. */
+/** Data-free colour identity: the colour of the text face's backing. */
 function tintClass(card: CardDef): string {
   if (cardIsEnergy(card)) return `pkm-card-tint-${card.provides ?? 'normal'}`
   if (card.supertype === 'pokemon' && card.types.length > 0) return `pkm-card-tint-${card.types[0]}`
@@ -56,29 +51,54 @@ function tintClass(card: CardDef): string {
 }
 
 export function PokemonCard({ card, faceDown, rarityLabel, faceDownLabel, damage, statuses }: PokemonCardProps) {
-  if (faceDown) {
-    return (
-      <div className="pkm-card pkm-card-back" role="img" aria-label={faceDownLabel ?? 'Face-down card'}>
-        <span className="pkm-card-back-mark" aria-hidden="true">⬢</span>
-      </div>
-    )
-  }
+  /** Artwork URL that failed to load; a different URL never inherits it. */
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
 
   const statusList = statuses ?? []
   const artUrl = cardImageUrl(card)
+  /** Text face whenever the artwork is absent or failed (see the header note). */
+  const showTextFace = cardFaceShowsText(artUrl, failedUrl)
 
   return (
     <article
-      className={`pkm-card pkm-card-${card.supertype} pkm-card-rarity-${card.rarity} ${tintClass(card)}`}
+      className={`pkm-card ${faceDown ? 'pkm-card-face-down' : 'pkm-card-flipped'} pkm-card-${card.supertype} pkm-card-rarity-${card.rarity} ${tintClass(card)}`}
       role="img"
-      aria-label={card.name}
+      aria-label={faceDown ? (faceDownLabel ?? 'Face-down card') : (showTextFace && rarityLabel ? `${card.name} — ${rarityLabel}` : card.name)}
     >
-      {artUrl && <CardArt key={artUrl} url={artUrl} />}
-      {rarityLabel && <span className="pkm-card-rarity">{rarityLabel}</span>}
-      {typeof damage === 'number' && damage > 0 && <span className="pkm-card-damage" aria-hidden="true">{damage}</span>}
-      {statusList.length > 0 && (
-        <span className="pkm-card-statuses" aria-hidden="true">{statusList.map((status) => <i key={status} className={`pkm-card-status pkm-card-status-${status}`} />)}</span>
-      )}
+      <div className="pkm-card-flipper" aria-hidden="true">
+        <span className="pkm-card-side pkm-card-back">
+          <span className="pkm-card-back-mark">⬢</span>
+        </span>
+        <span className="pkm-card-side pkm-card-frontface">
+          {/* `artUrl !== undefined && !showTextFace` is exhaustive: the text-face rule
+              only holds when there is no URL or that exact URL already failed. The
+              explicit check keeps `src` narrowed for TypeScript. */}
+          {artUrl !== undefined && !showTextFace && (
+            <span className="pkm-card-artwrap">
+              <img
+                className="pkm-card-art"
+                src={artUrl}
+                alt=""
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                onError={() => setFailedUrl(artUrl)}
+              />
+            </span>
+          )}
+          {/* The text face already prints the rarity, so no duplicate chip. */}
+          {showTextFace ? (
+            <span className="pkm-card-textface">
+              <span className="pkm-card-name">{card.name}</span>
+              {rarityLabel && <span className="pkm-card-textface-rarity">{rarityLabel}</span>}
+            </span>
+          ) : rarityLabel && <span className="pkm-card-rarity">{rarityLabel}</span>}
+          {typeof damage === 'number' && damage > 0 && <span className="pkm-card-damage">{damage}</span>}
+          {statusList.length > 0 && (
+            <span className="pkm-card-statuses">{statusList.map((status) => <i key={status} className={`pkm-card-status pkm-card-status-${status}`} />)}</span>
+          )}
+        </span>
+      </div>
     </article>
   )
 }
