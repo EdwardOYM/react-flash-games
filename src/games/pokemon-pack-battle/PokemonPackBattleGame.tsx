@@ -10,7 +10,7 @@ import { getPreferredLocale, persistLocale, type Locale, type TranslationKey, us
 import { readConfig, updateConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import { HighscoreTable } from '../highscore/HighscoreTable'
-import { readPackBattleHighscores } from './highscores'
+import { readPackBattleHighscores, recordPackBattleWin } from './highscores'
 import { PACK_BATTLE_30C, battleSetCards, openBattlePacks, seatForPack, type BattleOpenedCard } from './battlePack'
 import { pointsForCard, tierForRarity } from './scoring'
 import { createPackBattleRng } from './rng'
@@ -115,10 +115,20 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   const [cursor, setCursor] = useState({ packIndex: 0, cardIndex: 0, opened: false })
   /** One-shot guard so the completed battle reports its score exactly once. */
   const battleDoneSentRef = useRef(false)
+  /** CP5 rematch handshake: the guest offers, the host grants (fresh seed). */
+  const [rematchSent, setRematchSent] = useState(false)
+  const [rematchOffered, setRematchOffered] = useState(false)
+  /** CP5 one-shot guard so the winner's tally records exactly once per device. */
+  const resultRecordedRef = useRef(false)
+  const rematchSentRef = useRef(false)
 
   const resetCeremony = useCallback(() => {
     setCursor({ packIndex: 0, cardIndex: 0, opened: false })
     battleDoneSentRef.current = false
+    resultRecordedRef.current = false
+    rematchSentRef.current = false
+    setRematchSent(false)
+    setRematchOffered(false)
   }, [])
 
   const sessionRef = useRef<PackBattleSessionBase | null>(null)
@@ -264,8 +274,17 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
         setView('start')
         return
       }
+      case 'rematch': {
+        // CP5: the guest asks for a rematch; only the host can grant one (it
+        // owns the seed and settings), so record the offer and show the accept
+        // button. Offers outside a finished battle are ignored.
+        if (roleRef.current !== 'host' || !battleDoneSentRef.current) return
+        setRematchOffered(true)
+        return
+      }
       default:
-        // pack-open / card-reveal / battle-done / rematch land in CP4+.
+        // battle-done totals are derived locally on both seats, so no
+        // cross-check message handling is needed on this seat.
         return
     }
   }
@@ -512,12 +531,41 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     setCursor({ packIndex: next, cardIndex: 0, opened: true })
   }
 
-  // CP4 completion: report this seat's own total exactly once (CP5 consumes it).
+  // CP4/CP5 completion: report this seat's own total exactly once, record the
+  // winner's tally once per device (a draw records nothing; both seats compute
+  // the same totals, so both record consistently), then route to the results.
   useEffect(() => {
     if (view !== 'opening' || !ceremonyComplete || battleDoneSentRef.current) return
     battleDoneSentRef.current = true
     sessionRef.current?.send({ kind: 'battle-done', score: role === 'guest' ? totals.guest : totals.host })
-  }, [view, ceremonyComplete, role, totals])
+    if (!resultRecordedRef.current) {
+      resultRecordedRef.current = true
+      const winner: 'host' | 'guest' | null = totals.host > totals.guest ? 'host' : totals.guest > totals.host ? 'guest' : null
+      if (winner !== null) {
+        const mine = role === 'guest' ? 'guest' : 'host'
+        const winnerName = winner === mine
+          ? nameRef.current
+          : opponentNameRef.current || translate(winner === 'host' ? 'packBattle.hostRole' : 'packBattle.guestRole')
+        recordPackBattleWin(winnerName)
+      }
+    }
+    setView('results')
+    // The one-shot guard makes re-runs no-ops; refs hold the freshest names.
+  }, [view, ceremonyComplete, role, totals, translate])
+
+  /** Guest: ask the host for a rematch (the host re-seeds via lobby-start). */
+  const requestRematch = () => {
+    if (roleRef.current !== 'guest' || rematchSentRef.current) return
+    rematchSentRef.current = true
+    setRematchSent(true)
+    sessionRef.current?.send({ kind: 'rematch' })
+  }
+
+  /** Host: grant a rematch — a fresh seed through the normal lobby-start handshake. */
+  const acceptRematch = () => {
+    if (roleRef.current !== 'host') return
+    startMatch()
+  }
 
   /**
    * Remappable Confirm/Skip keys drive the shared ceremony beats (bnb's ref
@@ -844,6 +892,104 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
             </div>
           )}
           <p className="ppb-hint">{matchSeed === null ? '' : substituteParams(translate('packBattle.seedShared'), { seed: String(matchSeed) })}</p>
+        </div>
+      </main>
+    )
+  }
+
+  // CP5 results: victory / defeat / draw from the shared totals. Every path out
+  // is offered: rematch (guest offer / host accept, or the host's direct
+  // new-packs reseed — both run a fresh seed through the lobby-start
+  // handshake), the shared highscore table, and back to start.
+  if (view === 'results') {
+    const winner: 'host' | 'guest' | null = totals.host > totals.guest ? 'host' : totals.guest > totals.host ? 'guest' : null
+    const won = winner !== null && winner === (role === 'guest' ? 'guest' : 'host')
+    return (
+      <main className="ppb-page">
+        <header className="ppb-topbar">
+          <span className="ppb-hud-label">{translate('packBattle.title')}</span>
+          <div className="ppb-topbar-actions">
+            <button type="button" onClick={leaveLobby}>{translate('packBattle.leave')}</button>
+            <button type="button" onClick={onExit}>{translate('packBattle.exit')}</button>
+          </div>
+        </header>
+        <div className="ppb-shell ppb-results">
+          <p className="eyebrow">{translate('games.pokemonPackBattle')}</p>
+          <h1>
+            {winner === null
+              ? translate('packBattle.resultDraw')
+              : won
+                ? translate('packBattle.resultVictory')
+                : substituteParams(translate('packBattle.resultDefeat'), { name: seatName(winner) })}
+          </h1>
+          <p className="ppb-final-score">{translate('packBattle.finalScore')}</p>
+          <div className="ppb-totals" role="group" aria-label={translate('packBattle.scoreLabel')}>
+            <div className="ppb-total">
+              <span className="ppb-total-name">{seatName('host')}</span>
+              <span className="ppb-total-value">{totals.host}</span>
+            </div>
+            <div className="ppb-total">
+              <span className="ppb-total-name">{seatName('guest')}</span>
+              <span className="ppb-total-value">{totals.guest}</span>
+            </div>
+          </div>
+          {isHost && rematchOffered && (
+            <div className="ppb-rematch">
+              <p className="ppb-hint">{substituteParams(translate('packBattle.rematchReceived'), { name: seatName('guest') })}</p>
+              <button className="ppb-primary" type="button" onClick={acceptRematch}>{translate('packBattle.rematchAccept')}</button>
+            </div>
+          )}
+          <div className="ppb-actions">
+            {isHost
+              ? (
+                <button className="ppb-primary" type="button" disabled={status !== 'connected'} onClick={acceptRematch}>
+                  {translate('packBattle.actionNewPacks')}
+                </button>
+              )
+              : (
+                rematchSent
+                  ? <span className="ppb-waiting" aria-live="polite">{substituteParams(translate('packBattle.rematchWaiting'), { name: seatName('host') })}</span>
+                  : <button className="ppb-primary" type="button" disabled={status !== 'connected'} onClick={requestRematch}>{translate('packBattle.rematchOffer')}</button>
+              )}
+            <button type="button" onClick={() => setView('highscore')}>{translate('packBattle.highscore')}</button>
+            <button type="button" onClick={leaveLobby}>{translate('packBattle.leave')}</button>
+          </div>
+          {noticeText && <p className="ppb-notice" role="status">{noticeText}</p>}
+          {errorKey && <p className="ppb-error" role="alert">{translate(errorKey)}</p>}
+          <p className="ppb-hint">{matchSeed === null ? '' : substituteParams(translate('packBattle.seedShared'), { seed: String(matchSeed) })}</p>
+        </div>
+      </main>
+    )
+  }
+
+  // CP5 highscores: the shared table over this device's pokemon-pack-battle
+  // bucket (lifetime wins per player), reachable from the results and
+  // leaveable back to them.
+  if (view === 'highscore') {
+    return (
+      <main className="ppb-page">
+        <header className="ppb-topbar">
+          <span className="ppb-hud-label">{translate('packBattle.title')}</span>
+          <div className="ppb-topbar-actions">
+            <button type="button" onClick={leaveLobby}>{translate('packBattle.leave')}</button>
+            <button type="button" onClick={onExit}>{translate('packBattle.exit')}</button>
+          </div>
+        </header>
+        <div className="ppb-shell ppb-highscore">
+          <p className="eyebrow">{translate('games.pokemonPackBattle')}</p>
+          <h1>{translate('packBattle.highscore')}</h1>
+          <HighscoreTable
+            entries={readPackBattleHighscores()}
+            labels={{
+              rank: translate('packBattle.rank'),
+              playerName: translate('packBattle.player'),
+              score: translate('packBattle.wins'),
+              noScores: translate('packBattle.noScores'),
+            }}
+          />
+          <div className="ppb-actions">
+            <button type="button" onClick={() => setView(matchSeed !== null ? 'results' : 'start')}>{translate('packBattle.back')}</button>
+          </div>
         </div>
       </main>
     )

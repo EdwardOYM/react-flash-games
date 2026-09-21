@@ -11,7 +11,7 @@
 - [x] CP2 — Start / tutorial / settings shell
 - [x] CP3 — Lobby flow (PeerJS, packs 1-36, seed broadcast)
 - [x] CP4 — Opening ceremony (1 pack/1 card, counter, synced reveal, flair + scoring)
-- [ ] CP5 — Results / highscore / credits
+- [x] CP5 — Results / highscore / credits
 - [ ] CP6 — Responsive + i18n + final validation
 
 ## Overview
@@ -114,6 +114,20 @@ Session-only lobby settings (never in `AppConfig`).
 - 1 pack at a time, 1 card at a time; packs-left counter top-right.
 - Either seat open/reveal syncs both (max-merge cursor).
 - Score via pointsForCard; tier flair tier-0..5 classes.
+
+## CP5 — Done
+
+- Ceremony completion routes both seats to `results`: victory (own seat) / defeat
+  ({name} won) / draw from the shared totals, final score panels + seed line.
+- recordPackBattleWin(winner) records once per device at completion (draw records
+  nothing); the shared HighscoreTable view (results → highscore → back) lists the
+  pokemon-pack-battle win tally.
+- Rematch handshake on the results: guest offers (`rematch`), host accepts (or
+  presses "Rematch with new packs" directly) — a fresh seed via the normal
+  `lobby-start`; flags reset with the ceremony on both seats.
+- Credits: already wired via the registry inspirationKey (CP1) — confirmed, no change.
+- i18n: 9 new packBattle keys in en/ms/zh; parity verified (87 keys).
+- Validation: `npm run build` ✓ (2.06s), `npm run lint` ✓ (0/0).
 
 ## CP5 — Results / highscore / credits
 

@@ -87,6 +87,17 @@
 .ppb-tier-5 .pkm-card { box-shadow: 0 0 20px rgba(245, 240, 232, .6); animation: ppb-tier-pulse 1.2s ease-in-out infinite; }
 @keyframes ppb-tier-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
 
+/* CP5 results: tighter totals rhythm + the rematch offer/accept row. */
+.ppb-final-score { margin: 0 0 10px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
+.ppb-results .ppb-totals { margin: 0 0 22px; }
+.ppb-rematch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
+.ppb-rematch .ppb-hint { margin: 0; }
+.ppb-rematch button { padding: 10px 14px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
+.ppb-rematch button:hover { border-color: #ffc857; color: #ffc857; }
+.ppb-rematch button:focus, .ppb-rematch button:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.ppb-rematch .ppb-primary { border-color: #ffc857; color: #101820; background: #ffc857; }
+.ppb-highscore .highscore-table { margin: 18px 0 22px; }
+
 /* Mobile landscape: fixed 100dvh page, lobby fits the shorter dimension. */
 @media (orientation: landscape) and (max-height: 600px) {
   .ppb-page { height: 100dvh; min-height: 0; overflow: hidden; padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
@@ -100,6 +111,9 @@
   .ppb-input { padding: 8px 10px; }
   .ppb-segmented button, .ppb-stepper button { padding: 7px 10px; }
   .ppb-summary { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0 0 8px; }
+  /* Results/highscore fit the short viewport; totals stay tight. */
+  .ppb-results .ppb-totals { margin: 0 0 10px; }
+  .ppb-rematch { margin: 0 0 8px; }
   /* Ceremony: compact cards (3x2) so the grid, totals and actions all fit. */
   .ppb-page { --pkm-card-w: clamp(64px, 13vh, 112px); }
   .ppb-card-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 12px; }
@@ -116,4 +130,5 @@
   .ppb-page { --pkm-card-w: clamp(96px, 26vw, 140px); }
   .ppb-card-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ppb-packs-left { display: none; }
+  .ppb-highscore .highscore-table-head, .ppb-highscore .highscore-row { grid-template-columns: 44px minmax(0, 1fr) 56px; gap: 10px; }
 }

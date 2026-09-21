@@ -505,6 +505,15 @@ type PackBattleTranslationKey =
   | 'scoreLabel'
   | 'cardPoints'
   | 'ceremonyDone'
+  | 'resultVictory'
+  | 'resultDefeat'
+  | 'resultDraw'
+  | 'finalScore'
+  | 'actionNewPacks'
+  | 'rematchOffer'
+  | 'rematchWaiting'
+  | 'rematchReceived'
+  | 'rematchAccept'
 
 const dictionaries: Record<Locale, TranslationDictionary> = { en, ms, zh }
 
