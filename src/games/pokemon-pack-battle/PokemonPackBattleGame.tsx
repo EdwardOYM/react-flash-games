@@ -5,13 +5,18 @@
 // broadcasts `lobby-update` on every packs change and rolls the shared seed in
 // `lobby-start`, moving both seats to the opening placeholder (CP4 replaces it
 // with the ceremony). Leave returns to start from every lobby view.
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getPreferredLocale, persistLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
 import { readConfig, updateConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import { HighscoreTable } from '../highscore/HighscoreTable'
 import { readPackBattleHighscores } from './highscores'
+import { PACK_BATTLE_30C, battleSetCards, openBattlePacks, seatForPack, type BattleOpenedCard } from './battlePack'
+import { pointsForCard, tierForRarity } from './scoring'
+import { createPackBattleRng } from './rng'
+import { PokemonCard } from '../pokemon-bnb/PokemonCard'
 import {
+  PACK_BATTLE_LIMITS,
   PACK_BATTLE_PROTOCOL_VERSION,
   clampPackBattleSettings,
   defaultPackBattleSettings,
@@ -71,6 +76,11 @@ function errorKeyFor(code: string): TranslationKey {
   return 'packBattle.errorGeneric'
 }
 
+/** Live binding for an id, falling back to the declared default. */
+function readBinding(id: string, fallback: string): string {
+  return readConfig().settings.keybindings[id] ?? fallback
+}
+
 export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: PokemonPackBattleProps) {
   const [activeLocale, setActiveLocale] = useState<Locale>(() => locale ?? getPreferredLocale())
   const fallbackTranslate = useTranslations(activeLocale)
@@ -97,6 +107,20 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   const [matchSeed, setMatchSeed] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
 
+  /**
+   * CP4 shared ceremony cursor: both seats render from this one cursor and
+   * either seat's open/reveal advances both (max-merge on receive). `opened`
+   * marks the current pack unsealed; `cardIndex` counts its revealed cards.
+   */
+  const [cursor, setCursor] = useState({ packIndex: 0, cardIndex: 0, opened: false })
+  /** One-shot guard so the completed battle reports its score exactly once. */
+  const battleDoneSentRef = useRef(false)
+
+  const resetCeremony = useCallback(() => {
+    setCursor({ packIndex: 0, cardIndex: 0, opened: false })
+    battleDoneSentRef.current = false
+  }, [])
+
   const sessionRef = useRef<PackBattleSessionBase | null>(null)
   const roleRef = useRef<'host' | 'guest' | null>(null)
   const viewRef = useRef<View>('start')
@@ -104,6 +128,8 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   const nameRef = useRef('')
   const opponentNameRef = useRef('')
   const matchSeedRef = useRef<number | null>(null)
+  /** CP4 mirror of the shared cursor for the stable re-hello replay. */
+  const cursorRef = useRef(cursor)
   const closingRef = useRef(false)
   const noticeTimerRef = useRef<number | null>(null)
   const copyTimerRef = useRef<number | null>(null)
@@ -151,13 +177,19 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     switch (message.kind) {
       case 'hello': {
         // Host side: record the guest, answer with our identity and the current
-        // lobby settings, and replay `lobby-start` when a re-dialled guest needs
-        // the seeded match back.
+        // lobby settings, and replay the seeded match for a re-dialled guest:
+        // lobby-start re-arms the pool (a fresh seed means a new match) and the
+        // cursor replay catches a guest up through idempotent max-merge.
         setOpponentName(message.name)
         sessionRef.current?.send({ kind: 'hello-ack', name: nameRef.current, protocolVersion: PACK_BATTLE_PROTOCOL_VERSION })
         sessionRef.current?.send({ kind: 'lobby-update', settings: clampPackBattleSettings(settingsRef.current) })
         if (matchSeedRef.current !== null) {
           sessionRef.current?.send({ kind: 'lobby-start', seed: matchSeedRef.current, settings: clampPackBattleSettings(settingsRef.current) })
+          const replay = cursorRef.current
+          sessionRef.current?.send({ kind: 'pack-open', packIndex: replay.packIndex })
+          if (replay.opened && replay.cardIndex > 0) {
+            sessionRef.current?.send({ kind: 'card-reveal', packIndex: replay.packIndex, cardIndex: replay.cardIndex - 1 })
+          }
         }
         return
       }
@@ -175,12 +207,44 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
       }
       case 'lobby-start': {
         if (roleRef.current !== 'guest') return
+        // A fresh seed starts a new match (reset the ceremony); a replayed
+        // lobby-start (same seed, e.g. after a guest re-dial) must NOT reset
+        // the shared cursor — the host's pack-open/card-reveal replay catches
+        // this seat up through max-merge instead.
+        const isNewMatch = matchSeedRef.current === null || matchSeedRef.current !== message.seed
         setSettings(clampPackBattleSettings(message.settings))
         matchSeedRef.current = message.seed
         setMatchSeed(message.seed)
+        if (isNewMatch) resetCeremony()
         setNotice(null)
         setErrorKey(null)
         setView('opening')
+        return
+      }
+      case 'pack-open': {
+        // Either seat unseals a pack for both (max-merge: never move backwards,
+        // never beyond the locked pack count).
+        if (message.packIndex >= settingsRef.current.packs) return
+        setCursor((prev) => {
+          if (prev.packIndex > message.packIndex) return prev
+          if (prev.packIndex === message.packIndex && prev.opened) return prev
+          return { packIndex: message.packIndex, cardIndex: 0, opened: true }
+        })
+        return
+      }
+      case 'card-reveal': {
+        if (message.packIndex >= settingsRef.current.packs) return
+        setCursor((prev) => {
+          if (message.packIndex > prev.packIndex) {
+            return { packIndex: message.packIndex, cardIndex: Math.min(message.cardIndex + 1, PACK_BATTLE_LIMITS.cardsPerPack), opened: true }
+          }
+          if (message.packIndex === prev.packIndex) {
+            const next = Math.max(prev.cardIndex, Math.min(message.cardIndex + 1, PACK_BATTLE_LIMITS.cardsPerPack))
+            if (next === prev.cardIndex && prev.opened) return prev
+            return { ...prev, cardIndex: next, opened: true }
+          }
+          return prev
+        })
         return
       }
       case 'leave': {
@@ -221,6 +285,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     setErrorKey(null)
     matchSeedRef.current = null
     setMatchSeed(null)
+    resetCeremony()
     if (noticeTimerRef.current !== null) {
       window.clearTimeout(noticeTimerRef.current)
       noticeTimerRef.current = null
@@ -250,6 +315,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     setOpponentName('')
     matchSeedRef.current = null
     setMatchSeed(null)
+    resetCeremony()
 
     const callbacks = {
       onMessage: (message: PackBattleMessage) => messageHandlerRef.current(message),
@@ -302,6 +368,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     settingsRef.current = settings
     nameRef.current = displayName
     opponentNameRef.current = opponentName
+    cursorRef.current = cursor
     messageHandlerRef.current = readMessage
   })
 
@@ -338,6 +405,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     const payload = clampPackBattleSettings(settingsRef.current)
     matchSeedRef.current = seed
     setMatchSeed(seed)
+    resetCeremony()
     sessionRef.current?.send({ kind: 'lobby-update', settings: payload })
     sessionRef.current?.send({ kind: 'lobby-start', seed, settings: payload })
     setNotice(null)
@@ -354,6 +422,140 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
       copyTimerRef.current = window.setTimeout(() => setCopied(false), 1600)
     }).catch(() => undefined)
   }
+
+  // ---- CP4 opening ceremony: shared pool, shared cursor, per-seat score ----
+
+  /** Seeded pool: identical on both seats (same seed + settings + set data). */
+  const battlePacks = useMemo<BattleOpenedCard[]>(() => {
+    if (matchSeed === null) return []
+    return openBattlePacks(battleSetCards(), PACK_BATTLE_30C, settings.packs, createPackBattleRng(matchSeed))
+  }, [matchSeed, settings.packs])
+
+  const totalPacks = Math.floor(battlePacks.length / PACK_BATTLE_LIMITS.cardsPerPack)
+
+  /** Points per card per pack (score accrues per reveal, not per pack). */
+  const packCardPoints = useMemo<number[][]>(() => {
+    const rows: number[][] = []
+    for (let start = 0; start < battlePacks.length; start += PACK_BATTLE_LIMITS.cardsPerPack) {
+      rows.push(battlePacks.slice(start, start + PACK_BATTLE_LIMITS.cardsPerPack).map((opened) => pointsForCard(opened.card.rarity)))
+    }
+    return rows
+  }, [battlePacks])
+
+  /** Running totals per seat, derived from the shared cursor (no wire round-trip). */
+  const totals = useMemo(() => {
+    let host = 0
+    let guest = 0
+    for (let packIndex = 0; packIndex < totalPacks; packIndex++) {
+      const revealedInPack = packIndex < cursor.packIndex
+        ? PACK_BATTLE_LIMITS.cardsPerPack
+        : packIndex === cursor.packIndex && cursor.opened ? cursor.cardIndex : 0
+      if (revealedInPack <= 0) break
+      const seat = seatForPack(packIndex, totalPacks)
+      let points = 0
+      for (let cardIndex = 0; cardIndex < revealedInPack; cardIndex++) points += packCardPoints[packIndex][cardIndex]
+      if (seat === 'host' || seat === 'both') host += points
+      if (seat === 'guest' || seat === 'both') guest += points
+    }
+    return { host, guest }
+  }, [cursor, packCardPoints, totalPacks])
+
+  const ceremonyComplete = battlePacks.length > 0
+    && cursor.opened
+    && cursor.packIndex === totalPacks - 1
+    && cursor.cardIndex >= PACK_BATTLE_LIMITS.cardsPerPack
+
+  /** Seat display name: own name, the peer's name, or the role label. */
+  const seatName = (slot: 'host' | 'guest'): string => {
+    if (role === slot) return displayName
+    return opponentName || translate(slot === 'host' ? 'packBattle.hostRole' : 'packBattle.guestRole')
+  }
+
+  /** Engine rarity -> translated chip label. */
+  const rarityLabel = (rarity: string): string => {
+    switch (rarity) {
+      case 'uncommon': return translate('packBattle.rarityUncommon')
+      case 'rare': return translate('packBattle.rarityRare')
+      case 'ultraRare': return translate('packBattle.rarityUltraRare')
+      case 'illustrationRare': return translate('packBattle.rarityIllustrationRare')
+      default: return translate('packBattle.rarityCommon')
+    }
+  }
+
+  /** Unseal the current pack for both seats (shared cursor, wire-synced). */
+  const openPack = () => {
+    if (cursor.opened || ceremonyComplete) return
+    sessionRef.current?.send({ kind: 'pack-open', packIndex: cursor.packIndex })
+    setCursor({ packIndex: cursor.packIndex, cardIndex: 0, opened: true })
+  }
+
+  /** Reveal the next card of the current pack for both seats. */
+  const revealNext = () => {
+    if (!cursor.opened || cursor.cardIndex >= PACK_BATTLE_LIMITS.cardsPerPack) return
+    sessionRef.current?.send({ kind: 'card-reveal', packIndex: cursor.packIndex, cardIndex: cursor.cardIndex })
+    setCursor({ ...cursor, cardIndex: cursor.cardIndex + 1 })
+  }
+
+  /** Skip: reveal the whole current pack at once. */
+  const revealAllPack = () => {
+    if (!cursor.opened || cursor.cardIndex >= PACK_BATTLE_LIMITS.cardsPerPack) return
+    sessionRef.current?.send({ kind: 'card-reveal', packIndex: cursor.packIndex, cardIndex: PACK_BATTLE_LIMITS.cardsPerPack - 1 })
+    setCursor({ ...cursor, cardIndex: PACK_BATTLE_LIMITS.cardsPerPack })
+  }
+
+  /** Advance to the next pack (or finish the ceremony on the last one). */
+  const nextPack = () => {
+    if (!cursor.opened || cursor.cardIndex < PACK_BATTLE_LIMITS.cardsPerPack) return
+    if (cursor.packIndex >= totalPacks - 1) return
+    const next = cursor.packIndex + 1
+    sessionRef.current?.send({ kind: 'pack-open', packIndex: next })
+    setCursor({ packIndex: next, cardIndex: 0, opened: true })
+  }
+
+  // CP4 completion: report this seat's own total exactly once (CP5 consumes it).
+  useEffect(() => {
+    if (view !== 'opening' || !ceremonyComplete || battleDoneSentRef.current) return
+    battleDoneSentRef.current = true
+    sessionRef.current?.send({ kind: 'battle-done', score: role === 'guest' ? totals.guest : totals.host })
+  }, [view, ceremonyComplete, role, totals])
+
+  /**
+   * Remappable Confirm/Skip keys drive the shared ceremony beats (bnb's ref
+   * pattern): the handler is re-assigned every render, events from interactive
+   * elements are ignored, and both keys unseal a sealed pack.
+   */
+  const keyHandlerRef = useRef<(event: KeyboardEvent) => void>(() => {})
+
+  useEffect(() => {
+    keyHandlerRef.current = (event: KeyboardEvent) => {
+      if (event.repeat) return
+      const target = event.target
+      if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement || target instanceof HTMLButtonElement) return
+      if (viewRef.current !== 'opening' || ceremonyComplete) return
+      const isConfirm = event.key === readBinding('pokemon-pack-confirm', 'Enter')
+      const skipKey = readBinding('pokemon-pack-skip', 'S').toLowerCase()
+      const isSkip = skipKey.length > 0 && event.key.toLowerCase() === skipKey
+      if (!isConfirm && !isSkip) return
+      if (!cursor.opened) {
+        openPack()
+        return
+      }
+      if (cursor.cardIndex < PACK_BATTLE_LIMITS.cardsPerPack) {
+        if (isSkip) revealAllPack()
+        else if (isConfirm) revealNext()
+        return
+      }
+      if (isConfirm) nextPack()
+    }
+  })
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => keyHandlerRef.current(event)
+    window.addEventListener('keydown', listener)
+    return () => window.removeEventListener('keydown', listener)
+  }, [])
+
+
 
   const startTutorial = () => {
     setTutorialStep(0)
@@ -554,34 +756,93 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     )
   }
 
-  // CP3 opening placeholder: both seats land here from `lobby-start` with the
-  // shared seed and locked settings. CP4 replaces this with the ceremony.
+  // CP4 opening ceremony: one pack at a time, one card at a time, either seat
+  // reveals both. Packs-left counter sits top-right in the top bar; the
+  // running seat totals update per reveal; tier-0..5 flair rides the card cell.
   if (view === 'opening') {
+    const packCards = cursor.opened
+      ? battlePacks.slice(cursor.packIndex * PACK_BATTLE_LIMITS.cardsPerPack, cursor.packIndex * PACK_BATTLE_LIMITS.cardsPerPack + PACK_BATTLE_LIMITS.cardsPerPack)
+      : []
+    const packsLeft = Math.max(0, totalPacks - 1 - cursor.packIndex)
     return (
-      <main className="ppb-page">
+      <main className="ppb-page ppb-opening-page">
         <header className="ppb-topbar">
           <span className="ppb-hud-label">{translate('packBattle.openingTitle')}</span>
           <div className="ppb-topbar-actions">
+            <span className="ppb-packs-left" aria-live="polite">
+              {substituteParams(translate('packBattle.packsLeft'), { count: String(packsLeft) })}
+            </span>
             <button type="button" onClick={leaveLobby}>{translate('packBattle.leave')}</button>
             <button type="button" onClick={onExit}>{translate('packBattle.exit')}</button>
           </div>
         </header>
-        <div className="ppb-shell">
+        <div className="ppb-shell ppb-shell-lobby">
           <p className="eyebrow">{displayName}</p>
           <h1>{translate('packBattle.openingTitle')}</h1>
-          <p className="ppb-copy">{translate('packBattle.comingSoon')}</p>
-          <dl className="ppb-summary">
-            <div>
-              <dt>{translate('packBattle.setLabel')}</dt>
-              <dd>{translate(SET_ENTRIES.find((entry) => entry.id === settings.set)?.labelKey ?? 'packBattle.set30c')}</dd>
+          <p className="ppb-status" aria-live="polite">
+            {ceremonyComplete
+              ? translate('packBattle.ceremonyDone')
+              : substituteParams(translate('packBattle.packProgress'), { current: String(cursor.packIndex + 1), total: String(totalPacks) })}
+          </p>
+          <div className="ppb-totals" role="group" aria-label={translate('packBattle.scoreLabel')}>
+            <div className="ppb-total">
+              <span className="ppb-total-name">{seatName('host')}</span>
+              <span className="ppb-total-value">{totals.host}</span>
             </div>
-            <div>
-              <dt>{translate('packBattle.packsLabel')}</dt>
-              <dd>{settings.packs}</dd>
+            <div className="ppb-total">
+              <span className="ppb-total-name">{seatName('guest')}</span>
+              <span className="ppb-total-value">{totals.guest}</span>
             </div>
-          </dl>
+          </div>
+          {!cursor.opened && !ceremonyComplete && (
+            <div className="ppb-sealed" role="img" aria-label={translate('packBattle.sealedPackLabel')}>
+              <span aria-hidden="true">⬢</span>
+            </div>
+          )}
+          {cursor.opened && !ceremonyComplete && (
+            <ol className="ppb-card-row">
+              {packCards.map((opened, index) => {
+                const revealed = index < cursor.cardIndex
+                const points = pointsForCard(opened.card.rarity)
+                return (
+                  <li key={`${opened.card.id}-${index}`} className={`ppb-card-cell ppb-tier-${tierForRarity(opened.card.rarity)}`}>
+                    <PokemonCard
+                      card={opened.card}
+                      faceDown={!revealed}
+                      rarityLabel={revealed ? rarityLabel(opened.card.rarity) : undefined}
+                      faceDownLabel={translate('packBattle.cardFaceDown')}
+                    />
+                    {revealed && points > 0 && (
+                      <span
+                        className="ppb-card-points"
+                        aria-label={substituteParams(translate('packBattle.cardPoints'), { points: String(points) })}
+                      >
+                        +{points}
+                      </span>
+                    )}
+                  </li>
+                )
+              })}
+            </ol>
+          )}
           {noticeText && <p className="ppb-notice" role="status">{noticeText}</p>}
           {errorKey && <p className="ppb-error" role="alert">{translate(errorKey)}</p>}
+          {!ceremonyComplete && (
+            <div className="ppb-actions">
+              {!cursor.opened && (
+                <button className="ppb-primary" type="button" onClick={openPack}>{translate('packBattle.actionOpenPack')}</button>
+              )}
+              {cursor.opened && cursor.cardIndex < PACK_BATTLE_LIMITS.cardsPerPack && (
+                <>
+                  <button className="ppb-primary" type="button" onClick={revealNext}>{translate('packBattle.actionRevealCard')}</button>
+                  <button type="button" onClick={revealAllPack}>{translate('packBattle.actionRevealPack')}</button>
+                </>
+              )}
+              {cursor.opened && cursor.cardIndex >= PACK_BATTLE_LIMITS.cardsPerPack && (
+                <button className="ppb-primary" type="button" onClick={nextPack}>{translate('packBattle.actionNextPack')}</button>
+              )}
+            </div>
+          )}
           <p className="ppb-hint">{matchSeed === null ? '' : substituteParams(translate('packBattle.seedShared'), { seed: String(matchSeed) })}</p>
         </div>
       </main>

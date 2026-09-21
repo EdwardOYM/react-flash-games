@@ -489,6 +489,22 @@ type PackBattleTranslationKey =
   | 'hostOnlyNote'
   | 'openingTitle'
   | 'seedShared'
+  | 'packsLeft'
+  | 'packProgress'
+  | 'cardFaceDown'
+  | 'rarityCommon'
+  | 'rarityUncommon'
+  | 'rarityRare'
+  | 'rarityUltraRare'
+  | 'rarityIllustrationRare'
+  | 'actionOpenPack'
+  | 'actionRevealCard'
+  | 'actionRevealPack'
+  | 'actionNextPack'
+  | 'sealedPackLabel'
+  | 'scoreLabel'
+  | 'cardPoints'
+  | 'ceremonyDone'
 
 const dictionaries: Record<Locale, TranslationDictionary> = { en, ms, zh }
 

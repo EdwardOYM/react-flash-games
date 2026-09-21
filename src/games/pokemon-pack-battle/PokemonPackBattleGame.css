@@ -67,6 +67,26 @@
 .ppb-summary dd { margin: 4px 0 0; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .9rem; }
 @keyframes ppb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
+/* CP4 opening ceremony: shared cursor stage under the 960x540 embed cap. */
+.ppb-page { --pkm-card-w: clamp(88px, 15vw, 148px); }
+.ppb-packs-left { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; text-transform: uppercase; align-self: center; }
+.ppb-totals { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 18px; }
+.ppb-total { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; border: 1px solid #33454a; background: #16222a; }
+.ppb-total-name { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; text-transform: uppercase; }
+.ppb-total-value { color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.ppb-sealed { width: min(180px, 40vw); aspect-ratio: 8 / 11; margin: 12px auto 20px; display: grid; place-items: center; border: 1px solid #ffc857; border-radius: 10px; background: radial-gradient(circle at 50% 38%, #2c3a4d 0, #101820 68%); color: #ffc857; font-size: 3rem; }
+.ppb-card-row { list-style: none; margin: 16px 0 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--pkm-card-w, 148px), 1fr)); gap: 12px; align-items: start; justify-items: center; }
+.ppb-card-cell { position: relative; margin: 0; padding: 0; min-width: 0; }
+.ppb-card-points { position: absolute; right: -4px; top: -8px; padding: 2px 8px; border-radius: 999px; background: #ffc857; color: #101820; font-family: 'DM Mono', monospace; font-size: .68rem; font-weight: 700; z-index: 1; }
+/* Tier flair tier-0..5 (pointsForCard): 0 plain, 1..3 glow with the revealed
+ * rarity; 4/5 are reserved for future finish/special-art tags. */
+.ppb-tier-1 .pkm-card { border-color: #ffc857; }
+.ppb-tier-2 .pkm-card { box-shadow: 0 0 12px rgba(224, 139, 255, .45); }
+.ppb-tier-3 .pkm-card { box-shadow: 0 0 16px rgba(255, 157, 92, .55); animation: ppb-tier-pulse 1.6s ease-in-out infinite; }
+.ppb-tier-4 .pkm-card { box-shadow: 0 0 18px rgba(126, 224, 167, .55); animation: ppb-tier-pulse 1.4s ease-in-out infinite; }
+.ppb-tier-5 .pkm-card { box-shadow: 0 0 20px rgba(245, 240, 232, .6); animation: ppb-tier-pulse 1.2s ease-in-out infinite; }
+@keyframes ppb-tier-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
+
 /* Mobile landscape: fixed 100dvh page, lobby fits the shorter dimension. */
 @media (orientation: landscape) and (max-height: 600px) {
   .ppb-page { height: 100dvh; min-height: 0; overflow: hidden; padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
@@ -80,10 +100,20 @@
   .ppb-input { padding: 8px 10px; }
   .ppb-segmented button, .ppb-stepper button { padding: 7px 10px; }
   .ppb-summary { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0 0 8px; }
+  /* Ceremony: compact cards (3x2) so the grid, totals and actions all fit. */
+  .ppb-page { --pkm-card-w: clamp(64px, 13vh, 112px); }
+  .ppb-card-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 12px; }
+  .ppb-sealed { width: min(110px, 20vh); margin: 8px auto 12px; }
+  .ppb-totals { gap: 8px; margin: 0 0 8px; }
+  .ppb-total { padding: 6px 10px; }
+  .ppb-total-value { font-size: 1.1rem; }
 }
 
 /* Narrow portrait (<=520px): touch-friendly targets, stacked fields. */
 @media (max-width: 520px) {
   .ppb-topbar button, .ppb-actions button, .ppb-segmented button, .ppb-stepper button { min-height: 42px; }
   .ppb-fields { grid-template-columns: 1fr; }
+  .ppb-page { --pkm-card-w: clamp(96px, 26vw, 140px); }
+  .ppb-card-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ppb-packs-left { display: none; }
 }

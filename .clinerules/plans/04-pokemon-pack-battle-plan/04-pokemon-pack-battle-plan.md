@@ -10,7 +10,7 @@
 - [x] CP1 — Registry + config seed + diagrams
 - [x] CP2 — Start / tutorial / settings shell
 - [x] CP3 — Lobby flow (PeerJS, packs 1-36, seed broadcast)
-- [ ] CP4 — Opening ceremony (1 pack/1 card, counter, synced reveal, flair + scoring)
+- [x] CP4 — Opening ceremony (1 pack/1 card, counter, synced reveal, flair + scoring)
 - [ ] CP5 — Results / highscore / credits
 - [ ] CP6 — Responsive + i18n + final validation
 
@@ -85,6 +85,28 @@ Session-only lobby settings (never in `AppConfig`).
 - Packs stepper 1-36 clamp/validate; lobby-update/start.
 - Leave returns to start.
 
+
+## CP4 — Done
+
+- battlePack.ts engine: battleSetCards (shared 30c JSON, type-only CardDef reuse),
+  openBattlePacks (PACK_BATTLE_30C slots: energy / common / common / pikachu-IR /
+  common-or-better ladder / uncommon-or-better ladder, weighted, deterministic via
+  pack-battle rng from the shared seed), seatForPack (parity deal: host even packs,
+  guest odd; odd counts give the last pack to BOTH seats — no free-pack advantage).
+- Shared cursor {packIndex, cardIndex, opened} synced by pack-open/card-reveal with
+  max-merge; either seat reveals both; skip = reveal whole pack; packs-left counter
+  top-right; 1 pack at a time, 1 card at a time.
+- Score via pointsForCard per reveal; tier-0..5 flair classes (ppb-tier-*); +points
+  chip; running seat totals panel; battle-done {score} sent once at completion.
+- Face reuse: bnb PokemonCard (TCGdex faces + face-down back), no re-declared faces,
+  no new assets; card token --pkm-card-w tuned per breakpoint (3x2 landscape, 2-col portrait).
+- Remappable Confirm/Skip keys (pokemon-pack-confirm / pokemon-pack-skip) drive
+  open / reveal / next-pack via the bnb ref-handler pattern.
+- Re-dial hardening: host replays pack-open + card-reveal on re-hello (same-seed
+  lobby-start no longer resets the guest cursor); inbound packIndex bounded by the
+  locked pack count.
+- i18n: 16 new packBattle keys in en/ms/zh; parity verified (78 keys).
+- Validation: `npm run build` ✓ (2.11s), `npm run lint` ✓ (0/0).
 
 ## CP4 — Ceremony
 
