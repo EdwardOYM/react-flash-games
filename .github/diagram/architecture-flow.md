@@ -59,17 +59,17 @@ flowchart TD
     end
 
     subgraph PACKBATTLE["Pokemon Pack Battle runtime"]
-        packBattle -->|"hello / lobby-update / lobby-start with shared seed / pack-open / card-reveal / battle-done / leave"| packPeer["pokemon-pack-battle/net: protocol.ts fork (packs 1-36, 6 cards/pack) + bnb-style PeerJS host/guest sessions"]
+        packBattle -->|"hello / lobby-update / lobby-start with shared seed / pair-open / card-reveal / battle-done / leave"| packPeer["pokemon-pack-battle/net: protocol.ts fork (version 2; packs 1-36, 6 cards/pack, 2 packs per round = 1 per seat, maxPairs 18) + bnb-style PeerJS host/guest sessions"]
         packPeer -->|"onMessage handler (single stable closure via refs)"| packBattle
         packBattle -->|"shared seed -> identical 6-card battle packs (energy, common, common, pikachu-ir, common-or-better, uncommon-or-better)"| packData["battlePack.ts PACK_BATTLE_30C + scoring.ts tier/points + shared 30c set data"]
-        packBattle -->|"pointsForCard per reveal; tier-0..5 flair; packs-left counter"| packData
+        packBattle -->|"pointsForCard per revealed slot (banked per pack, both packs of the round reveal together); tier-0..5 flair; packs-left counter"| packData
     end
 
     subgraph STATE["View state machine"]
         bubble -->|"View union"| views["start / tutorial / loading / playing / paused / remap / gameover / victory / highscore"]
         tron -->|"View union"| tronViews["start / tutorial / loading / playing / paused / gameover / victory / highscore (round-over is an overlay sub-state of playing; stick remap is an in-pause overlay, not a view)"]
         pokemonBnb -->|"View union"| pkmViews["start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused / gameover / victory / highscore (battle tabletop renders from playing; paused solid since CP8; results solid since CP10 — settleMatchOver routes the winning seat to victory, the losing seat to gameover, and highscore is reachable from both results views)"]
-        packBattle -->|"View union"| packViews["start / tutorial / lobby / lobbyJoin / opening / results / highscore (opening renders 1 pack and 1 card at a time with a packs-left counter; either seat reveals both seats)"]
+        packBattle -->|"View union"| packViews["start / tutorial / lobby / lobbyJoin / opening / results / highscore (opening renders one pack per seat side by side per round and reveals the matching card slot in both packs at once, with a packs-left counter; either seat reveals both seats)"]
     end
 
     subgraph PERSIST["Data & persistence layer"]

@@ -13,13 +13,15 @@
 - [x] CP4 — Opening ceremony (1 pack/1 card, counter, synced reveal, flair + scoring)
 - [x] CP5 — Results / highscore / credits
 - [x] CP6 — Responsive + i18n + final validation
+- [x] CP7 — Paired-pack ceremony (side-by-side per-seat packs, synced matching-card reveal)
 
 ## Overview
 
 Build **Pokémon Pack Battle** (`pokemon-pack-battle`, game 04): P2P (PeerJS) two-player
 pack-opening battle. Lobby like 03, pick packs 1-36, derive the identical deterministic pool
-from the shared seed, open 1 pack at a time / 1 card at a time, either seat reveals both seats,
-score by rarity tier with card flair, highest total wins.
+from the shared seed, open one pack per seat per round side by side and reveal the matching card
+in both packs at once (either seat reveals both seats), score by rarity tier with card flair,
+highest total wins.
 
 Sources: `src/games/pokemon-pack-battle/`. Reuses 30c set data + TCGdex faces. No new assets.
 Session-only lobby settings (never in `AppConfig`).
@@ -42,7 +44,8 @@ Session-only lobby settings (never in `AppConfig`).
 - Weights uncommon+: uncommon 6 / rare 68 / ultraRare 17 / IR 9.
 - Scoring v1: common/uncommon/energy 0; rare 1; ultraRare 2; IR 3 (incl. Pikachu).
 - Reserved: 4 (Rainbow/Gold) + 5 (SIR) via future card tags; never awarded v1.
-- Net: version 1; `pack-open {packIndex}` + `card-reveal {packIndex, cardIndex}` sync.
+- Net: version 2; `pair-open {pairIndex}` + `card-reveal {pairIndex, cardIndex}` sync (one round
+  = 2 packs = one per seat; `maxPairs` 18 bounds the wire index).
 - Stage 960x540; `min(100%, 960px)`; mobile-landscape 100dvh pattern.
 
 ## CP0 — Done
@@ -157,6 +160,31 @@ Session-only lobby settings (never in `AppConfig`).
 - Co-located CSS; 960x540; portrait <=520px; landscape 100dvh pattern.
 - en/ms/zh parity; no hardcoded strings; translated aria labels.
 - npm run build + npm run lint; 2-browser check (1/6/36 packs).
+
+## CP7 — Done
+
+- Paired packs (side-by-side): one round unseals **one pack per seat** — host's pack left,
+  guest's pack right — and each reveal unseals the **matching card slot in both packs at once**
+  (slot order is identical in every pack), so neither seat ever waits on the other's turn.
+- battlePack.ts: `PACKS_PER_PAIR` (2), `pairCountForPacks(packCount)`, `packIndexesInPair(pairIndex,
+  packCount)` — the trailing round of an odd pack count holds only that final pack, whose
+  `seatForPack` owner is BOTH (no free-pack advantage).
+- net/protocol.ts: version 2; `pack-open {packIndex}` → `pair-open {pairIndex}`,
+  `card-reveal {pairIndex, cardIndex}`; `PACK_BATTLE_LIMITS.packsPerPair` 2 / `maxPairs` 18;
+  `validPairIndex` guard replaces `validPackIndex`.
+- Shared cursor `{pairIndex, cardIndex, opened}` with max-merge on receive; re-hello replay sends
+  the current `pair-open` + last `card-reveal` so a redialled seat catches up; inbound round index
+  bounded by `pairCountForPacks(settings.packs)`. Confirm/Skip keys drive open / reveal-next /
+  reveal-both / next round unchanged.
+- Scoring unchanged (either seat's reveal still scores for both) but now computed per pack:
+  `packPointsRevealed(packIndex)` banks each pack's revealed cards, so the seat totals and the
+  per-pack "+points" chip stay correct with both packs open at once.
+- CSS: `.ppb-pair` 2-up grid (auto-collapses to one column for a lone pack / portrait), `.ppb-pack`
+  seat panel with `.ppb-pack-owner` + `.ppb-pack-points`, six slots per pack as 3x2; sealed pack is
+  now the pack's grid-spanning placeholder; landscape token `--pkm-card-w` shrink stays inside 100dvh.
+- i18n: 3 new keys (`packOwner`, `bothRole`, `packPoints`); `packProgress` re-worded to
+  round-based copy; `description` / `tutorialOpen` / `action*` updated in en/ms/zh (parity kept).
+- Validation: `npm run build` ✓ (tsc -b + vite, 1.93s), `npm run lint` ✓ (0 warnings / 0 errors).
 
 ## Hard rules
 

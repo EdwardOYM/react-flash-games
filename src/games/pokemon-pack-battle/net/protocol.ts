@@ -1,13 +1,21 @@
 // Wire protocol fork for 04-pokemon-pack-battle. Mirrors the 03 pokemon-bnb
 // lobby method (PeerJS createHost/joinHost) with pack-battle limits and
-// synced reveal messages: either seat's open/reveal advances both seats.
+// synced reveal messages: either seat's round-open/card-reveal advances both.
+//
+// Version 2 pairs the ceremony: a cursor step is a ROUND holding one pack per
+// seat (`pairIndex`, packs 2n and 2n+1) and a `cardIndex` that reveals the
+// matching card slot on both packs of the round at once.
 
-export const PACK_BATTLE_PROTOCOL_VERSION = 1
+export const PACK_BATTLE_PROTOCOL_VERSION = 2
 
 export const PACK_BATTLE_LIMITS = {
   minPacks: 1,
   maxPacks: 36,
   cardsPerPack: 6,
+  /** Packs unsealed per ceremony round: one per seat, side by side. */
+  packsPerPair: 2,
+  /** Exclusive bound for `pairIndex` on the wire (maxPacks / packsPerPair). */
+  maxPairs: 18,
 } as const
 
 export type PackBattleSlot = 'host' | 'guest'
@@ -49,16 +57,21 @@ export type PackBattleMessage =
   | { kind: 'hello-ack'; name: string; protocolVersion: number }
   | { kind: 'lobby-update'; settings: PackBattleSettings }
   | { kind: 'lobby-start'; seed: number; settings: PackBattleSettings }
-  | { kind: 'pack-open'; packIndex: number }
-  | { kind: 'card-reveal'; packIndex: number; cardIndex: number }
+  | { kind: 'pair-open'; pairIndex: number }
+  | { kind: 'card-reveal'; pairIndex: number; cardIndex: number }
   | { kind: 'battle-done'; score: number }
   | { kind: 'leave' }
   | { kind: 'rematch' }
 
 export type PackBattleMessageKind = PackBattleMessage['kind']
 
-function validPackIndex(value: unknown): boolean {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < PACK_BATTLE_LIMITS.maxPacks
+function validPairIndex(value: unknown): boolean {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value < PACK_BATTLE_LIMITS.maxPairs
+  )
 }
 
 function validCardIndex(value: unknown): boolean {
@@ -92,13 +105,13 @@ export function isPackBattleMessage(value: unknown): value is PackBattleMessage 
         validatePackBattleSettings(candidate.settings)
       )
     }
-    case 'pack-open': {
-      const candidate = value as { packIndex?: unknown }
-      return validPackIndex(candidate.packIndex)
+    case 'pair-open': {
+      const candidate = value as { pairIndex?: unknown }
+      return validPairIndex(candidate.pairIndex)
     }
     case 'card-reveal': {
-      const candidate = value as { packIndex?: unknown; cardIndex?: unknown }
-      return validPackIndex(candidate.packIndex) && validCardIndex(candidate.cardIndex)
+      const candidate = value as { pairIndex?: unknown; cardIndex?: unknown }
+      return validPairIndex(candidate.pairIndex) && validCardIndex(candidate.cardIndex)
     }
     case 'battle-done': {
       const candidate = value as { score?: unknown }
