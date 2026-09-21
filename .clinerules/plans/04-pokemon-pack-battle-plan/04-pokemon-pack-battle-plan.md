@@ -12,7 +12,7 @@
 - [x] CP3 — Lobby flow (PeerJS, packs 1-36, seed broadcast)
 - [x] CP4 — Opening ceremony (1 pack/1 card, counter, synced reveal, flair + scoring)
 - [x] CP5 — Results / highscore / credits
-- [ ] CP6 — Responsive + i18n + final validation
+- [x] CP6 — Responsive + i18n + final validation
 
 ## Overview
 
@@ -134,6 +134,23 @@ Session-only lobby settings (never in `AppConfig`).
 - victory/gameover/draw; rematch + retry + exit.
 - Shared HighscoreTable; recordPackBattleWin once; save returns to start.
 - Credits inspiration entry.
+
+## CP6 — Done
+
+- Responsive audit: 960x540 embed caps (min(100%, 960px) topbar/shells), landscape
+  100dvh + safe-area pattern with contained internal shell scroll (overflow:hidden
+  can never clip the actions), portrait <=520px stacked fields + touch targets,
+  card token --pkm-card-w per breakpoint (base 6-col / landscape 3x2 / portrait 2-col),
+  highscore table capped + contained in landscape.
+- i18n audit: no hardcoded player-facing strings or untranslated aria-labels in the
+  pack-battle files (scan verified); en/ms/zh parity 87 keys.
+- Engine validated live (esbuild bundle + node, temp files removed): 1/6/36 packs —
+  deterministic across runs, exact slot order (energy/common/common/pikachu-ir/
+  common-or-better/uncommon-or-better), guaranteed-Pikachu exclusion elsewhere,
+  seed divergence, even/odd seat splits via seatForPack.
+- Validation: `npm run build` ✓ (1.99s), `npm run lint` ✓ (0/0), `PARITY-OK (87)`.
+- Remaining manual QA (human): two-browser 2P run at 1/6/36 packs (join flow,
+  synced reveal, rematch across devices).
 
 ## CP6 — Responsive + i18n + final
 
