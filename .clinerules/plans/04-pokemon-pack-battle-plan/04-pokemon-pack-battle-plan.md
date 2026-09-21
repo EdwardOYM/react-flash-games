@@ -42,7 +42,8 @@ Session-only lobby settings (never in `AppConfig`).
 - Slot order: energy, common, common, unique Pikachu, common-and-above, uncommon-and-above.
 - Weights common+: common 62 / uncommon 8 / rare 21 / ultraRare 6 / IR 3.
 - Weights uncommon+: uncommon 6 / rare 68 / ultraRare 17 / IR 9.
-- Scoring v1: common/uncommon/energy 0; rare 1; ultraRare 2; IR 3 (incl. Pikachu).
+- Scoring v1: common/uncommon/energy 0; rare 1; ultraRare 2; IR 3 — but the
+  pack-guaranteed Pikachu IR (`pikachu-ir`, present in every pack) scores 0.
 - Reserved: 4 (Rainbow/Gold) + 5 (SIR) via future card tags; never awarded v1.
 - Net: version 2; `pair-open {pairIndex}` + `card-reveal {pairIndex, cardIndex}` sync (one round
   = 2 packs = one per seat; `maxPairs` 18 bounds the wire index).
@@ -185,6 +186,24 @@ Session-only lobby settings (never in `AppConfig`).
 - i18n: 3 new keys (`packOwner`, `bothRole`, `packPoints`); `packProgress` re-worded to
   round-based copy; `description` / `tutorialOpen` / `action*` updated in en/ms/zh (parity kept).
 - Validation: `npm run build` ✓ (tsc -b + vite, 1.93s), `npm run lint` ✓ (0 warnings / 0 errors).
+
+## CP8 — Done
+
+- The pack-guaranteed Pikachu IR now scores **0** (was 3): every battle pack carries one
+  (30 variants, `irVariation` 1-30) so it is a constant for both seats and cannot separate them.
+- scoring.ts is identity-aware: `isGuaranteedPikachuIr(card)` (single shared definition;
+  battlePack.ts's private duplicate was removed and imports it instead), plus
+  `tierForCard(card)` / `pointsForCard(card)` / `scorePack(cards)` now take the card, so the
+  guaranteed slot is tier 0 — no tier flair and no `+points` chip. `tierForRarity` stays the
+  rarity ladder used by `tierForCard` (tiers 4/5 still reserved for future finish tags).
+- No scoring leak in either direction: ladder IRs keep 3 points, and the weighted ladders
+  already excluded the guaranteed pool, so a scored IR is never the guaranteed card.
+- i18n: `packBattle.tutorialScore` re-worded in en/ms/zh to state the guaranteed Pikachu is 0
+  (parity 90 keys in all three dictionaries; no other copy changed).
+- Validation: `npm run build` ✓ (tsc -b + vite, 1.68s), `npm run lint` ✓ (0 warnings / 0 errors).
+  Engine check (esbuild bundle + node, temp files removed): over 400 packs every one holds
+  exactly one 0-point `pikachu-ir` slot, all other slots score per rarity, and no ladder IR
+  resolves to the guaranteed pool.
 
 ## Hard rules
 

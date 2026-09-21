@@ -1,10 +1,15 @@
 // Reusable Pokemon TCG card face for B&B mini. The hosted TCGdex artwork
-// (cardImage.ts) IS the face (CP11-E): cards.json content (names, HP, attacks)
-// is engine data and is deliberately never rendered — the face reads as the real
-// card image, at one uniform 8/11 size in every view. Battle overlays (damage,
-// status pips) and the pre-translated rarity chip stay on top; cards with no
-// hosted art (synthetic basic energies) or a failed load fall back to a
-// data-free type tint, so the face never exposes engine text or changes size.
+// (cardImage.ts) IS the face (CP11-E): card-level engine data (HP, attacks,
+// rules) is never rendered — the face reads as the real card image, at one
+// uniform 8/11 size in every view. Battle overlays (damage, status pips) and
+// the pre-translated rarity chip stay on top.
+//
+// Text fallback (player-reported): when no artwork paints the face — a card
+// with no hosted art (synthetic basic energies) or an <img> that failed to load
+// — the card shows its own name and its translated rarity as text over the type
+// tint, so a missing image can never leave a blank tile. Card names are dataset
+// values (proper nouns), the rarity is the caller's translated copy, and the box
+// never changes size either way: only ever a name + rarity line, never rules.
 import { useState } from 'react'
 import { cardIsEnergy, type CardDef } from './cards'
 import { cardImageUrl } from './cardImage'

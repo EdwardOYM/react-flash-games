@@ -7,6 +7,9 @@ import type { CardDef, CardRarity } from '../pokemon-bnb/cards'
 import cards30cJson from '../../assets/pokemon-bnb/sets/30c/cards.json'
 import { PACK_BATTLE_LIMITS } from './net/protocol'
 import { packBattlePick, packBattleRandomInt, type PackBattleRng } from './rng'
+// Shared predicate: the same cards that score 0 are the ones excluded from the
+// weighted ladders, so the "guaranteed Pikachu" rule lives in exactly one place.
+import { isGuaranteedPikachuIr } from './scoring'
 
 export type BattlePackSlotDef = {
   id: string
@@ -83,10 +86,6 @@ function battleBasicEnergyCard(set: string, type: (typeof BASIC_ENERGY_TYPES)[nu
     energyType: 'normal',
     provides: type,
   }
-}
-
-function isGuaranteedPikachuIr(card: CardDef): boolean {
-  return card.supertype === 'pokemon' && card.irVariation !== undefined
 }
 
 function poolOfRarity(cards: CardDef[], rarity: CardRarity, excludeGuaranteedPikachu: boolean): CardDef[] {

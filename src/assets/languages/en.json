@@ -429,7 +429,7 @@
     "tutorialTitle": "How to play",
     "tutorialLobby": "Create a lobby or join with a code, then agree on 1 to 36 packs to battle.",
     "tutorialOpen": "Each round unseals one pack per seat, side by side, then reveals the matching card in both packs at once. Either player's reveal counts for both seats.",
-    "tutorialScore": "Rare hits score: standard holo 1, full art 2, illustration rare 3. Rainbow and gold 4, special art 5. Highest total wins.",
+    "tutorialScore": "Rare hits score: standard holo 1, full art 2, illustration rare 3. Rainbow and gold 4, special art 5. The guaranteed Pikachu in every pack scores 0. Highest total wins.",
     "tutorialComplete": "Nice work — you are ready to battle!",
     "tutorialSkip": "Skip tutorial",
     "finish": "Finish",

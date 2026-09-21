@@ -21,7 +21,7 @@ import {
   seatForPack,
   type BattleOpenedCard,
 } from './battlePack'
-import { pointsForCard, tierForRarity } from './scoring'
+import { pointsForCard, tierForCard } from './scoring'
 import { createPackBattleRng } from './rng'
 import { PokemonCard } from '../pokemon-bnb/PokemonCard'
 import {
@@ -466,11 +466,14 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   /** Ceremony rounds: one pack per seat per round (see battlePack pairing). */
   const totalPairs = pairCountForPacks(totalPacks)
 
-  /** Points per card per pack (score accrues per reveal, not per pack). */
+  /**
+   * Points per card per pack (score accrues per reveal, not per pack). Cards are
+   * scored by identity, so the pack-guaranteed Pikachu IR contributes 0.
+   */
   const packCardPoints = useMemo<number[][]>(() => {
     const rows: number[][] = []
     for (let start = 0; start < battlePacks.length; start += PACK_BATTLE_LIMITS.cardsPerPack) {
-      rows.push(battlePacks.slice(start, start + PACK_BATTLE_LIMITS.cardsPerPack).map((opened) => pointsForCard(opened.card.rarity)))
+      rows.push(battlePacks.slice(start, start + PACK_BATTLE_LIMITS.cardsPerPack).map((opened) => pointsForCard(opened.card)))
     }
     return rows
   }, [battlePacks])
@@ -901,11 +904,11 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
                     )}
                     {packCards.map((opened, index) => {
                       const revealed = index < cursor.cardIndex
-                      const points = pointsForCard(opened.card.rarity)
+                      const points = pointsForCard(opened.card)
                       return (
                         <li
                           key={`${packIndex}-${opened.card.id}-${index}`}
-                          className={`ppb-card-cell ppb-tier-${tierForRarity(opened.card.rarity)}`}
+                          className={`ppb-card-cell ppb-tier-${tierForCard(opened.card)}`}
                         >
                           <PokemonCard
                             card={opened.card}

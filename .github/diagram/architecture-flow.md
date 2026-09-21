@@ -62,7 +62,7 @@ flowchart TD
         packBattle -->|"hello / lobby-update / lobby-start with shared seed / pair-open / card-reveal / battle-done / leave"| packPeer["pokemon-pack-battle/net: protocol.ts fork (version 2; packs 1-36, 6 cards/pack, 2 packs per round = 1 per seat, maxPairs 18) + bnb-style PeerJS host/guest sessions"]
         packPeer -->|"onMessage handler (single stable closure via refs)"| packBattle
         packBattle -->|"shared seed -> identical 6-card battle packs (energy, common, common, pikachu-ir, common-or-better, uncommon-or-better)"| packData["battlePack.ts PACK_BATTLE_30C + scoring.ts tier/points + shared 30c set data"]
-        packBattle -->|"pointsForCard per revealed slot (banked per pack, both packs of the round reveal together); tier-0..5 flair; packs-left counter"| packData
+        packBattle -->|"pointsForCard per revealed slot by card identity (banked per pack, both packs of the round reveal together); the pack-guaranteed Pikachu IR scores 0 and gets no tier flair; tier-0..5 flair; packs-left counter"| packData
     end
 
     subgraph STATE["View state machine"]
