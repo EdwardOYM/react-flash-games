@@ -41,18 +41,18 @@ export const PACK_BATTLE_30C: BattlePackDef = {
       id: 'common-or-better',
       poolRef: 'commonOrBetter',
       count: 1,
-      weights: { common: 62, uncommon: 8, rare: 21, ultraRare: 6, illustrationRare: 3 },
+      weights: { common: 62, rare: 21, 'double rare': 6, 'illustration rare': 3, 'special illustration rare': 1, 'futuristic rare': 1 },
     },
     {
       id: 'uncommon-or-better',
       poolRef: 'uncommonOrBetter',
       count: 1,
-      weights: { uncommon: 6, rare: 68, ultraRare: 17, illustrationRare: 9 },
+      weights: { rare: 68, 'double rare': 17, 'illustration rare': 9, 'special illustration rare': 3, 'futuristic rare': 1 },
     },
   ],
   pools: {
-    commonOrBetter: { ladder: ['common', 'uncommon', 'rare', 'ultraRare', 'illustrationRare'] },
-    uncommonOrBetter: { ladder: ['uncommon', 'rare', 'ultraRare', 'illustrationRare'] },
+    commonOrBetter: { ladder: ['common', 'rare', 'double rare', 'illustration rare', 'special illustration rare', 'futuristic rare'] },
+    uncommonOrBetter: { ladder: ['rare', 'double rare', 'illustration rare', 'special illustration rare', 'futuristic rare'] },
     basicEnergy: {
       types: ['grass', 'fire', 'water', 'lightning', 'psychic', 'fighting', 'darkness', 'metal'],
     },

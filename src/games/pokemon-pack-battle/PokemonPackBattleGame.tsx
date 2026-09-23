@@ -586,8 +586,11 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     switch (rarity) {
       case 'uncommon': return translate('packBattle.rarityUncommon')
       case 'rare': return translate('packBattle.rarityRare')
-      case 'ultraRare': return translate('packBattle.rarityUltraRare')
-      case 'illustrationRare': return translate('packBattle.rarityIllustrationRare')
+      case 'double rare': return translate('packBattle.rarityUltraRare')
+      case 'illustration rare': return translate('packBattle.rarityIllustrationRare')
+      case 'pikachu rare': return 'Pikachu Rare'
+      case 'special illustration rare': return 'Special illustration rare'
+      case 'futuristic rare': return 'Futuristic Rare'
       default: return translate('packBattle.rarityCommon')
     }
   }

@@ -18,10 +18,11 @@
       "poolRef": "uncommonOrBetter",
       "count": 1,
       "weights": {
-        "uncommon": 0,
-        "rare": 74,
-        "ultraRare": 17,
-        "illustrationRare": 9
+        "rare": 68,
+        "double rare": 17,
+        "illustration rare": 9,
+        "special illustration rare": 3,
+        "futuristic rare": 1
       }
     },
     {
@@ -39,10 +40,11 @@
     "uncommonOrBetter": {
       "comment": "Uncommon-or-better slot: uncommons are absent from TCGdex data for this set, so the ladder bottoms out at 'rare' when no uncommons exist (see pack.ts fallback).",
       "ladder": [
-        "uncommon",
         "rare",
-        "ultraRare",
-        "illustrationRare"
+        "double rare",
+        "illustration rare",
+        "special illustration rare",
+        "futuristic rare"
       ]
     },
     "basicEnergy": {

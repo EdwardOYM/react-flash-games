@@ -559,10 +559,13 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const rarityLabel = (rarity: CardRarity): string => {
     switch (rarity) {
       case 'common': return t('pokemonBnb.rarityCommon')
-      case 'uncommon': return t('pokemonBnb.rarityUncommon')
       case 'rare': return t('pokemonBnb.rarityRare')
-      case 'ultraRare': return t('pokemonBnb.rarityUltraRare')
-      case 'illustrationRare': return t('pokemonBnb.rarityIllustrationRare')
+      case 'uncommon': return t('pokemonBnb.rarityUncommon')
+      case 'double rare': return t('pokemonBnb.rarityUltraRare')
+      case 'illustration rare': return t('pokemonBnb.rarityIllustrationRare')
+      case 'pikachu rare': return 'Pikachu Rare'
+      case 'special illustration rare': return 'Special illustration rare'
+      case 'futuristic rare': return 'Futuristic Rare'
     }
   }
 

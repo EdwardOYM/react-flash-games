@@ -57,7 +57,7 @@ function drawSlot(cards: CardDef[], slot: PackSlotDef, pack: PackDef, rng: Rng):
     return Array.from({ length: slot.count }, () => pickUniform(pool, rng))
   }
   if (slot.poolRef === 'uncommonOrBetter') {
-    const ladder = pack.pools.uncommonOrBetter?.ladder ?? ['uncommon', 'rare', 'ultraRare', 'illustrationRare']
+    const ladder = pack.pools.uncommonOrBetter?.ladder ?? ['rare', 'double rare', 'illustration rare', 'special illustration rare', 'futuristic rare']
     const availability = new Map<CardRarity, number>()
     for (const rarity of ladder) availability.set(rarity, poolOfRarity(cards, rarity, true).length)
     return Array.from({ length: slot.count }, () => {

@@ -570,7 +570,7 @@
       "set": "30c",
       "number": "015",
       "name": "Fuecoco ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "fire"
@@ -810,7 +810,7 @@
       "set": "30c",
       "number": "021",
       "name": "Greninja ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "water"
@@ -891,7 +891,7 @@
       "set": "30c",
       "number": "023",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -926,7 +926,7 @@
       "set": "30c",
       "number": "024",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -962,7 +962,7 @@
       "set": "30c",
       "number": "025",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -997,7 +997,7 @@
       "set": "30c",
       "number": "026",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1031,7 +1031,7 @@
       "set": "30c",
       "number": "027",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1065,7 +1065,7 @@
       "set": "30c",
       "number": "028",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1106,7 +1106,7 @@
       "set": "30c",
       "number": "029",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1140,7 +1140,7 @@
       "set": "30c",
       "number": "030",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1174,7 +1174,7 @@
       "set": "30c",
       "number": "031",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1208,7 +1208,7 @@
       "set": "30c",
       "number": "032",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1242,7 +1242,7 @@
       "set": "30c",
       "number": "033",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1282,7 +1282,7 @@
       "set": "30c",
       "number": "034",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1318,7 +1318,7 @@
       "set": "30c",
       "number": "035",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1353,7 +1353,7 @@
       "set": "30c",
       "number": "036",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1388,7 +1388,7 @@
       "set": "30c",
       "number": "037",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1431,7 +1431,7 @@
       "set": "30c",
       "number": "038",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1465,7 +1465,7 @@
       "set": "30c",
       "number": "039",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1499,7 +1499,7 @@
       "set": "30c",
       "number": "040",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1533,7 +1533,7 @@
       "set": "30c",
       "number": "041",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1577,7 +1577,7 @@
       "set": "30c",
       "number": "042",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1621,7 +1621,7 @@
       "set": "30c",
       "number": "043",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1656,7 +1656,7 @@
       "set": "30c",
       "number": "044",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1690,7 +1690,7 @@
       "set": "30c",
       "number": "045",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1733,7 +1733,7 @@
       "set": "30c",
       "number": "046",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1776,7 +1776,7 @@
       "set": "30c",
       "number": "047",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1810,7 +1810,7 @@
       "set": "30c",
       "number": "048",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1844,7 +1844,7 @@
       "set": "30c",
       "number": "049",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1880,7 +1880,7 @@
       "set": "30c",
       "number": "050",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1917,7 +1917,7 @@
       "set": "30c",
       "number": "051",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1953,7 +1953,7 @@
       "set": "30c",
       "number": "052",
       "name": "Pikachu",
-      "rarity": "illustrationRare",
+      "rarity": "pikachu rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -1987,7 +1987,7 @@
       "set": "30c",
       "number": "053",
       "name": "Pikachu ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -2030,7 +2030,7 @@
       "set": "30c",
       "number": "054",
       "name": "Pikachu ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -2443,7 +2443,7 @@
       "set": "30c",
       "number": "064",
       "name": "Mewtwo ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "psychic"
@@ -2531,7 +2531,7 @@
       "set": "30c",
       "number": "066",
       "name": "Mew ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "psychic"
@@ -2693,7 +2693,7 @@
       "set": "30c",
       "number": "070",
       "name": "Espeon ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "psychic"
@@ -2732,7 +2732,7 @@
       "set": "30c",
       "number": "071",
       "name": "Sylveon ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "psychic"
@@ -3493,7 +3493,7 @@
       "set": "30c",
       "number": "090",
       "name": "Gengar ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "darkness"
@@ -3576,7 +3576,7 @@
       "set": "30c",
       "number": "092",
       "name": "Umbreon ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "darkness"
@@ -3983,7 +3983,7 @@
       "set": "30c",
       "number": "102",
       "name": "Jirachi ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "metal"
@@ -4316,7 +4316,7 @@
       "set": "30c",
       "number": "109",
       "name": "Salamence ex",
-      "rarity": "ultraRare",
+      "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
         "dragon"
@@ -4980,7 +4980,7 @@
       "set": "30c",
       "number": "129",
       "name": "Alolan Exeggutor",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "grass"
@@ -5022,7 +5022,7 @@
       "set": "30c",
       "number": "130",
       "name": "Moltres",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "fire"
@@ -5063,7 +5063,7 @@
       "set": "30c",
       "number": "131",
       "name": "Lapras",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "water"
@@ -5106,7 +5106,7 @@
       "set": "30c",
       "number": "132",
       "name": "Articuno",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "water"
@@ -5147,7 +5147,7 @@
       "set": "30c",
       "number": "133",
       "name": "Zapdos",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -5189,7 +5189,7 @@
       "set": "30c",
       "number": "134",
       "name": "Toxtricity",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -5232,7 +5232,7 @@
       "set": "30c",
       "number": "135",
       "name": "Morpeko",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -5273,7 +5273,7 @@
       "set": "30c",
       "number": "136",
       "name": "Drifloon",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "psychic"
@@ -5311,7 +5311,7 @@
       "set": "30c",
       "number": "137",
       "name": "Chandelure",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "psychic"
@@ -5350,7 +5350,7 @@
       "set": "30c",
       "number": "138",
       "name": "Lycanroc",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "fighting"
@@ -5392,7 +5392,7 @@
       "set": "30c",
       "number": "139",
       "name": "Alolan Meowth",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "darkness"
@@ -5423,7 +5423,7 @@
       "set": "30c",
       "number": "140",
       "name": "Scraggy",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "darkness"
@@ -5465,7 +5465,7 @@
       "set": "30c",
       "number": "141",
       "name": "Galarian Meowth",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "metal"
@@ -5511,7 +5511,7 @@
       "set": "30c",
       "number": "142",
       "name": "Gholdengo",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "metal"
@@ -5557,7 +5557,7 @@
       "set": "30c",
       "number": "143",
       "name": "Kommo-o",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "dragon"
@@ -5587,7 +5587,7 @@
       "set": "30c",
       "number": "144",
       "name": "Meowth",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "colorless"
@@ -5621,7 +5621,7 @@
       "set": "30c",
       "number": "145",
       "name": "Hisuian Zorua",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "colorless"
@@ -5654,7 +5654,7 @@
       "set": "30c",
       "number": "146",
       "name": "Maushold",
-      "rarity": "illustrationRare",
+      "rarity": "illustration rare",
       "supertype": "pokemon",
       "types": [
         "colorless"
@@ -5695,7 +5695,7 @@
       "set": "30c",
       "number": "147",
       "name": "Fuecoco ex",
-      "rarity": "illustrationRare",
+      "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
         "fire"
@@ -5738,7 +5738,7 @@
       "set": "30c",
       "number": "148",
       "name": "Greninja ex",
-      "rarity": "illustrationRare",
+      "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
         "water"
@@ -5780,7 +5780,7 @@
       "set": "30c",
       "number": "149",
       "name": "Pikachu ex",
-      "rarity": "illustrationRare",
+      "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -5823,7 +5823,7 @@
       "set": "30c",
       "number": "150",
       "name": "Pikachu ex",
-      "rarity": "illustrationRare",
+      "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
         "lightning"
@@ -5866,7 +5866,7 @@
       "set": "30c",
       "number": "151",
       "name": "Mewtwo ex",
-      "rarity": "illustrationRare",
+      "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
         "psychic"
@@ -5915,7 +5915,7 @@
       "set": "30c",
       "number": "152",
       "name": "Mew ex",
-      "rarity": "illustrationRare",
+      "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
         "psychic"
@@ -5959,7 +5959,7 @@
       "set": "30c",
       "number": "153",
       "name": "Sylveon ex",
-      "rarity": "illustrationRare",
+      "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
         "psychic"
@@ -5994,7 +5994,7 @@
       "set": "30c",
       "number": "154",
       "name": "Gengar ex",
-      "rarity": "illustrationRare",
+      "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
         "darkness"
@@ -6034,7 +6034,7 @@
       "set": "30c",
       "number": "155",
       "name": "Jirachi ex",
-      "rarity": "illustrationRare",
+      "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
         "metal"
@@ -6082,7 +6082,7 @@
       "set": "30c",
       "number": "156",
       "name": "Salamence ex",
-      "rarity": "illustrationRare",
+      "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
         "dragon"
@@ -6119,7 +6119,7 @@
       "set": "30c",
       "number": "157",
       "name": "Mewtwo ex",
-      "rarity": "ultraRare",
+      "rarity": "futuristic rare",
       "supertype": "pokemon",
       "types": [
         "psychic"
@@ -6168,7 +6168,7 @@
       "set": "30c",
       "number": "158",
       "name": "Mew ex",
-      "rarity": "ultraRare",
+      "rarity": "futuristic rare",
       "supertype": "pokemon",
       "types": [
         "psychic"

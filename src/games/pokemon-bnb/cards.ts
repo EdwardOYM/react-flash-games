@@ -4,7 +4,15 @@
 // it renders verbatim inside components and is never routed through t().
 
 export type SetId = string
-export type CardRarity = 'common' | 'uncommon' | 'rare' | 'ultraRare' | 'illustrationRare'
+export type CardRarity =
+  | 'common'
+  | 'uncommon'
+  | 'rare'
+  | 'double rare'
+  | 'illustration rare'
+  | 'pikachu rare'
+  | 'special illustration rare'
+  | 'futuristic rare'
 export type CardSupertype = 'pokemon' | 'trainer' | 'energy'
 export type CardType = 'grass' | 'fire' | 'water' | 'lightning' | 'psychic' | 'fighting' | 'darkness' | 'metal' | 'dragon' | 'colorless'
 export type EnergyCategory = 'normal' | 'special'
@@ -104,12 +112,12 @@ export function isBasicPokemon(card: CardDef): boolean {
 }
 
 export function cardRarityRank(rarity: CardRarity): number {
-  const order: CardRarity[] = ['common', 'uncommon', 'rare', 'ultraRare', 'illustrationRare']
+  const order: CardRarity[] = ['common', 'rare', 'double rare', 'illustration rare', 'pikachu rare', 'special illustration rare', 'futuristic rare']
   return order.indexOf(rarity)
 }
 
 export function isUncommonOrBetter(card: CardDef): boolean {
-  return cardRarityRank(card.rarity) >= cardRarityRank('uncommon')
+  return cardRarityRank(card.rarity) >= cardRarityRank('rare')
 }
 
-export const RARITY_ORDER: CardRarity[] = ['common', 'uncommon', 'rare', 'ultraRare', 'illustrationRare']
+export const RARITY_ORDER: CardRarity[] = ['common', 'rare', 'double rare', 'illustration rare', 'pikachu rare', 'special illustration rare', 'futuristic rare']

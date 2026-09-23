@@ -1,22 +1,20 @@
 // Pack-battle scoring tiers for 04-pokemon-pack-battle.
-// Pure logic: mapped onto the shared 30c card data (no dataset change).
-// v1 ceiling is 3 pts on current rarities; tiers 4/5 are reserved for
-// future holoVariant/finish tags in cards.json (never awarded yet).
+// Pure logic: mapped onto the shared 30c card data.
 //
 // The one identity-aware rule: the pack-guaranteed Pikachu IR is a constant
 // for both seats, so it scores 0 (and gets no tier flair).
 
-import type { CardDef } from '../pokemon-bnb/cards'
+import { cardRarityRank, type CardDef } from '../pokemon-bnb/cards'
 
-export type BattleTier = 0 | 1 | 2 | 3 | 4 | 5
+export type BattleTier = 0 | 1 | 2 | 3 | 5 | 7
 
 export const BATTLE_TIER_POINTS: Record<BattleTier, number> = {
   0: 0,
   1: 1,
   2: 2,
   3: 3,
-  4: 4,
   5: 5,
+  7: 7,
 }
 
 /**
@@ -31,19 +29,13 @@ export function isGuaranteedPikachuIr(card: CardDef): boolean {
 }
 
 /**
- * Map a 30c engine rarity to a battle tier.
- * - common/uncommon/synthetic energy -> 0
- * - rare -> 1 (Ace Spec/V/EX/poke-ball proxy)
- * - ultraRare -> 2 (FA/master-ball proxy)
- * - illustrationRare -> 3 (IR/GX/MAR proxy)
- * Tiers 4 (Rainbow/Gold) and 5 (SIR) need card tags we do not have yet.
+ * Map a TCGdex rarity to its pack-battle score.
  */
-export function tierForRarity(rarity: string, hasPremiumFinish?: boolean, hasSpecialArt?: boolean): BattleTier {
-  if (hasSpecialArt) return 5
-  if (hasPremiumFinish) return 4
-  if (rarity === 'illustrationRare') return 3
-  if (rarity === 'ultraRare') return 2
-  if (rarity === 'rare') return 1
+export function tierForRarity(rarity: string): BattleTier {
+  if (rarity === 'futuristic rare') return 7
+  if (rarity === 'special illustration rare') return 5
+  if (rarity === 'illustration rare') return 2
+  if (rarity === 'double rare') return 1
   return 0
 }
 
@@ -72,11 +64,7 @@ export function scorePack(cards: CardDef[]): number {
  * rarity (Array sort is stable), so equal-rarity cards keep ceremony order.
  */
 export function rarityRank(card: CardDef): number {
-  if (card.rarity === 'illustrationRare') return 4
-  if (card.rarity === 'ultraRare') return 3
-  if (card.rarity === 'rare') return 2
-  if (card.rarity === 'uncommon') return 1
-  return 0
+  return cardRarityRank(card.rarity)
 }
 
 /** Rarest-first copy of `cards` (never mutates the input). */
