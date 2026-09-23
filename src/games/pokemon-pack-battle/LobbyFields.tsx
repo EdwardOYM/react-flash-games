@@ -1,8 +1,8 @@
 // Lobby settings fields for Pokemon Pack Battle (04) — mirrors the 03
 // pokemon-bnb LobbyFields pattern: one component shared by the host (editable
 // segmented/stepper controls) and the guest (read-only values). Labels are
-// translation keys; the packs stepper clamps to the protocol limits 1-36 and
-// the host pushes every change to the guest as a `lobby-update`.
+// translation keys; the packs stepper clamps to the per-player protocol limits
+// 1-18 and the host pushes every change to the guest as a `lobby-update`.
 import type { TranslationKey } from '../../assets/languages'
 import { PACK_BATTLE_LIMITS, type PackBattleSettings } from './net/protocol'
 import { listSets } from './sets'
@@ -55,7 +55,7 @@ export function LobbyFields({ settings, editable, idPrefix, t, onChange }: Lobby
               <button
                 type="button"
                 aria-label={t('packBattle.increase')}
-                disabled={settings.packs >= PACK_BATTLE_LIMITS.maxPacks}
+                disabled={settings.packs >= PACK_BATTLE_LIMITS.maxPacksPerPlayer}
                 onClick={() => patch({ packs: settings.packs + 1 })}
               >
                 +

@@ -264,8 +264,9 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
       }
       case 'pair-open': {
         // Either seat unseals a round's packs for both (max-merge: never move
-        // backwards, never beyond the locked round count).
-        if (message.pairIndex >= pairCountForPacks(settingsRef.current.packs)) return
+        // backwards, never beyond the locked round count). With per-player pack
+        // counts the round count equals the per-player pack count directly.
+        if (message.pairIndex >= settingsRef.current.packs) return
         setCursor((prev) => {
           if (prev.pairIndex > message.pairIndex) return prev
           if (prev.pairIndex === message.pairIndex && prev.opened) return prev
@@ -274,7 +275,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
         return
       }
       case 'card-reveal': {
-        if (message.pairIndex >= pairCountForPacks(settingsRef.current.packs)) return
+        if (message.pairIndex >= settingsRef.current.packs) return
         setCursor((prev) => {
           if (message.pairIndex > prev.pairIndex) {
             return { pairIndex: message.pairIndex, cardIndex: Math.min(message.cardIndex + 1, PACK_BATTLE_LIMITS.cardsPerPack), opened: true }
@@ -521,12 +522,12 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   // ---- CP4 opening ceremony: shared pool, shared cursor, per-seat score ----
 
   /** Seeded pool: identical on both seats (same seed + settings + set data). */
+  const totalPacks = settings.packs * 2
   const battlePacks = useMemo<BattleOpenedCard[]>(() => {
     if (matchSeed === null) return []
-    return openBattlePacks(battleSetCards(), PACK_BATTLE_30C, settings.packs, createPackBattleRng(matchSeed))
-  }, [matchSeed, settings.packs])
+    return openBattlePacks(battleSetCards(), PACK_BATTLE_30C, totalPacks, createPackBattleRng(matchSeed))
+  }, [matchSeed, totalPacks])
 
-  const totalPacks = Math.floor(battlePacks.length / PACK_BATTLE_LIMITS.cardsPerPack)
   /** Ceremony rounds: one pack per seat per round (see battlePack pairing). */
   const totalPairs = pairCountForPacks(totalPacks)
 

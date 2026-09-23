@@ -57,7 +57,7 @@ through the shared `PokemonCard`). Session-only lobby settings (never in `AppCon
 
 ## Design constants
 
-- Packs 1-36 (default 6); 6 cards/pack.
+- Packs per player 1-18 (default 6); 6 cards/pack; shared pool = packs × 2.
 - Slot order: energy, common, common, unique Pikachu, common-and-above, uncommon-and-above.
 - Weights common+: common 62 / uncommon 8 / rare 21 / ultraRare 6 / IR 3.
 - Weights uncommon+: uncommon 6 / rare 68 / ultraRare 17 / IR 9.
@@ -193,9 +193,11 @@ through the shared `PokemonCard`). Session-only lobby settings (never in `AppCon
   `card-reveal {pairIndex, cardIndex}`; `PACK_BATTLE_LIMITS.packsPerPair` 2 / `maxPairs` 18;
   `validPairIndex` guard replaces `validPackIndex`.
 - Shared cursor `{pairIndex, cardIndex, opened}` with max-merge on receive; re-hello replay sends
-  the current `pair-open` + last `card-reveal` so a redialled seat catches up; inbound round index
-  bounded by `pairCountForPacks(settings.packs)`. Confirm/Skip keys drive open / reveal-next /
-  reveal-both / next round unchanged.
+  the current `pair-open` + last `card-reveal` so a redialled seat catches up; the lobby packs
+  stepper counts **packs per player** (1–18, clamped by `PACK_BATTLE_LIMITS.maxPacksPerPlayer`),
+  and the shared pool is `settings.packs * 2` packs. The inbound round index is bounded by
+  `settings.packs` directly (the per-player count equals the pair count). Confirm/Skip keys drive
+  open / reveal-next / reveal-both / next round unchanged.
 - Scoring unchanged (either seat's reveal still scores for both) but now computed per pack:
   `packPointsRevealed(packIndex)` banks each pack's revealed cards, so the seat totals and the
   per-pack "+points" chip stay correct with both packs open at once.

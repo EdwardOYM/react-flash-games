@@ -10,11 +10,12 @@ export const PACK_BATTLE_PROTOCOL_VERSION = 2
 
 export const PACK_BATTLE_LIMITS = {
   minPacks: 1,
-  maxPacks: 36,
+  /** Packs per player (the lobby stepper counts per seat, not the shared total). */
+  maxPacksPerPlayer: 18,
   cardsPerPack: 6,
   /** Packs unsealed per ceremony round: one per seat, side by side. */
   packsPerPair: 2,
-  /** Exclusive bound for `pairIndex` on the wire (maxPacks / packsPerPair). */
+  /** Exclusive bound for `pairIndex` on the wire (maxPacksPerPlayer * 2 / packsPerPair). */
   maxPairs: 18,
 } as const
 
@@ -33,7 +34,7 @@ export function clampPackBattleSettings(settings: PackBattleSettings): PackBattl
   return {
     set: settings.set,
     packs: Math.min(
-      PACK_BATTLE_LIMITS.maxPacks,
+      PACK_BATTLE_LIMITS.maxPacksPerPlayer,
       Math.max(PACK_BATTLE_LIMITS.minPacks, Math.round(settings.packs)),
     ),
   }
@@ -48,7 +49,7 @@ export function validatePackBattleSettings(value: unknown): value is PackBattleS
     typeof candidate.packs === 'number' &&
     Number.isInteger(candidate.packs) &&
     candidate.packs >= PACK_BATTLE_LIMITS.minPacks &&
-    candidate.packs <= PACK_BATTLE_LIMITS.maxPacks
+    candidate.packs <= PACK_BATTLE_LIMITS.maxPacksPerPlayer
   )
 }
 
