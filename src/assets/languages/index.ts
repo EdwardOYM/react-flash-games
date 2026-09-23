@@ -21,6 +21,8 @@ export type TranslationKey =
   | 'musicCredit'
   | 'artwork'
   | 'artworkCredit'
+  | 'cardBack'
+  | 'cardBackCredit'
   | 'musicOn'
   | 'musicOff'
   | 'sfx'

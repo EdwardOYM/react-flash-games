@@ -20,12 +20,14 @@
 // a physical card turned over. The parent keys one <PokemonCard> per slot, so
 // the same flipper element persists across the reveal; a boolean swaps which
 // side reads legible, never which element exists. Rank/energy overlays ride the
-// face side. The back keeps its own artwork-free gradient (there is no hosted
-// card-back asset on TCGdex — see cardImage.ts), so nothing extra can fail to
-// load mid-flip.
+// face side. The back paints the one bundled raster asset (`cardBackUrl`, CP10)
+// over its gradient, and the gradient + mark stay mounted underneath as both the
+// loading and the failure face: a back whose image has not loaded yet, or whose
+// image failed, reads as the same gradient it did before, so nothing can blank
+// mid-flip and nothing extra has to load for the flip to be correct.
 import { useState } from 'react'
 import { cardIsEnergy, type CardDef } from './cards'
-import { cardFaceShowsText, cardImageUrl } from './cardImage'
+import { cardBackShowsArt, cardBackUrl, cardFaceShowsText, cardImageUrl } from './cardImage'
 import './PokemonCard.css'
 
 type PokemonCardProps = {
@@ -53,6 +55,8 @@ function tintClass(card: CardDef): string {
 export function PokemonCard({ card, faceDown, rarityLabel, faceDownLabel, damage, statuses }: PokemonCardProps) {
   /** Artwork URL that failed to load; a different URL never inherits it. */
   const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  /** CP10: same rule for the bundled card back, keyed by URL for the same reason. */
+  const [failedBackUrl, setFailedBackUrl] = useState<string | null>(null)
 
   const statusList = statuses ?? []
   const artUrl = cardImageUrl(card)
@@ -67,6 +71,19 @@ export function PokemonCard({ card, faceDown, rarityLabel, faceDownLabel, damage
     >
       <div className="pkm-card-flipper" aria-hidden="true">
         <span className="pkm-card-side pkm-card-back">
+          {/* The gradient + mark below always render, so they are the loading
+              state and the failure state of this image (CP10). */}
+          {cardBackShowsArt(cardBackUrl, failedBackUrl) && (
+            <img
+              className="pkm-card-back-art"
+              src={cardBackUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              draggable={false}
+              onError={() => setFailedBackUrl(cardBackUrl)}
+            />
+          )}
           <span className="pkm-card-back-mark">⬢</span>
         </span>
         <span className="pkm-card-side pkm-card-frontface">
