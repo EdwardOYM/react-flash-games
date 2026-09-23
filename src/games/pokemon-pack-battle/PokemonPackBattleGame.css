@@ -1,4 +1,4 @@
-/* Pokemon Pack Battle — co-located styles (960x540 embed-conformant). */
+﻿/* Pokemon Pack Battle — co-located styles (960x540 embed-conformant). */
 .ppb-page { height: 100dvh; min-height: 0; padding: clamp(22px, 4vw, 40px) clamp(20px, 6vw, 72px) 48px; color: #f5f0e8; background: radial-gradient(circle at 72% 16%, #2c3a4d 0, #101820 46%), #101820; overflow-x: hidden; overflow-y: auto; }
 .ppb-topbar { display: flex; justify-content: space-between; align-items: center; width: min(100%, 960px); margin: 0 auto; }
 .ppb-topbar-actions { display: flex; gap: 10px; }
@@ -136,9 +136,23 @@
   .ppb-tier-3 .pkm-card, .ppb-tier-4 .pkm-card, .ppb-tier-5 .pkm-card { animation: none; }
 }
 
-/* 04.1-CP3 summary: tighter totals rhythm + the rematch offer/accept row. */
-.ppb-final-score { margin: 0 0 10px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
-.ppb-summary .ppb-totals { margin: 0 0 22px; }
+/* 04.1-CP4 summary: the summary shell keeps its own smaller card token so a
+ * 36-pack match (108 cards per seat) fits the 960x540 embed with vertical
+ * scrolling only. The ceremony tokens above stay untouched — this variable
+ * lives on `.ppb-shell.ppb-summary` and only reaches the summary grids below
+ * it. NOTE: the older `.ppb-summary` dl grid (lobby settings summary, line 65)
+ * keeps that selector; everything below scopes to the shell element so the two
+ * never collide. */
+.ppb-shell.ppb-summary { display: block; width: min(100%, 960px); --pkm-card-w: clamp(56px, 12vw, 84px); }
+.ppb-summary-title { margin: 0 0 6px; overflow-wrap: anywhere; }
+.ppb-shell.ppb-summary > h1 { font-size: clamp(1.4rem, 4vw, 2.4rem); overflow-wrap: anywhere; }
+.ppb-shell.ppb-summary .ppb-hint { overflow-wrap: anywhere; }
+.ppb-summary-seats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 14px; }
+.ppb-summary-seat { min-width: 0; border: 1px solid #33454a; background: linear-gradient(180deg, rgba(44, 58, 77, .5) 0, rgba(16, 24, 32, .5) 100%); padding: 12px 14px 10px; }
+.ppb-summary-seat .ppb-pack-head { overflow-wrap: anywhere; }
+.ppb-summary-row { grid-template-columns: repeat(auto-fill, minmax(var(--pkm-card-w), 1fr)); gap: 8px; margin: 8px 0 0; align-items: start; }
+.ppb-final-score { margin: 0 0 10px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; overflow-wrap: anywhere; }
+.ppb-shell.ppb-summary .ppb-totals { margin: 0 0 22px; }
 .ppb-rematch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
 .ppb-rematch .ppb-hint { margin: 0; }
 .ppb-rematch button { padding: 10px 14px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
@@ -156,16 +170,22 @@
   /* Settings stack into a single tight column so the start button stays visible. */
   .ppb-fields, .ppb-form { grid-template-columns: 1fr; gap: 8px; }
   .ppb-status { margin: 0 0 8px; }
+  /* Summary shell token shrinks with the short viewport so the 108-card seat
+   * grids keep reflowing instead of widening the page. The shell itself keeps
+   * the `.ppb-shell` cage above (margin + scroll), so no display/grid rule is
+   * re-declared here — only the token. */
+  .ppb-shell.ppb-summary { --pkm-card-w: clamp(48px, 9vh, 72px); }
   .ppb-code-row { margin: 0 0 8px; gap: 8px; }
   .ppb-input { padding: 8px 10px; }
   .ppb-segmented button, .ppb-stepper button { padding: 7px 10px; }
-  .ppb-summary { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0 0 8px; }
   /* Summary/highscore fit the short viewport; totals stay tight. */
-  .ppb-summary .ppb-totals { margin: 0 0 10px; }
+  .ppb-shell.ppb-summary .ppb-totals { margin: 0 0 10px; }
   .ppb-rematch { margin: 0 0 8px; }
   .ppb-highscore .highscore-table { max-height: max(120px, calc(100dvh - 244px)); overflow-y: auto; overscroll-behavior: contain; }
   /* Ceremony: compact side-by-side packs (3x2 each) so both packs, the totals
-   * and the action row all fit the short viewport without scrolling. */
+   * and the action row all fit the short viewport without scrolling. The
+   * summary answers to the same cage: its own smaller token plus the shell's
+   * vertical scroll keeps every rematch/highscore/leave control reachable. */
   .ppb-page, .ppb-pair { --pkm-card-w: clamp(52px, 11vh, 92px); }
   .ppb-card-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 12px; }
   .ppb-pair { gap: 8px; margin: 0 0 8px; }
@@ -183,8 +203,12 @@
   .ppb-fields { grid-template-columns: 1fr; }
   .ppb-page { --pkm-card-w: clamp(96px, 26vw, 140px); }
   .ppb-card-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  /* Portrait cannot hold two packs abreast: stack the round's packs. */
+  /* Portrait cannot hold two packs abreast: stack the round's packs. The
+   * summary answers in the same single column so one seat's 108 cards never
+   * squeeze beside the other's. */
   .ppb-pair { grid-template-columns: 1fr; }
+  .ppb-shell.ppb-summary { --pkm-card-w: clamp(84px, 24vw, 110px); }
+  .ppb-summary-seats { grid-template-columns: 1fr; }
   .ppb-pair .ppb-card-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ppb-packs-left { display: none; }
   .ppb-highscore .highscore-table-head, .ppb-highscore .highscore-row { grid-template-columns: 44px minmax(0, 1fr) 56px; gap: 10px; }
