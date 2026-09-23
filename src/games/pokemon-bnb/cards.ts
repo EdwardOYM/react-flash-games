@@ -112,7 +112,7 @@ export function isBasicPokemon(card: CardDef): boolean {
 }
 
 export function cardRarityRank(rarity: CardRarity): number {
-  const order: CardRarity[] = ['common', 'rare', 'double rare', 'illustration rare', 'pikachu rare', 'special illustration rare', 'futuristic rare']
+  const order: CardRarity[] = ['common', 'rare', 'pikachu rare', 'double rare', 'illustration rare', 'special illustration rare', 'futuristic rare']
   return order.indexOf(rarity)
 }
 
@@ -120,4 +120,4 @@ export function isUncommonOrBetter(card: CardDef): boolean {
   return cardRarityRank(card.rarity) >= cardRarityRank('rare')
 }
 
-export const RARITY_ORDER: CardRarity[] = ['common', 'rare', 'double rare', 'illustration rare', 'pikachu rare', 'special illustration rare', 'futuristic rare']
+export const RARITY_ORDER: CardRarity[] = ['common', 'rare', 'pikachu rare', 'double rare', 'illustration rare', 'special illustration rare', 'futuristic rare']

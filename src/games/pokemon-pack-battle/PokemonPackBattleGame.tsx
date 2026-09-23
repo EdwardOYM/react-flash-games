@@ -918,7 +918,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   // and tier-0..5 flair rides the revealed card cell.
   if (view === 'opening') {
     const pairIndexes = packIndexesInPair(cursor.pairIndex, totalPacks)
-    const packsLeft = Math.max(0, totalPacks - (cursor.pairIndex + 1) * PACKS_PER_PAIR)
+    const packsLeft = Math.max(0, settings.packs - (cursor.pairIndex + 1))
     return (
       <main className="ppb-page ppb-opening-page">
         <header className="ppb-topbar">
