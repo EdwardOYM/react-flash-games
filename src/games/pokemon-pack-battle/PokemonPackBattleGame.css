@@ -114,6 +114,28 @@
 .ppb-ceremony-actions { align-items: center; margin: 0 0 12px; min-height: 38px; }
 .ppb-ceremony-hint { flex: 1 1 220px; }
 
+/* 04.1-CP2 ceremony motion: the shared `.pkm-card-flipper` .55s transition stays
+ * the only flip implementation — these rules only stage entrances around it.
+ * The sealed pack pops in per round; the six slots rise with a ~40 ms stagger
+ * when they mount on unseal (`opened` flips false -> true, so the entrance
+ * plays exactly once and a later `revealedAnim` re-render never restarts it). Tier flair + the +points
+ * chip are gated on the cascaded `revealed` flag in the component, so flair can
+ * never precede the flip. Opacity/transform only — no box metric is touched. */
+.ppb-sealed { animation: ppb-sealed-in .3s ease-out; }
+.ppb-row-open .ppb-card-cell { animation: ppb-slot-in .3s ease-out backwards; }
+.ppb-row-open .ppb-slot-0 { animation-delay: 0ms; }
+.ppb-row-open .ppb-slot-1 { animation-delay: 40ms; }
+.ppb-row-open .ppb-slot-2 { animation-delay: 80ms; }
+.ppb-row-open .ppb-slot-3 { animation-delay: 120ms; }
+.ppb-row-open .ppb-slot-4 { animation-delay: 160ms; }
+.ppb-row-open .ppb-slot-5 { animation-delay: 200ms; }
+@keyframes ppb-sealed-in { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
+@keyframes ppb-slot-in { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .ppb-sealed, .ppb-row-open .ppb-card-cell { animation: none; }
+  .ppb-tier-3 .pkm-card, .ppb-tier-4 .pkm-card, .ppb-tier-5 .pkm-card { animation: none; }
+}
+
 /* CP5 results: tighter totals rhythm + the rematch offer/accept row. */
 .ppb-final-score { margin: 0 0 10px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
 .ppb-results .ppb-totals { margin: 0 0 22px; }

@@ -124,6 +124,17 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
    * revealed so far, applied to both packs of the pair at once.
    */
   const [cursor, setCursor] = useState({ pairIndex: 0, cardIndex: 0, opened: false })
+  /**
+   * 04.1-CP2 reveal cascade: `revealedAnim` ramps to the shared
+   * `cursor.cardIndex` at ~120 ms per card, so "Reveal both packs" flips in
+   * sequence instead of six at once. Per-card visuals read
+   * `min(cursor.cardIndex, revealedAnim)`; totals stay on the shared cursor so
+   * scoring never lags the wire. Snaps (no ramp) on pair change, while sealed,
+   * and under `prefers-reduced-motion`.
+   */
+  const [revealedAnim, setRevealedAnim] = useState(0)
+  const cascadePairRef = useRef(0)
+  const cascadeTimerRef = useRef<number | null>(null)
   /** One-shot guard so the completed battle reports its score exactly once. */
   const battleDoneSentRef = useRef(false)
   /** CP5 rematch handshake: the guest offers, the host grants (fresh seed). */
@@ -140,6 +151,14 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     rematchSentRef.current = false
     setRematchSent(false)
     setRematchOffered(false)
+    // 04.1-CP2: the cascade ramp belongs to one round — drop it so a rematch
+    // or a re-seed starts sealed with no leftover timers.
+    cascadePairRef.current = 0
+    if (cascadeTimerRef.current !== null) {
+      window.clearTimeout(cascadeTimerRef.current)
+      cascadeTimerRef.current = null
+    }
+    setRevealedAnim(0)
   }, [])
 
   const sessionRef = useRef<PackBattleSessionBase | null>(null)
@@ -402,6 +421,51 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     cursorRef.current = cursor
     messageHandlerRef.current = readMessage
   })
+
+  /**
+   * 04.1-CP2 reveal cascade. The shared `cursor.cardIndex` is source of
+   * truth for scoring and the wire; `revealedAnim` trails it one card per
+   * ~120 ms so a mass reveal reads as a sequence (CSS stagger is static —
+   * delay per cell — and cannot trail shared state, hence a timer ramp).
+   * Snap (no ramp) when: the round changes, the packs are (re)sealed, the
+   * gap is > 1 (a re-dial catch-up jumping ahead), or the OS asks for
+   * reduced motion. Cleanup clears the pending step so an unmounted or
+   * re-rendered ceremony never flips a stale card.
+   */
+  useEffect(() => {
+    if (cascadeTimerRef.current !== null) {
+      window.clearTimeout(cascadeTimerRef.current)
+      cascadeTimerRef.current = null
+    }
+    const reduceMotion = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const snap = !cursor.opened
+      || cursor.pairIndex !== cascadePairRef.current
+      || cursor.cardIndex - revealedAnim > 1
+      || cursor.cardIndex < revealedAnim
+      || reduceMotion
+    cascadePairRef.current = cursor.pairIndex
+    if (snap) {
+      // Snap path: cascadePairRef tracks the round, and the queued microtask
+      // applies the jump outside this effect (lint-clean, no sync setState).
+      if (revealedAnim === cursor.cardIndex) return
+      const target = cursor.cardIndex
+      queueMicrotask(() => setRevealedAnim(target))
+      return
+    }
+    if (revealedAnim >= cursor.cardIndex) return
+    cascadeTimerRef.current = window.setTimeout(() => {
+      cascadeTimerRef.current = null
+      setRevealedAnim((prev) => Math.min(prev + 1, cursor.cardIndex))
+    }, 120)
+    return () => {
+      if (cascadeTimerRef.current !== null) {
+        window.clearTimeout(cascadeTimerRef.current)
+        cascadeTimerRef.current = null
+      }
+    }
+  }, [cursor, revealedAnim])
 
   // Re-announce our display name when it changes after the channel opens, so
   // the other seat's status line stays correct (reuses the hello handshake).
@@ -910,7 +974,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
                       </span>
                     )}
                   </header>
-                  <ol className="ppb-card-row">
+                  <ol className={`ppb-card-row${cursor.opened ? ' ppb-row-open' : ''}`}>
                     {!cursor.opened && (
                       <li className="ppb-sealed-cell">
                         <button
@@ -925,12 +989,15 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
                       </li>
                     )}
                     {packCards.map((opened, index) => {
-                      const revealed = index < cursor.cardIndex
+                      // 04.1-CP2: visuals trail the shared cursor through the
+                      // cascade (`revealedAnim` ramps at ~120 ms/card); totals
+                      // and the wire read `cursor.cardIndex` directly.
+                      const revealed = index < Math.min(cursor.cardIndex, revealedAnim)
                       const points = pointsForCard(opened.card)
                       return (
                         <li
                           key={`${packIndex}-${opened.card.id}-${index}`}
-                          className={`ppb-card-cell ppb-tier-${tierForCard(opened.card)}`}
+                          className={`ppb-card-cell ppb-tier-${revealed ? tierForCard(opened.card) : 0} ppb-slot-${index}`}
                         >
                           {revealed ? (
                             <PokemonCard card={opened.card} rarityLabel={rarityLabel(opened.card.rarity)} />
