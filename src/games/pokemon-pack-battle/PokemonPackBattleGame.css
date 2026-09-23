@@ -82,7 +82,7 @@
 .ppb-pack-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 8px; }
 .ppb-pack-owner { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; overflow-wrap: anywhere; }
 .ppb-pack-points { color: #7ee0a7; font-family: 'DM Mono', monospace; font-size: .7rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ppb-sealed { grid-column: 1 / -1; width: min(150px, 55%); aspect-ratio: 8 / 11; margin: 6px auto 12px; display: grid; place-items: center; border: 1px solid #ffc857; border-radius: 10px; background: radial-gradient(circle at 50% 38%, #2c3a4d 0, #101820 68%); color: #ffc857; font-size: 3rem; }
+.ppb-sealed { grid-column: 1 / -1; width: var(--pkm-card-w); aspect-ratio: 8 / 11; margin: 6px auto 12px; display: grid; place-items: center; border: 1px solid #ffc857; border-radius: 10px; background: radial-gradient(circle at 50% 38%, #2c3a4d 0, #101820 68%); color: #ffc857; font-size: 3rem; }
 .ppb-card-row { list-style: none; margin: 16px 0 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--pkm-card-w, 148px), 1fr)); gap: 12px; align-items: start; justify-items: center; }
 /* Each pack shows its six slots as two rows of three so both packs fit the 16:9 stage. */
 .ppb-pair .ppb-card-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 6px; }
@@ -191,7 +191,7 @@
   .ppb-pair { gap: 8px; margin: 0 0 8px; }
   .ppb-pack { padding: 8px 10px 2px; }
   .ppb-pack-head { margin: 0 0 6px; }
-  .ppb-sealed { width: min(90px, 18vh); margin: 4px auto 8px; font-size: 2.2rem; }
+  .ppb-sealed { width: var(--pkm-card-w); margin: 4px auto 8px; font-size: 2.2rem; }
   .ppb-totals { gap: 8px; margin: 0 0 8px; }
   .ppb-total { padding: 6px 10px; }
   .ppb-total-value { font-size: 1.1rem; }
