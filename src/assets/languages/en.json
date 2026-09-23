@@ -516,6 +516,23 @@
     "rematchAccept": "Accept rematch",
     "errorPeerUnavailable": "Lobby not found. Check the code and try again.",
     "errorVersion": "Version mismatch. Ask both players to reload the latest build.",
-    "errorGeneric": "Connection failed. Check the code or server and try again."
+    "errorGeneric": "Connection failed. Check the code or server and try again.",
+    "ripTitle": "Pack rips",
+    "ripEyebrow": "Open packs by yourself",
+    "ripOpen": "Open packs",
+    "ripResultPacks": "You opened {count} pack{plural}.",
+    "ripResultCards": "You pulled {count} card{plural}.",
+    "ripMorePacks": "Open more packs",
+    "backToPackRip": "Back to pack rips",
+    "ripExit": "Exit pack rips",
+    "unlockedTitle": "Your unlocked cards",
+    "unlockedEyebrow": "Every card you have opened",
+    "unlockedSet": "Card set",
+    "unlockedPlayer": "Player",
+    "unlockedNoPlayers": "No collection yet. Open a pack first.",
+    "unlockedEmpty": "No cards opened in this set yet.",
+    "unlockedBack": "Back",
+    "collectionSaved": "Your pack {player} pulled is saved.",
+    "rip": "Pack rips"
   }
 }

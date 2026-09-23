@@ -524,6 +524,23 @@ type PackBattleTranslationKey =
   | 'rematchWaiting'
   | 'rematchReceived'
   | 'rematchAccept'
+  | 'ripTitle'
+  | 'ripEyebrow'
+  | 'ripOpen'
+  | 'ripResultPacks'
+  | 'ripResultCards'
+  | 'ripMorePacks'
+  | 'backToPackRip'
+  | 'ripExit'
+  | 'unlockedTitle'
+  | 'unlockedEyebrow'
+  | 'unlockedSet'
+  | 'unlockedPlayer'
+  | 'unlockedNoPlayers'
+  | 'unlockedEmpty'
+  | 'unlockedBack'
+  | 'collectionSaved'
+  | 'rip'
 
 const dictionaries: Record<Locale, TranslationDictionary> = { en, ms, zh }
 

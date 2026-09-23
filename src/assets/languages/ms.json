@@ -517,6 +517,23 @@
     "rank": "Kedudukan",
     "player": "Pemain",
     "wins": "Kemenangan",
-    "noScores": "Tiada pertarungan direkodkan lagi."
+    "noScores": "Tiada pertarungan direkodkan lagi.",
+    "ripTitle": "Pek rip",
+    "ripEyebrow": "Buka pek sendirian",
+    "ripOpen": "Buka pek",
+    "ripResultPacks": "Anda membuka {count} pek{pelandak}.",
+    "ripResultCards": "Anda menari {count} kad{pelandak}.",
+    "ripMorePacks": "Buka pek lagi",
+    "backToPackRip": "Kembali ke pek rip",
+    "ripExit": "Keluar pek rip",
+    "unlockedTitle": "Kad yang anda buka",
+    "unlockedEyebrow": "Setiap kad yang anda sudah buka",
+    "unlockedSet": "Set kad",
+    "unlockedPlayer": "Pemain",
+    "unlockedNoPlayers": "Tiada koleksi lagi. Buka pek dahulu.",
+    "unlockedEmpty": "Tiada kad dibuka dalam set ini lagi.",
+    "unlockedBack": "Kembali",
+    "collectionSaved": "Pek {player} yang anda tarik tersimpan.",
+    "rip": "Pek rip"
   }
 }
