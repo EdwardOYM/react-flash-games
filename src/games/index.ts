@@ -19,7 +19,7 @@ export const games: GameDefinition[] = [
   // { id: 'memory', titleKey: 'games.memory', icon: '✦', statusKey: 'gameStatus.comingSoon', inspirationKey: 'gameInspiration.memory' },
   { id: 'bubble-trouble', titleKey: 'games.bubbleTrouble', icon: '◌', statusKey: 'gameStatus.ready', inspirationKey: 'gameInspiration.bubbleTrouble', page: 'bubble-trouble' },
   { id: 'tron', titleKey: 'games.tron', icon: '◮', statusKey: 'gameStatus.ready', inspirationKey: 'gameInspiration.tron', page: 'tron' },
-  { id: 'pokemon-bnb', titleKey: 'games.pokemonBnbMini', icon: '⬢', statusKey: 'gameStatus.ready', inspirationKey: 'gameInspiration.pokemonBnbMini', page: 'pokemon-bnb' },
+  // { id: 'pokemon-bnb', titleKey: 'games.pokemonBnbMini', icon: '⬢', statusKey: 'gameStatus.ready', inspirationKey: 'gameInspiration.pokemonBnbMini', page: 'pokemon-bnb' },
   { id: 'pokemon-pack-battle', titleKey: 'games.pokemonPackBattle', icon: '◈', statusKey: 'gameStatus.ready', inspirationKey: 'gameInspiration.pokemonPackBattle', page: 'pokemon-pack-battle' },
 ]
 
