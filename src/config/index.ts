@@ -17,6 +17,7 @@ export type AppConfig = {
     mobileControls: { movement: MobileControlPosition; shoot: MobileControlPosition }
   }
   highscores: Record<string, ConfigHighscore[]>
+  openedCards: Record<string, string[]>
 }
 
 const STORAGE_KEY = 'flash-games.config'
@@ -24,6 +25,7 @@ const defaultConfig: AppConfig = {
   version: defaultConfigJson.version,
   settings: { ...defaultConfigJson.settings, locale: defaultConfigJson.settings.locale as ConfigLocale, keybindings: { ...defaultConfigJson.settings.keybindings } },
   highscores: defaultConfigJson.highscores as Record<string, ConfigHighscore[]>,
+  openedCards: defaultConfigJson.openedCards as Record<string, string[]>,
 }
 
 function mergeConfig(value: Partial<AppConfig>): AppConfig {
@@ -47,6 +49,7 @@ function mergeConfig(value: Partial<AppConfig>): AppConfig {
       },
     },
     highscores: { ...defaultConfig.highscores, ...value.highscores },
+    openedCards: { ...defaultConfig.openedCards, ...value.openedCards },
   }
 }
 
