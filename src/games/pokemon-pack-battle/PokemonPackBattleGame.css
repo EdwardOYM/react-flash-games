@@ -98,6 +98,22 @@
 .ppb-tier-5 .pkm-card { box-shadow: 0 0 20px rgba(245, 240, 232, .6); animation: ppb-tier-pulse 1.2s ease-in-out infinite; }
 @keyframes ppb-tier-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
 
+/* 04.1-CP1: the ceremony is clickable — the sealed pack and every face-down card
+ * are real buttons, so the row that stays a control (skip the rest of the pack /
+ * next packs) now sits above the packs, between the totals and the pair. The new
+ * wrappers only re-declare placement, never a metric: `* { box-sizing: border-box }`
+ * is global, so the sealed button keeps the exact box the li had, and the card
+ * button is a bare block that lets .pkm-card keep its own width and centring. */
+.ppb-sealed-cell { grid-column: 1 / -1; display: grid; place-items: center; margin: 0; padding: 0; }
+.ppb-sealed { padding: 0; cursor: pointer; }
+.ppb-sealed:hover, .ppb-sealed:focus-visible { box-shadow: 0 0 0 2px #f5f0e8; }
+.ppb-sealed:focus-visible { outline: none; }
+.ppb-card-button { display: block; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 10px; background: transparent; color: inherit; font: inherit; text-align: inherit; appearance: none; -webkit-appearance: none; cursor: pointer; }
+.ppb-card-button:hover .pkm-card, .ppb-card-button:focus-visible .pkm-card { box-shadow: 0 0 0 2px rgba(255, 200, 87, .55); }
+.ppb-card-button:focus-visible { outline: none; }
+.ppb-ceremony-actions { align-items: center; margin: 0 0 12px; min-height: 38px; }
+.ppb-ceremony-hint { flex: 1 1 220px; }
+
 /* CP5 results: tighter totals rhythm + the rematch offer/accept row. */
 .ppb-final-score { margin: 0 0 10px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
 .ppb-results .ppb-totals { margin: 0 0 22px; }

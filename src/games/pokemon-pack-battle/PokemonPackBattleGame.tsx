@@ -870,6 +870,20 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
               <span className="ppb-total-value">{totals.guest}</span>
             </div>
           </div>
+          {!ceremonyComplete && (
+            <div className="ppb-actions ppb-ceremony-actions">
+              {!cursor.opened && <p className="ppb-hint ppb-ceremony-hint">{translate('packBattle.ceremonyOpenHint')}</p>}
+              {cursor.opened && cursor.cardIndex < PACK_BATTLE_LIMITS.cardsPerPack && (
+                <>
+                  <p className="ppb-hint ppb-ceremony-hint">{translate('packBattle.ceremonyRevealHint')}</p>
+                  <button type="button" onClick={revealAllPack}>{translate('packBattle.actionRevealPack')}</button>
+                </>
+              )}
+              {cursor.opened && cursor.cardIndex >= PACK_BATTLE_LIMITS.cardsPerPack && (
+                <button className="ppb-primary" type="button" onClick={nextPair}>{translate('packBattle.actionNextPack')}</button>
+              )}
+            </div>
+          )}
           <div
             className="ppb-pair"
             role="group"
@@ -898,8 +912,16 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
                   </header>
                   <ol className="ppb-card-row">
                     {!cursor.opened && (
-                      <li className="ppb-sealed" role="img" aria-label={translate('packBattle.sealedPackLabel')}>
-                        <span aria-hidden="true">⬢</span>
+                      <li className="ppb-sealed-cell">
+                        <button
+                          className="ppb-sealed"
+                          type="button"
+                          title={translate('packBattle.sealedPackLabel')}
+                          aria-label={substituteParams(translate('packBattle.openPackLabel'), { name: owner })}
+                          onClick={openPack}
+                        >
+                          <span aria-hidden="true">⬢</span>
+                        </button>
                       </li>
                     )}
                     {packCards.map((opened, index) => {
@@ -910,12 +932,18 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
                           key={`${packIndex}-${opened.card.id}-${index}`}
                           className={`ppb-card-cell ppb-tier-${tierForCard(opened.card)}`}
                         >
-                          <PokemonCard
-                            card={opened.card}
-                            faceDown={!revealed}
-                            rarityLabel={revealed ? rarityLabel(opened.card.rarity) : undefined}
-                            faceDownLabel={translate('packBattle.cardFaceDown')}
-                          />
+                          {revealed ? (
+                            <PokemonCard card={opened.card} rarityLabel={rarityLabel(opened.card.rarity)} />
+                          ) : (
+                            <button
+                              className="ppb-card-button"
+                              type="button"
+                              aria-label={substituteParams(translate('packBattle.revealCardLabel'), { index: String(index + 1), total: String(PACK_BATTLE_LIMITS.cardsPerPack), name: owner })}
+                              onClick={revealNext}
+                            >
+                              <PokemonCard card={opened.card} faceDown faceDownLabel={translate('packBattle.cardFaceDown')} />
+                            </button>
+                          )}
                           {revealed && points > 0 && (
                             <span
                               className="ppb-card-points"
@@ -934,22 +962,6 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
           </div>
           {noticeText && <p className="ppb-notice" role="status">{noticeText}</p>}
           {errorKey && <p className="ppb-error" role="alert">{translate(errorKey)}</p>}
-          {!ceremonyComplete && (
-            <div className="ppb-actions">
-              {!cursor.opened && (
-                <button className="ppb-primary" type="button" onClick={openPack}>{translate('packBattle.actionOpenPack')}</button>
-              )}
-              {cursor.opened && cursor.cardIndex < PACK_BATTLE_LIMITS.cardsPerPack && (
-                <>
-                  <button className="ppb-primary" type="button" onClick={revealNext}>{translate('packBattle.actionRevealCard')}</button>
-                  <button type="button" onClick={revealAllPack}>{translate('packBattle.actionRevealPack')}</button>
-                </>
-              )}
-              {cursor.opened && cursor.cardIndex >= PACK_BATTLE_LIMITS.cardsPerPack && (
-                <button className="ppb-primary" type="button" onClick={nextPair}>{translate('packBattle.actionNextPack')}</button>
-              )}
-            </div>
-          )}
           <p className="ppb-hint">{matchSeed === null ? '' : substituteParams(translate('packBattle.seedShared'), { seed: String(matchSeed) })}</p>
         </div>
       </main>
