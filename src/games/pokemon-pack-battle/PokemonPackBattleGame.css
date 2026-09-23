@@ -136,9 +136,9 @@
   .ppb-tier-3 .pkm-card, .ppb-tier-4 .pkm-card, .ppb-tier-5 .pkm-card { animation: none; }
 }
 
-/* CP5 results: tighter totals rhythm + the rematch offer/accept row. */
+/* 04.1-CP3 summary: tighter totals rhythm + the rematch offer/accept row. */
 .ppb-final-score { margin: 0 0 10px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
-.ppb-results .ppb-totals { margin: 0 0 22px; }
+.ppb-summary .ppb-totals { margin: 0 0 22px; }
 .ppb-rematch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
 .ppb-rematch .ppb-hint { margin: 0; }
 .ppb-rematch button { padding: 10px 14px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
@@ -160,8 +160,8 @@
   .ppb-input { padding: 8px 10px; }
   .ppb-segmented button, .ppb-stepper button { padding: 7px 10px; }
   .ppb-summary { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0 0 8px; }
-  /* Results/highscore fit the short viewport; totals stay tight. */
-  .ppb-results .ppb-totals { margin: 0 0 10px; }
+  /* Summary/highscore fit the short viewport; totals stay tight. */
+  .ppb-summary .ppb-totals { margin: 0 0 10px; }
   .ppb-rematch { margin: 0 0 8px; }
   .ppb-highscore .highscore-table { max-height: max(120px, calc(100dvh - 244px)); overflow-y: auto; overscroll-behavior: contain; }
   /* Ceremony: compact side-by-side packs (3x2 each) so both packs, the totals

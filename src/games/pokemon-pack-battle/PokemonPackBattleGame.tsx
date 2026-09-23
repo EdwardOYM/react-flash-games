@@ -21,7 +21,7 @@ import {
   seatForPack,
   type BattleOpenedCard,
 } from './battlePack'
-import { pointsForCard, tierForCard } from './scoring'
+import { pointsForCard, sortCardsByRarity, tierForCard } from './scoring'
 import { createPackBattleRng } from './rng'
 import { PokemonCard } from '../pokemon-bnb/PokemonCard'
 import {
@@ -55,7 +55,7 @@ const packBattleKeyBindings: AdditionalKeyBinding[] = [
   { id: 'pokemon-pack-skip', labelKey: 'keyNames.skip', defaultKey: 'S' },
 ]
 
-type View = 'start' | 'tutorial' | 'lobby' | 'lobbyJoin' | 'opening' | 'results' | 'highscore'
+type View = 'start' | 'tutorial' | 'lobby' | 'lobbyJoin' | 'opening' | 'summary' | 'highscore'
 
 type PokemonPackBattleProps = {
   locale?: Locale
@@ -622,9 +622,21 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     setCursor({ pairIndex: next, cardIndex: 0, opened: true })
   }
 
-  // CP4/CP5 completion: report this seat's own total exactly once, record the
+  /**
+   * 04.1-CP3 click gate: the last round holds fully revealed until the player
+   * chooses to leave it for the summary (no wire message needed — every card
+   * is shared data and both seats' totals are derived locally).
+   */
+  const seeAllSummary = () => {
+    if (!ceremonyComplete) return
+    setView('summary')
+  }
+
+  // 04.1-CP3 completion: report this seat's own total exactly once, record the
   // winner's tally once per device (a draw records nothing; both seats compute
-  // the same totals, so both record consistently), then route to the results.
+  // the same totals, so both record consistently). The ceremony then holds on
+  // the completed last round behind the click gate (`actionSeeAll`) — it no
+  // longer routes away on its own.
   useEffect(() => {
     if (view !== 'opening' || !ceremonyComplete || battleDoneSentRef.current) return
     battleDoneSentRef.current = true
@@ -640,7 +652,6 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
         recordPackBattleWin(winnerName)
       }
     }
-    setView('results')
     // The one-shot guard makes re-runs no-ops; refs hold the freshest names.
   }, [view, ceremonyComplete, role, totals, translate])
 
@@ -948,6 +959,37 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
               )}
             </div>
           )}
+          {/* The last round holds fully revealed behind the click gate: only then
+              does the summary become reachable. */}
+          {ceremonyComplete && (
+            <div className="ppb-actions ppb-ceremony-actions">
+              <p className="ppb-hint ppb-ceremony-hint">{translate('packBattle.ceremonyDone')}</p>
+              <button className="ppb-primary" type="button" onClick={seeAllSummary}>{translate('packBattle.actionSeeAll')}</button>
+            </div>
+          )}
+          {ceremonyComplete && (
+            <>
+              {isHost && rematchOffered && (
+                <div className="ppb-rematch">
+                  <p className="ppb-hint">{substituteParams(translate('packBattle.rematchReceived'), { name: seatName('guest') })}</p>
+                  <button className="ppb-primary" type="button" onClick={acceptRematch}>{translate('packBattle.rematchAccept')}</button>
+                </div>
+              )}
+              <div className="ppb-actions">
+                {isHost
+                  ? (
+                    <button className="ppb-primary" type="button" disabled={status !== 'connected'} onClick={acceptRematch}>
+                      {translate('packBattle.actionNewPacks')}
+                    </button>
+                  )
+                  : (
+                    rematchSent
+                      ? <span className="ppb-waiting" aria-live="polite">{substituteParams(translate('packBattle.rematchWaiting'), { name: seatName('host') })}</span>
+                      : <button className="ppb-primary" type="button" disabled={status !== 'connected'} onClick={requestRematch}>{translate('packBattle.rematchOffer')}</button>
+                  )}
+              </div>
+            </>
+          )}
           <div
             className="ppb-pair"
             role="group"
@@ -1035,13 +1077,43 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     )
   }
 
-  // CP5 results: victory / defeat / draw from the shared totals. Every path out
-  // is offered: rematch (guest offer / host accept, or the host's direct
-  // new-packs reseed — both run a fresh seed through the lobby-start
-  // handshake), the shared highscore table, and back to start.
-  if (view === 'results') {
+  // 04.1-CP3 summary: victory / defeat / draw from the shared totals, then each
+  // seat's opened cards sorted rarest-first (the odd-count tail pack's cards
+  // appear in both columns). Every path out is offered: rematch (guest offer /
+  // host accept, or the host's direct new-packs reseed — both run a fresh seed
+  // through the lobby-start handshake), the shared highscore table, and leave.
+  // Rematch is actionable from here; the completed ceremony stays behind the
+  // click gate so either seat can move the match forward.
+  if (view === 'summary') {
     const winner: 'host' | 'guest' | null = totals.host > totals.guest ? 'host' : totals.guest > totals.host ? 'guest' : null
     const won = winner !== null && winner === (role === 'guest' ? 'guest' : 'host')
+    const seatCards: Record<'host' | 'guest', BattleOpenedCard[]> = { host: [], guest: [] }
+    for (let packIndex = 0; packIndex < totalPacks; packIndex++) {
+      const seat = seatForPack(packIndex, totalPacks)
+      const cards = battlePacks.slice(packIndex * PACK_BATTLE_LIMITS.cardsPerPack, packIndex * PACK_BATTLE_LIMITS.cardsPerPack + PACK_BATTLE_LIMITS.cardsPerPack)
+      if (seat === 'host' || seat === 'both') seatCards.host.push(...cards)
+      if (seat === 'guest' || seat === 'both') seatCards.guest.push(...cards)
+    }
+    const ranked: Record<'host' | 'guest', BattleOpenedCard[]> = {
+      host: sortCardsByRarity(seatCards.host),
+      guest: sortCardsByRarity(seatCards.guest),
+    }
+    const renderSummaryCard = (opened: BattleOpenedCard, index: number) => {
+      const points = pointsForCard(opened.card)
+      return (
+        <li key={`${opened.card.id}-${index}`} className={`ppb-card-cell ppb-tier-${tierForCard(opened.card)}`}>
+          <PokemonCard card={opened.card} rarityLabel={rarityLabel(opened.card.rarity)} />
+          {points > 0 && (
+            <span
+              className="ppb-card-points"
+              aria-label={substituteParams(translate('packBattle.cardPoints'), { points: String(points) })}
+            >
+              +{points}
+            </span>
+          )}
+        </li>
+      )
+    }
     return (
       <main className="ppb-page">
         <header className="ppb-topbar">
@@ -1051,7 +1123,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
             <button type="button" onClick={onExit}>{translate('packBattle.exit')}</button>
           </div>
         </header>
-        <div className="ppb-shell ppb-results">
+        <div className="ppb-shell ppb-summary">
           <p className="eyebrow">{translate('games.pokemonPackBattle')}</p>
           <h1>
             {winner === null
@@ -1070,6 +1142,23 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
               <span className="ppb-total-name">{seatName('guest')}</span>
               <span className="ppb-total-value">{totals.guest}</span>
             </div>
+          </div>
+          <h2 className="ppb-summary-title">{translate('packBattle.summaryTitle')}</h2>
+          <p className="ppb-hint">{translate('packBattle.summaryHint')}</p>
+          <div className="ppb-summary-seats">
+            {(['host', 'guest'] as const).map((slot) => (
+              <section className="ppb-summary-seat" key={slot} aria-label={seatName(slot)}>
+                <header className="ppb-pack-head">
+                  <span className="ppb-pack-owner">{seatName(slot)}</span>
+                  <span className="ppb-pack-points">
+                    {substituteParams(translate('packBattle.packPoints'), { points: String(slot === 'host' ? totals.host : totals.guest) })}
+                  </span>
+                </header>
+                <ol className="ppb-card-row ppb-summary-row">
+                  {ranked[slot].map((opened, index) => renderSummaryCard(opened, index))}
+                </ol>
+              </section>
+            ))}
           </div>
           {isHost && rematchOffered && (
             <div className="ppb-rematch">
@@ -1101,8 +1190,8 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   }
 
   // CP5 highscores: the shared table over this device's pokemon-pack-battle
-  // bucket (lifetime wins per player), reachable from the results and
-  // leaveable back to them.
+  // bucket (lifetime wins per player), reachable from the summary and
+  // leaveable back to it.
   if (view === 'highscore') {
     return (
       <main className="ppb-page">
@@ -1126,7 +1215,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
             }}
           />
           <div className="ppb-actions">
-            <button type="button" onClick={() => setView(matchSeed !== null ? 'results' : 'start')}>{translate('packBattle.back')}</button>
+            <button type="button" onClick={() => setView(matchSeed !== null ? 'summary' : 'start')}>{translate('packBattle.back')}</button>
           </div>
         </div>
       </main>

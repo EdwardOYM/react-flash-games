@@ -65,3 +65,21 @@ export function pointsForCard(card: CardDef): number {
 export function scorePack(cards: CardDef[]): number {
   return cards.reduce((total, card) => total + pointsForCard(card), 0)
 }
+
+/**
+ * 04.1-CP3 summary order: engine rarity rank, rarest first. Synthetic basic
+ * energies are `common`, so they sink with the commons. Stable within a
+ * rarity (Array sort is stable), so equal-rarity cards keep ceremony order.
+ */
+export function rarityRank(card: CardDef): number {
+  if (card.rarity === 'illustrationRare') return 4
+  if (card.rarity === 'ultraRare') return 3
+  if (card.rarity === 'rare') return 2
+  if (card.rarity === 'uncommon') return 1
+  return 0
+}
+
+/** Rarest-first copy of `cards` (never mutates the input). */
+export function sortCardsByRarity<T extends { card: CardDef }>(cards: T[]): T[] {
+  return [...cards].sort((a, b) => rarityRank(b.card) - rarityRank(a.card))
+}

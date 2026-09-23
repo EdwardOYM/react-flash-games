@@ -77,7 +77,7 @@ flowchart TD
         bubble -->|"View union"| views["start / tutorial / loading / playing / paused / remap / gameover / victory / highscore"]
         tron -->|"View union"| tronViews["start / tutorial / loading / playing / paused / gameover / victory / highscore (round-over is an overlay sub-state of playing; stick remap is an in-pause overlay, not a view)"]
         pokemonBnb -->|"View union"| pkmViews["start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused / gameover / victory / highscore (battle tabletop renders from playing; paused solid since CP8; results solid since CP10 — settleMatchOver routes the winning seat to victory, the losing seat to gameover, and highscore is reachable from both results views)"]
-        packBattle -->|"View union"| packViews["start / tutorial / lobby / lobbyJoin / opening / results / highscore (opening renders one pack per seat side by side per round and reveals the matching card slot in both packs at once, with a packs-left counter; either seat reveals both seats)"]
+        packBattle -->|"View union"| packViews["start / tutorial / lobby / lobbyJoin / opening / summary / highscore (opening renders one pack per seat side by side per round and reveals the matching card slot in both packs at once, with a packs-left counter; either seat reveals both seats; the last round holds fully revealed behind a click gate and the summary lists every opened card per seat sorted rarest first)"]
     end
 
     subgraph PERSIST["Data & persistence layer"]
