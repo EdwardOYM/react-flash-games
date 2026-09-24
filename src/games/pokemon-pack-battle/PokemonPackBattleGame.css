@@ -1,3 +1,4 @@
+
 ﻿/* Pokemon Pack Battle — co-located styles (960x540 embed-conformant). */
 .ppb-page { height: 100dvh; min-height: 0; padding: clamp(22px, 4vw, 40px) clamp(20px, 6vw, 72px) 48px; color: #f5f0e8; background: radial-gradient(circle at 72% 16%, #2c3a4d 0, #101820 46%), #101820; overflow-x: hidden; overflow-y: auto; }
 .ppb-topbar { display: flex; justify-content: space-between; align-items: center; width: min(100%, 960px); margin: 0 auto; }
@@ -69,69 +70,61 @@
 .ppb-summary dd { margin: 4px 0 0; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .9rem; }
 @keyframes ppb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
-/* CP4/CP7 opening ceremony: shared cursor stage under the 960x540 embed cap.
- * A round ("pair") shows one pack per seat side by side; when only one pack
- * remains (odd pack count) the pair collapses to that single shared pack. */
+/* 04.2-CP4 ceremony: two simultaneous owned-pack lanes under the 960x540 cap. */
 .ppb-page { --pkm-card-w: clamp(88px, 15vw, 148px); }
+.ppb-opening-page .ppb-shell-lobby { margin-top: clamp(12px, 3vh, 28px); }
+.ppb-opening-page > .ppb-shell-lobby > h1 { font-size: clamp(1.45rem, 4vw, 2.5rem); margin-bottom: 8px; }
+.ppb-opening-page .eyebrow { margin-bottom: 6px; }
 .ppb-packs-left { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; text-transform: uppercase; align-self: center; }
-.ppb-totals { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 18px; }
-.ppb-total { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; border: 1px solid #33454a; background: #16222a; }
+.ppb-totals { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 12px; }
+.ppb-total { display: flex; align-items: baseline; gap: 10px; padding: 8px 12px; border: 1px solid #33454a; background: #16222a; }
 .ppb-total-name { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; text-transform: uppercase; }
-.ppb-total-value { color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
-/* Side-by-side round: two seat columns (one shared column for a lone pack). */
-.ppb-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: clamp(10px, 2vw, 24px); margin: 4px 0 18px; align-items: start; }
-.ppb-pack { min-width: 0; padding: 12px 14px 6px; border: 1px solid #33454a; background: linear-gradient(180deg, rgba(44, 58, 77, .5) 0, rgba(16, 24, 32, .5) 100%); }
+.ppb-total-value { color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.ppb-seat-lanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(10px, 2vw, 20px); align-items: start; }
+.ppb-seat-lane { --pkm-card-w: clamp(82px, 12vw, 128px); min-width: 0; padding: 10px 12px 12px; border: 1px solid #33454a; background: linear-gradient(180deg, rgba(44, 58, 77, .5) 0, rgba(16, 24, 32, .5) 100%); }
+.ppb-seat-lane-local { border-color: #5d6f72; }
+.ppb-seat-lane-shared { grid-column: 1 / -1; }
+.ppb-seat-lane.ppb-seat-lane-shared .ppb-pack-stack { --pkm-card-w: clamp(88px, 13vw, 132px); }
+.ppb-seat-lane.ppb-seat-lane-shared .ppb-pack-stack-expanded { --pkm-card-w: clamp(68px, 8vw, 92px); grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.ppb-seat-lane-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.ppb-seat-lane-name, .ppb-seat-lane-score { font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; overflow-wrap: anywhere; }
+.ppb-seat-lane-name { color: #ffc857; }
+.ppb-seat-lane-score { color: #7ee0a7; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ppb-owned-packs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.ppb-owned-pack { min-width: 30px; min-height: 30px; padding: 5px 7px; border: 1px solid #50676a; color: #aeb9b9; background: transparent; font-family: 'DM Mono', monospace; font-size: .64rem; cursor: pointer; }
+.ppb-owned-pack:hover, .ppb-owned-pack:focus-visible { border-color: #ffc857; color: #ffc857; }
+.ppb-owned-pack:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.ppb-owned-pack-sealed { border-style: dashed; }
+.ppb-owned-pack-open { opacity: .72; }
+.ppb-owned-pack-focused { border-color: #ffc857; color: #101820; background: #ffc857; opacity: 1; }
+.ppb-owned-pack-complete { border-style: solid; }
+.ppb-owned-pack-expanded { box-shadow: inset 0 0 0 1px rgba(255, 200, 87, .35); }
+.ppb-owned-pack:disabled { cursor: not-allowed; }
+.ppb-seat-progress { display: flex; justify-content: space-between; gap: 8px; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .62rem; text-transform: uppercase; }
+.ppb-seat-controls { display: flex; align-items: center; gap: 8px; min-height: 36px; margin: 6px 0 2px; }
+.ppb-seat-controls .ppb-hint { flex: 1 1 auto; margin: 0; font-size: .68rem; }
+.ppb-seat-controls button { padding: 8px 10px; border: 1px solid #ffc857; color: #101820; background: #ffc857; font-family: 'DM Mono', monospace; font-size: .62rem; text-transform: uppercase; cursor: pointer; white-space: nowrap; }
+.ppb-seat-controls button:hover { filter: brightness(1.08); }
+.ppb-seat-controls button:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.ppb-seat-lane .ppb-pack-stack { --pkm-card-w: clamp(82px, 11vw, 118px); width: 100%; min-height: calc(var(--pkm-card-w) * 1.45 + var(--ppb-stack-depth) * 5); margin: 8px auto 0; }
+.ppb-seat-lane .ppb-pack-stack-expanded { --pkm-card-w: clamp(48px, 6vw, 66px); grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.ppb-seat-lane .ppb-pack-stack-expanded .ppb-pack-stack-card { width: min(var(--pkm-card-w, 150px), 100%); justify-self: center; }
+.ppb-stack-points { position: absolute; right: -4px; top: -8px; z-index: 35; padding: 2px 7px; border-radius: 999px; background: #ffc857; color: #101820; font-family: 'DM Mono', monospace; font-size: .62rem; font-weight: 700; }
+.ppb-ceremony-actions { align-items: center; margin: 8px 0; min-height: 38px; }
+.ppb-ceremony-hint { flex: 1 1 220px; }
 .ppb-pack-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 8px; }
 .ppb-pack-owner { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; overflow-wrap: anywhere; }
 .ppb-pack-points { color: #7ee0a7; font-family: 'DM Mono', monospace; font-size: .7rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ppb-sealed { grid-column: 1 / -1; width: var(--pkm-card-w); aspect-ratio: 8 / 11; margin: 6px auto 12px; display: grid; place-items: center; border: 1px solid #ffc857; border-radius: 10px; background: radial-gradient(circle at 50% 38%, #2c3a4d 0, #101820 68%); color: #ffc857; font-size: 3rem; }
 .ppb-card-row { list-style: none; margin: 16px 0 20px; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--pkm-card-w, 148px), 1fr)); gap: 12px; align-items: start; justify-items: center; }
-/* Each pack shows its six slots as two rows of three so both packs fit the 16:9 stage. */
-.ppb-pair .ppb-card-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 6px; }
-.ppb-pair { --pkm-card-w: clamp(72px, 10vw, 118px); }
 .ppb-card-cell { position: relative; margin: 0; padding: 0; min-width: 0; }
 .ppb-card-points { position: absolute; right: -4px; top: -8px; padding: 2px 8px; border-radius: 999px; background: #ffc857; color: #101820; font-family: 'DM Mono', monospace; font-size: .68rem; font-weight: 700; z-index: 1; }
-/* Tier flair tier-0..5 (pointsForCard): 0 plain, 1..3 glow with the revealed
- * rarity; 4/5 are reserved for future finish/special-art tags. */
 .ppb-tier-1 .pkm-card { border-color: #ffc857; }
 .ppb-tier-2 .pkm-card { box-shadow: 0 0 12px rgba(224, 139, 255, .45); }
 .ppb-tier-3 .pkm-card { box-shadow: 0 0 16px rgba(255, 157, 92, .55); animation: ppb-tier-pulse 1.6s ease-in-out infinite; }
 .ppb-tier-4 .pkm-card { box-shadow: 0 0 18px rgba(126, 224, 167, .55); animation: ppb-tier-pulse 1.4s ease-in-out infinite; }
 .ppb-tier-5 .pkm-card { box-shadow: 0 0 20px rgba(245, 240, 232, .6); animation: ppb-tier-pulse 1.2s ease-in-out infinite; }
 @keyframes ppb-tier-pulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.25); } }
-
-/* 04.1-CP1: the ceremony is clickable — the sealed pack and every face-down card
- * are real buttons, so the row that stays a control (skip the rest of the pack /
- * next packs) now sits above the packs, between the totals and the pair. The new
- * wrappers only re-declare placement, never a metric: `* { box-sizing: border-box }`
- * is global, so the sealed button keeps the exact box the li had, and the card
- * button is a bare block that lets .pkm-card keep its own width and centring. */
-.ppb-sealed-cell { grid-column: 1 / -1; display: grid; place-items: center; margin: 0; padding: 0; }
-.ppb-sealed { padding: 0; cursor: pointer; }
-.ppb-sealed:hover, .ppb-sealed:focus-visible { box-shadow: 0 0 0 2px #f5f0e8; }
-.ppb-sealed:focus-visible { outline: none; }
-.ppb-card-button { display: block; width: 100%; margin: 0; padding: 0; border: 0; border-radius: 10px; background: transparent; color: inherit; font: inherit; text-align: inherit; appearance: none; -webkit-appearance: none; cursor: pointer; }
-.ppb-card-button:hover .pkm-card, .ppb-card-button:focus-visible .pkm-card { box-shadow: 0 0 0 2px rgba(255, 200, 87, .55); }
-.ppb-card-button:focus-visible { outline: none; }
-.ppb-ceremony-actions { align-items: center; margin: 0 0 12px; min-height: 38px; }
-.ppb-ceremony-hint { flex: 1 1 220px; }
-
-/* 04.2-CP2 transitional ceremony motion: the shared `.pkm-card-flipper` .55s
- * transition stays the only flip implementation. The temporary focused-pack
- * grid keeps the original one-time unseal/slot entrance rules; per-pack reveal
- * flags now drive faces and points directly, with no presentation cursor. */
-.ppb-sealed { animation: ppb-sealed-in .3s ease-out; }
-.ppb-row-open .ppb-card-cell { animation: ppb-slot-in .3s ease-out backwards; }
-.ppb-row-open .ppb-slot-0 { animation-delay: 0ms; }
-.ppb-row-open .ppb-slot-1 { animation-delay: 40ms; }
-.ppb-row-open .ppb-slot-2 { animation-delay: 80ms; }
-.ppb-row-open .ppb-slot-3 { animation-delay: 120ms; }
-.ppb-row-open .ppb-slot-4 { animation-delay: 160ms; }
-.ppb-row-open .ppb-slot-5 { animation-delay: 200ms; }
-@keyframes ppb-sealed-in { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: scale(1); } }
-@keyframes ppb-slot-in { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
-  .ppb-sealed, .ppb-row-open .ppb-card-cell { animation: none; }
   .ppb-tier-3 .pkm-card, .ppb-tier-4 .pkm-card, .ppb-tier-5 .pkm-card { animation: none; }
 }
 
@@ -181,19 +174,25 @@
   .ppb-shell.ppb-summary .ppb-totals { margin: 0 0 10px; }
   .ppb-rematch { margin: 0 0 8px; }
   .ppb-highscore .highscore-table { max-height: max(120px, calc(100dvh - 244px)); overflow-y: auto; overscroll-behavior: contain; }
-  /* Ceremony: compact side-by-side packs (3x2 each) so both packs, the totals
-   * and the action row all fit the short viewport without scrolling. The
-   * summary answers to the same cage: its own smaller token plus the shell's
-   * vertical scroll keeps every rematch/highscore/leave control reachable. */
-  .ppb-page, .ppb-pair { --pkm-card-w: clamp(52px, 11vh, 92px); }
-  .ppb-card-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 12px; }
-  .ppb-pair { gap: 8px; margin: 0 0 8px; }
-  .ppb-pack { padding: 8px 10px 2px; }
-  .ppb-pack-head { margin: 0 0 6px; }
-  .ppb-sealed { width: var(--pkm-card-w); margin: 4px auto 8px; font-size: 2.2rem; }
-  .ppb-totals { gap: 8px; margin: 0 0 8px; }
-  .ppb-total { padding: 6px 10px; }
-  .ppb-total-value { font-size: 1.1rem; }
+  /* Ceremony lanes stay side by side; compact stack/review tokens keep both
+   * stacks and controls inside the fixed landscape viewport. */
+  .ppb-opening-page .ppb-shell-lobby { margin-top: max(8px, env(safe-area-inset-top)); }
+  .ppb-opening-page > .ppb-shell-lobby > h1 { font-size: clamp(1.2rem, 4vh, 1.65rem); margin-bottom: 4px; }
+  .ppb-opening-page .eyebrow { display: none; }
+  .ppb-seat-lanes { gap: 8px; }
+  .ppb-seat-lane { --pkm-card-w: clamp(52px, 11vh, 78px); padding: 7px 8px 8px; }
+  .ppb-seat-lane .ppb-pack-stack { --pkm-card-w: clamp(52px, 10vh, 76px); margin-top: 5px; }
+  .ppb-seat-lane .ppb-pack-stack-expanded { --pkm-card-w: clamp(40px, 10vh, 52px); grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .ppb-seat-lane-head { margin-bottom: 5px; }
+  .ppb-owned-packs { gap: 3px; margin-bottom: 5px; }
+  .ppb-owned-pack { min-width: 24px; min-height: 24px; padding: 3px 5px; }
+  .ppb-seat-progress { font-size: .55rem; }
+  .ppb-seat-controls { min-height: 28px; margin: 3px 0 1px; }
+  .ppb-seat-controls .ppb-hint { font-size: .58rem; }
+  .ppb-seat-controls button { padding: 5px 7px; font-size: .54rem; }
+  .ppb-totals { gap: 8px; margin: 0 0 6px; }
+  .ppb-total { padding: 5px 8px; }
+  .ppb-total-value { font-size: 1.05rem; }
 }
 
 /* Narrow portrait (<=520px): touch-friendly targets, stacked fields. */
@@ -202,13 +201,14 @@
   .ppb-fields { grid-template-columns: 1fr; }
   .ppb-page { --pkm-card-w: clamp(96px, 26vw, 140px); }
   .ppb-card-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  /* Portrait cannot hold two packs abreast: stack the round's packs. The
-   * summary answers in the same single column so one seat's 108 cards never
-   * squeeze beside the other's. */
-  .ppb-pair { grid-template-columns: 1fr; }
+  .ppb-seat-lanes { grid-template-columns: 1fr; }
+  .ppb-seat-lane { --pkm-card-w: clamp(104px, 30vw, 140px); }
+  .ppb-seat-lane .ppb-pack-stack { --pkm-card-w: clamp(104px, 30vw, 140px); }
+  .ppb-seat-lane .ppb-pack-stack-expanded { --pkm-card-w: clamp(84px, 24vw, 110px); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ppb-owned-pack { min-width: 42px; min-height: 42px; }
+  .ppb-seat-controls button { min-height: 42px; }
   .ppb-shell.ppb-summary { --pkm-card-w: clamp(84px, 24vw, 110px); }
   .ppb-summary-seats { grid-template-columns: 1fr; }
-  .ppb-pair .ppb-card-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ppb-packs-left { display: none; }
   .ppb-highscore .highscore-table-head, .ppb-highscore .highscore-row { grid-template-columns: 44px minmax(0, 1fr) 56px; gap: 10px; }
 }

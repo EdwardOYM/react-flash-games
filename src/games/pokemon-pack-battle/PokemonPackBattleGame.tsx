@@ -39,6 +39,7 @@ import {
 import { randomPackBattleSeed } from './rng'
 import { listSets } from './sets'
 import { LobbyFields } from './LobbyFields'
+import { PackStack } from './PackStack'
 import './PokemonPackBattleGame.css'
 import { PokemonPackRip } from './PokemonPackRip'
 
@@ -492,17 +493,6 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     return rows
   }, [battlePacks])
 
-  /** Points banked by one pack, derived only from that pack's reveal flags. */
-  const packPointsRevealed = useCallback((packIndex: number): number => {
-    const pack = ceremony.packs[packIndex]
-    if (!pack?.opened) return 0
-    let points = 0
-    for (let cardIndex = 0; cardIndex < PACK_BATTLE_LIMITS.cardsPerPack; cardIndex += 1) {
-      if (pack.revealed[cardIndex]) points += packCardPoints[packIndex]?.[cardIndex] ?? 0
-    }
-    return points
-  }, [ceremony, packCardPoints])
-
   /** Running totals per seat, derived from revealed flags (no wire round-trip). */
   const totals = useMemo(
     () => ceremonyTotals(ceremony, totalPacks, packCardPoints),
@@ -512,7 +502,6 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   const ceremonyComplete = battlePacks.length > 0 && isCeremonyComplete(ceremony, totalPacks)
   const hostFocusedPack = focusedPackForSeat(ceremony, totalPacks, 'host')
   const guestFocusedPack = focusedPackForSeat(ceremony, totalPacks, 'guest')
-  const localFocusedPack = role === 'guest' ? guestFocusedPack : hostFocusedPack
   const packsLeft = Math.max(0, totalPacks - ceremony.openedOrder.length)
 
   /** Seat display name: own name, the peer's name, or the role label. */
@@ -541,6 +530,8 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   const openPack = (packIndex: number) => {
     if (ceremonyComplete || ceremony.packs[packIndex]?.opened) return
     if (!seatCanControlPack(packIndex, totalPacks, localSeat)) return
+    const focused = focusedPackForSeat(ceremony, totalPacks, localSeat)
+    if (focused !== null && ceremony.packs[focused]?.revealed.some((revealed) => !revealed)) return
     sessionRef.current?.send({ kind: 'pack-open', packIndex })
     setCeremony((prev) => openCeremonyPack(prev, packIndex, totalPacks))
   }
@@ -883,20 +874,116 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     )
   }
 
-  // CP2 transitional layout: render each seat's latest focused pack. Before a
-  // seat opens one, show its first sealed pack so the new state is playable;
-  // CP4 replaces this pair grid with the owned-pack selectors and shared stacks.
+  // CP4: two independent seat lanes. Each lane renders every owned pack but
+  // only the most recently opened pack gets the shared six-card stack.
   if (view === 'opening') {
-    const firstUnopenedForSeat = (seat: 'host' | 'guest') => {
-      for (let packIndex = 0; packIndex < totalPacks; packIndex += 1) {
-        if (!ceremony.packs[packIndex]?.opened && seatCanControlPack(packIndex, totalPacks, seat)) return packIndex
-      }
-      return null
+    const packsForSeat = (seat: 'host' | 'guest') => Array.from(
+      { length: totalPacks },
+      (_, packIndex) => packIndex,
+    ).filter((packIndex) => seatCanControlPack(packIndex, totalPacks, seat))
+
+    const renderSeatLane = (seat: 'host' | 'guest', shared = false) => {
+      const focusedPack = seat === 'host' ? hostFocusedPack : guestFocusedPack
+      const selectorSeat = shared ? localSeat : seat
+      const seatPackIndexes = packsForSeat(selectorSeat)
+      const isLocalLane = shared ? role !== null : role === seat
+      const laneName = shared ? translate('packBattle.bothRole') : seatName(seat)
+      const focusedPosition = focusedPack === null ? 0 : seatPackIndexes.indexOf(focusedPack) + 1
+      const focusedState = focusedPack === null ? null : ceremony.packs[focusedPack]
+      const focusedCards = focusedPack === null ? [] : battlePacks.slice(
+        focusedPack * PACK_BATTLE_LIMITS.cardsPerPack,
+        (focusedPack + 1) * PACK_BATTLE_LIMITS.cardsPerPack,
+      )
+      const revealedCount = focusedState?.revealed.filter(Boolean).length ?? 0
+      const nextHidden = focusedState?.revealed.findIndex((entry) => !entry) ?? -1
+      const canReveal = isLocalLane && focusedPack !== null && nextHidden >= 0 && !focusedState?.expanded
+      const focusIncomplete = focusedState?.revealed.some((entry) => !entry) === true
+      const laneTotal = shared ? totals.host + totals.guest : seat === 'host' ? totals.host : totals.guest
+
+      return (
+        <section className={`ppb-seat-lane${isLocalLane ? ' ppb-seat-lane-local' : ''}${shared ? ' ppb-seat-lane-shared' : ''}`} aria-label={laneName}>
+          <header className="ppb-seat-lane-head">
+            <span className="ppb-seat-lane-name">{laneName}</span>
+            <span className="ppb-seat-lane-score">
+              {substituteParams(translate('packBattle.packPoints'), { points: String(laneTotal) })}
+            </span>
+          </header>
+          <div className="ppb-owned-packs" role="group" aria-label={translate('packBattle.actionChoosePack')}>
+            {seatPackIndexes.map((packIndex) => {
+              const packState = ceremony.packs[packIndex]
+              const isFocused = packIndex === focusedPack
+              const complete = packState.opened && packState.revealed.every(Boolean)
+              const className = [
+                'ppb-owned-pack',
+                packState.opened ? 'ppb-owned-pack-open' : 'ppb-owned-pack-sealed',
+                isFocused ? 'ppb-owned-pack-focused' : '',
+                complete ? 'ppb-owned-pack-complete' : '',
+                packState.expanded ? 'ppb-owned-pack-expanded' : '',
+              ].filter(Boolean).join(' ')
+              const position = seatPackIndexes.indexOf(packIndex) + 1
+              return (
+                <button
+                  key={packIndex}
+                  className={className}
+                  type="button"
+                  disabled={!isLocalLane || packState.opened || (focusIncomplete && !isFocused)}
+                  aria-pressed={isFocused}
+                  aria-label={packState.opened
+                    ? substituteParams(translate('packBattle.packOwner'), { name: `${laneName} ${position}` })
+                    : substituteParams(translate('packBattle.openPackLabel'), { name: `${laneName} ${position}` })}
+                  onClick={() => openPack(packIndex)}
+                >
+                  {position}
+                </button>
+              )
+            })}
+          </div>
+          {focusedPack !== null && focusedState && (
+            <>
+              <div className="ppb-seat-progress" aria-live="polite">
+                <span>{substituteParams(translate('packBattle.focusedPack'), { current: String(focusedPosition), total: String(seatPackIndexes.length) })}</span>
+                <span>{substituteParams(translate('packBattle.cardProgress'), { current: String(Math.min(revealedCount + 1, PACK_BATTLE_LIMITS.cardsPerPack)), total: String(PACK_BATTLE_LIMITS.cardsPerPack) })}</span>
+              </div>
+              {nextHidden >= 0 && (
+                <div className="ppb-seat-controls">
+                  <p className="ppb-hint">{translate('packBattle.ceremonyRevealHint')}</p>
+                  {isLocalLane && (
+                    <button type="button" onClick={() => revealAllPack(focusedPack)}>
+                      {translate('packBattle.actionRevealPack')}
+                    </button>
+                  )}
+                </div>
+              )}
+              <PackStack
+                cards={focusedCards}
+                revealed={focusedState.revealed}
+                expanded={focusedState.expanded}
+                stackLabel={substituteParams(translate('packBattle.focusedPack'), { current: String(focusedPosition), total: String(seatPackIndexes.length) })}
+                faceDownLabel={translate('packBattle.cardFaceDown')}
+                actionLabel={substituteParams(translate('packBattle.revealCardLabel'), {
+                  index: String(nextHidden + 1),
+                  total: String(PACK_BATTLE_LIMITS.cardsPerPack),
+                  name: laneName,
+                })}
+                rarityLabel={rarityLabel}
+                onReveal={canReveal ? () => revealNext(focusedPack) : undefined}
+                cardClassName={(opened, _index, revealed) => revealed ? `ppb-tier-${tierForCard(opened.card)}` : ''}
+                renderCardOverlay={(opened, _index, revealed) => {
+                  const points = pointsForCard(opened.card)
+                  if (!revealed || points <= 0) return null
+                  return (
+                    <span className="ppb-stack-points" aria-label={substituteParams(translate('packBattle.cardPoints'), { points: String(points) })}>
+                      +{points}
+                    </span>
+                  )
+                }}
+              />
+            </>
+          )}
+        </section>
+      )
     }
-    const visiblePackIndexes = Array.from(new Set([
-      hostFocusedPack ?? firstUnopenedForSeat('host'),
-      guestFocusedPack ?? firstUnopenedForSeat('guest'),
-    ].filter((packIndex): packIndex is number => packIndex !== null)))
+
     return (
       <main className="ppb-page ppb-opening-page">
         <header className="ppb-topbar">
@@ -927,28 +1014,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
               <span className="ppb-total-value">{totals.guest}</span>
             </div>
           </div>
-          {!ceremonyComplete && localFocusedPack !== null && (
-            <div className="ppb-actions ppb-ceremony-actions">
-              {(() => {
-                const focusedPack = ceremony.packs[localFocusedPack]
-                if (focusedPack.revealed.some((revealed) => !revealed)) {
-                  return (
-                    <>
-                      <p className="ppb-hint ppb-ceremony-hint">{translate('packBattle.ceremonyRevealHint')}</p>
-                      <button type="button" onClick={() => revealAllPack(localFocusedPack)}>{translate('packBattle.actionRevealPack')}</button>
-                    </>
-                  )
-                }
-                return (
-                  <button className="ppb-primary" type="button" onClick={openNextOwnedPack}>
-                    {translate('packBattle.actionNextPack')}
-                  </button>
-                )
-              })()}
-            </div>
-          )}
-          {/* The last round holds fully revealed behind the click gate: only then
-              does the summary become reachable. */}
+          {/* Completion remains behind the click gate; rematch/leave stay global. */}
           {ceremonyComplete && (
             <div className="ppb-actions ppb-ceremony-actions">
               <p className="ppb-hint ppb-ceremony-hint">{translate('packBattle.ceremonyDone')}</p>
@@ -979,89 +1045,21 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
             </>
           )}
           <div
-            className="ppb-pair"
+            className="ppb-seat-lanes"
             role="group"
-            aria-label={substituteParams(translate('packBattle.packProgress'), { current: String(ceremony.openedOrder.length), total: String(totalPacks) })}
-          >
-            {visiblePackIndexes.map((packIndex) => {
-              const packState = ceremony.packs[packIndex]
-              const seat = seatForPack(packIndex, totalPacks)
-              const owner = seat === 'both' ? translate('packBattle.bothRole') : seatName(seat)
-              const packCards = packState.opened
-                ? battlePacks.slice(packIndex * PACK_BATTLE_LIMITS.cardsPerPack, packIndex * PACK_BATTLE_LIMITS.cardsPerPack + PACK_BATTLE_LIMITS.cardsPerPack)
-                : []
-              const packPoints = packPointsRevealed(packIndex)
-              const canControl = role !== null && seatCanControlPack(packIndex, totalPacks, role)
-              return (
-                <section
-                  className="ppb-pack"
-                  key={packIndex}
-                  aria-label={substituteParams(translate('packBattle.packOwner'), { name: owner })}
-                >
-                  <header className="ppb-pack-head">
-                    <span className="ppb-pack-owner">{owner}</span>
-                    {packPoints > 0 && (
-                      <span className="ppb-pack-points">
-                        {substituteParams(translate('packBattle.packPoints'), { points: String(packPoints) })}
-                      </span>
-                    )}
-                  </header>
-                  <ol className={`ppb-card-row${packState.opened ? ' ppb-row-open' : ''}`}>
-                    {!packState.opened && (
-                      <li className="ppb-sealed-cell">
-                        <button
-                          className="ppb-sealed"
-                          type="button"
-                          disabled={!canControl}
-                          title={translate('packBattle.sealedPackLabel')}
-                          aria-label={substituteParams(translate('packBattle.openPackLabel'), { name: owner })}
-                          onClick={() => openPack(packIndex)}
-                        >
-                          <span aria-hidden="true">⬢</span>
-                        </button>
-                      </li>
-                    )}
-                    {packCards.map((opened, index) => {
-                      const revealed = packState.revealed[index] === true
-                      const points = pointsForCard(opened.card)
-                      const nextCardIndex = packState.revealed.findIndex((entry) => !entry)
-                      const canReveal = canControl
-                        && !packState.expanded
-                        && nextCardIndex === index
-                        && packState.revealed.some((entry) => !entry)
-                      return (
-                        <li
-                          key={`${packIndex}-${opened.card.id}-${index}`}
-                          className={`ppb-card-cell ppb-tier-${revealed ? tierForCard(opened.card) : 0} ppb-slot-${index}`}
-                        >
-                          {revealed ? (
-                            <PokemonCard card={opened.card} rarityLabel={rarityLabel(opened.card.rarity)} />
-                          ) : (
-                            <button
-                              className="ppb-card-button"
-                              type="button"
-                              disabled={!canReveal}
-                              aria-label={substituteParams(translate('packBattle.revealCardLabel'), { index: String(index + 1), total: String(PACK_BATTLE_LIMITS.cardsPerPack), name: owner })}
-                              onClick={() => revealNext(packIndex)}
-                            >
-                              <PokemonCard card={opened.card} faceDown faceDownLabel={translate('packBattle.cardFaceDown')} />
-                            </button>
-                          )}
-                          {revealed && points > 0 && (
-                            <span
-                              className="ppb-card-points"
-                              aria-label={substituteParams(translate('packBattle.cardPoints'), { points: String(points) })}
-                            >
-                              +{points}
-                            </span>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ol>
-                </section>
-              )
+            aria-label={substituteParams(translate('packBattle.packProgress'), {
+              current: String(ceremony.openedOrder.length),
+              total: String(totalPacks),
             })}
+          >
+            {hostFocusedPack !== null
+              && hostFocusedPack === guestFocusedPack
+              && seatForPack(hostFocusedPack, totalPacks) === 'both'
+              ? renderSeatLane('host', true)
+              : <>
+                  {renderSeatLane('host')}
+                  {renderSeatLane('guest')}
+                </>}
           </div>
           {noticeText && <p className="ppb-notice" role="status">{noticeText}</p>}
           {errorKey && <p className="ppb-error" role="alert">{translate(errorKey)}</p>}

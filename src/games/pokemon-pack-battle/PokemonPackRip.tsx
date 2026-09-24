@@ -7,6 +7,7 @@ import { readConfig } from '../../config'
 import { PokemonCard } from '../pokemon-bnb/PokemonCard'
 import { listPlayers, readOpenedCards, recordOpenedCards } from './collection'
 import { PACK_BATTLE_30C, battleSetCards, openBattlePacks, type BattleOpenedCard } from './battlePack'
+import { PackStack } from './PackStack'
 import { createPackBattleRng, randomPackBattleSeed } from './rng'
 import { listSets } from './sets'
 import './PokemonPackBattleGame.css'
@@ -258,44 +259,20 @@ export function PokemonPackRip({
                 </>
               )}
             </div>
-            <div className={`ppb-rip-stack${soloExpanded ? ' ppb-rip-stack-expanded' : ''}`} aria-label={translate('packBattle.ceremonyRevealHint')}>
-              {soloOpened.map((opened, index) => {
-                const revealed = soloRevealed[index] === true
-                const latestRevealed = soloRevealed.reduce(
-                  (latest, seen, seenIndex) => (seen ? seenIndex : latest),
-                  -1,
-                )
-                const isLatestRevealed = revealed && index === latestRevealed
-                const hiddenDepth = soloRevealed.slice(0, index).filter((seen) => !seen).length
-                const visibleToAssistiveTech = soloExpanded || isLatestRevealed
-                return (
-                  <div
-                    key={`${opened.card.id}-${index}`}
-                    className={`ppb-rip-stack-card ${revealed ? 'ppb-rip-card-revealed' : `ppb-rip-card-hidden ppb-rip-hidden-depth-${hiddenDepth}`}${isLatestRevealed ? ' ppb-rip-card-latest' : ''}`}
-                    aria-hidden={visibleToAssistiveTech ? undefined : 'true'}
-                  >
-                    <PokemonCard
-                      card={opened.card}
-                      faceDown={!revealed}
-                      rarityLabel={rarityLabelForCard(opened.card.rarity)}
-                      faceDownLabel={translate('packBattle.cardFaceDown')}
-                    />
-                  </div>
-                )
+            <PackStack
+              cards={soloOpened}
+              revealed={soloRevealed}
+              expanded={soloExpanded}
+              stackLabel={translate('packBattle.ceremonyRevealHint')}
+              faceDownLabel={translate('packBattle.cardFaceDown')}
+              actionLabel={substituteParams(translate('packBattle.revealCardLabel'), {
+                index: String(soloRevealed.findIndex((seen) => !seen) + 1),
+                total: String(soloOpened.length),
+                name: soloPlayer || translate('packBattle.defaultName'),
               })}
-              {!soloExpanded && soloRevealed.some((seen) => !seen) && (
-                <button
-                  className="ppb-rip-stack-action"
-                  type="button"
-                  aria-label={substituteParams(translate('packBattle.revealCardLabel'), {
-                    index: String(soloRevealed.findIndex((seen) => !seen) + 1),
-                    total: String(soloOpened.length),
-                    name: soloPlayer || translate('packBattle.defaultName'),
-                  })}
-                  onClick={handleRevealNextSoloCard}
-                />
-              )}
-            </div>
+              rarityLabel={rarityLabelForCard}
+              onReveal={handleRevealNextSoloCard}
+            />
             <div className="ppb-rip-actions" style={{ marginTop: '16px' }}>
               <button className="ppb-rip-primary" type="button" onClick={handleToUnlocked}>
                 {translate('packBattle.unlockedTitle')}
