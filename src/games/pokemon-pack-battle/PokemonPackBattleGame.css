@@ -116,13 +116,10 @@
 .ppb-ceremony-actions { align-items: center; margin: 0 0 12px; min-height: 38px; }
 .ppb-ceremony-hint { flex: 1 1 220px; }
 
-/* 04.1-CP2 ceremony motion: the shared `.pkm-card-flipper` .55s transition stays
- * the only flip implementation — these rules only stage entrances around it.
- * The sealed pack pops in per round; the six slots rise with a ~40 ms stagger
- * when they mount on unseal (`opened` flips false -> true, so the entrance
- * plays exactly once and a later `revealedAnim` re-render never restarts it). Tier flair + the +points
- * chip are gated on the cascaded `revealed` flag in the component, so flair can
- * never precede the flip. Opacity/transform only — no box metric is touched. */
+/* 04.2-CP2 transitional ceremony motion: the shared `.pkm-card-flipper` .55s
+ * transition stays the only flip implementation. The temporary focused-pack
+ * grid keeps the original one-time unseal/slot entrance rules; per-pack reveal
+ * flags now drive faces and points directly, with no presentation cursor. */
 .ppb-sealed { animation: ppb-sealed-in .3s ease-out; }
 .ppb-row-open .ppb-card-cell { animation: ppb-slot-in .3s ease-out backwards; }
 .ppb-row-open .ppb-slot-0 { animation-delay: 0ms; }

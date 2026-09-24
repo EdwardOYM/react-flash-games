@@ -5,8 +5,9 @@
 
 import type { CardDef, CardRarity } from '../pokemon-bnb/cards'
 import cards30cJson from '../../assets/pokemon-bnb/sets/30c/cards.json'
-import { PACK_BATTLE_LIMITS } from './net/protocol'
 import { packBattlePick, packBattleRandomInt, type PackBattleRng } from './rng'
+
+export { seatForPack, type BattleSeat } from './packOwnership'
 // Shared predicate: the same cards that score 0 are the ones excluded from the
 // weighted ladders, so the "guaranteed Pikachu" rule lives in exactly one place.
 import { isGuaranteedPikachuIr } from './scoring'
@@ -145,44 +146,4 @@ export function openBattlePacks(cards: CardDef[], pack: BattlePackDef, packCount
     }
   }
   return opened
-}
-
-export type BattleSeat = 'host' | 'guest' | 'both'
-
-/** Packs unsealed per ceremony round: one per seat, side by side (protocol). */
-export const PACKS_PER_PAIR = PACK_BATTLE_LIMITS.packsPerPair
-
-/**
- * Pack ownership: the shared pool is dealt by pack index (host opens the even
- * packs, guest the odd ones). With an odd pack count the final pack scores for
- * BOTH seats, so neither seat gets a free pack advantage.
- */
-export function seatForPack(packIndex: number, packCount: number): BattleSeat {
-  if (packCount % 2 === 1 && packIndex === packCount - 1) return 'both'
-  return packIndex % 2 === 0 ? 'host' : 'guest'
-}
-
-/**
- * Ceremony rounds for a pack count. A round (CP7 "pair") unseals one pack per
- * seat, so both seats always play the same number of packs and neither seat
- * scores on the other's turn. An odd pack count makes the final round a single
- * pack whose `seatForPack` owner is BOTH.
- */
-export function pairCountForPacks(packCount: number): number {
-  return Math.ceil(packCount / PACKS_PER_PAIR)
-}
-
-/**
- * Pack indexes unsealed together in one round, in seat order: the host's pack
- * first (even index), the guest's second (odd index). The trailing round of an
- * odd pack count holds only that final BOTH-seat pack.
- */
-export function packIndexesInPair(pairIndex: number, packCount: number): number[] {
-  const first = pairIndex * PACKS_PER_PAIR
-  const indexes: number[] = []
-  for (let offset = 0; offset < PACKS_PER_PAIR; offset++) {
-    const index = first + offset
-    if (index < packCount) indexes.push(index)
-  }
-  return indexes
 }
