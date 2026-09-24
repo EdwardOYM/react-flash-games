@@ -289,9 +289,9 @@ export function PokemonPackRip({
                 pelandak: soloOpened.length === 1 ? '' : 's',
               })}
             </p>
-            {/* CP10: one overlapping stack. The next fixed seeded card is the
-                only interactive face; reveal-all queues that same front-to-back
-                path so every card still receives the shared flip transition. */}
+            {/* CP11: keep every card mounted so the front card retains its
+                face-down to face-up transition. Revealed cards occupy the
+                ordered row above; only hidden cards share the lower stack. */}
             <div className="ppb-actions ppb-ceremony-actions">
               <p className="ppb-hint ppb-ceremony-hint">{translate('packBattle.ceremonyRevealHint')}</p>
               {soloRevealed.some((seen) => !seen) && (
@@ -303,33 +303,30 @@ export function PokemonPackRip({
             <div className="ppb-rip-stack" aria-label={translate('packBattle.ceremonyRevealHint')}>
               {soloOpened.map((opened, index) => {
                 const revealed = soloRevealed[index] === true
-                const isFront = !revealed && index === soloRevealed.findIndex((seen) => !seen)
-                const card = (
-                  <PokemonCard
-                    card={opened.card}
-                    faceDown={!revealed}
-                    rarityLabel={rarityLabelForCard(opened.card.rarity)}
-                    faceDownLabel={translate('packBattle.cardFaceDown')}
-                  />
-                )
-                return isFront ? (
+                const nextUnrevealed = soloRevealed.findIndex((seen) => !seen)
+                const isFront = !revealed && index === nextUnrevealed
+                const hiddenDepth = soloRevealed.slice(0, index).filter((seen) => !seen).length
+                return (
                   <button
                     key={`${opened.card.id}-${index}`}
-                    className="ppb-rip-stack-card ppb-rip-stack-front"
+                    className={`ppb-rip-stack-card ${revealed ? 'ppb-rip-card-revealed' : `ppb-rip-card-hidden ppb-rip-hidden-depth-${hiddenDepth}`}`}
                     type="button"
+                    aria-hidden={!isFront ? 'true' : undefined}
                     aria-label={substituteParams(translate('packBattle.revealCardLabel'), {
                       index: String(index + 1),
                       total: String(soloOpened.length),
                       name: soloPlayer || translate('packBattle.defaultName'),
                     })}
+                    disabled={!isFront}
                     onClick={handleRevealNextSoloCard}
                   >
-                    {card}
+                    <PokemonCard
+                      card={opened.card}
+                      faceDown={!revealed}
+                      rarityLabel={rarityLabelForCard(opened.card.rarity)}
+                      faceDownLabel={translate('packBattle.cardFaceDown')}
+                    />
                   </button>
-                ) : (
-                  <div key={`${opened.card.id}-${index}`} className="ppb-rip-stack-card" aria-hidden="true">
-                    {card}
-                  </div>
                 )
               })}
             </div>
