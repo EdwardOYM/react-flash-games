@@ -216,3 +216,43 @@ export function focusedPackForSeat(
   return null
 }
 
+
+export type CeremonyKeyIntent = 'confirm' | 'skip'
+
+export type CeremonyKeyAction =
+  | { type: 'reveal'; packIndex: number; cardIndex: number }
+  | { type: 'reveal-all'; packIndex: number }
+
+/** Same-seed lobby-start is a re-hello replay, not a new ceremony. */
+export function shouldResetCeremony(currentSeed: number | null, nextSeed: number): boolean {
+  return currentSeed === null || currentSeed !== nextSeed
+}
+
+export function resolveCeremonyKeyIntent(
+  pressedKey: string,
+  confirmKey: string,
+  skipKey: string,
+): CeremonyKeyIntent | null {
+  if (skipKey.length > 0 && pressedKey.toLowerCase() === skipKey.toLowerCase()) return 'skip'
+  if (confirmKey.length > 0 && pressedKey === confirmKey) return 'confirm'
+  return null
+}
+
+/** Resolve Confirm/Skip against the local seat's latest focused pack only. */
+export function resolveCeremonyKeyAction(
+  state: CeremonyState,
+  totalPacks: number,
+  seat: 'host' | 'guest',
+  key: CeremonyKeyIntent,
+): CeremonyKeyAction | null {
+  const packIndex = focusedPackForSeat(state, totalPacks, seat)
+  if (packIndex === null) return null
+  const pack = state.packs[packIndex]
+  if (!pack?.opened || pack.expanded) return null
+  const cardIndex = pack.revealed.findIndex((revealed) => !revealed)
+  if (cardIndex < 0) return null
+  return key === 'skip'
+    ? { type: 'reveal-all', packIndex }
+    : { type: 'reveal', packIndex, cardIndex }
+}
+
