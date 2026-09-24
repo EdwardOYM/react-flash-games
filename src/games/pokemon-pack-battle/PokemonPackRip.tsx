@@ -1,4 +1,4 @@
-// Pokemon Pack Rips — solo pack rip page + unlocked collection page (04.3).
+// Pokemon Pack Rips â€” solo pack rip page + unlocked collection page (04.3).
 // Reuses the shared 30C pack definition and card pool so a solo rip draws from the
 // same rarity distribution as the ceremony without any new weights or slots.
 import { useMemo, useState } from 'react'
@@ -17,15 +17,11 @@ type PokemonPackRipProps = {
   view: PokemonPackRipView
   playerName?: string
   setIndex?: number
-  packCount?: number
   onViewChange?: (view: PokemonPackRipView) => void
   onExit?: () => void
   onRipPlayerName?: (name: string) => void
   onRipSetIndex?: (index: number) => void
-  onRipPackCount?: (count: number) => void
 }
-
-const clampPackCount = (value: number) => Math.min(18, Math.max(1, value))
 
 function substituteParams(template: string, params: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, key: string) => params[key] ?? `{${key}}`)
@@ -39,8 +35,8 @@ function cardSortNumber(card: { number: string }): number {
 /**
  * Every card of one set in card-number order, each tagged with whether the named
  * player has opened it. The collection shows the whole set and greyscales the
- * cards that are not unlocked yet (nothing is hidden — progress reads as a set
- * with gaps to fill). The bucket is read here — not memoised — because a rip
+ * cards that are not unlocked yet (nothing is hidden â€” progress reads as a set
+ * with gaps to fill). The bucket is read here â€” not memoised â€” because a rip
  * writes straight to the persisted config and this page has no storage
  * subscription.
  */
@@ -56,23 +52,23 @@ export function PokemonPackRip({
   view,
   playerName = '',
   setIndex = 0,
-  packCount = 1,
   onViewChange,
   onExit,
   onRipPlayerName,
   onRipSetIndex,
-  onRipPackCount,
 }: PokemonPackRipProps) {
   const translate = useTranslations((readConfig().settings.locale ?? 'en') as Locale)
   const setEntries = useMemo(() => listSets(), [])
 
   // The fields are seeded by the props and the parent mirrors every change back
-  // down, so a remount restores the last name, set, and pack count; no effect has
-  // to re-sync a value that already matches.
+  // down, so a remount restores the last name and set; no effect has to re-sync
+  // a value that already matches. Each "Open pack" click opens exactly ONE pack
+  // (CP9: no pack-count stepper â€” repeat the click for another pack); the cards
+  // start face-down and the player reveals them one by one or all at once.
   const [playerNameField, setPlayerNameField] = useState(playerName)
   const [setIndexField, setSetIndexField] = useState(setIndex)
-  const [packCountField, setPackCountField] = useState(clampPackCount(packCount))
   const [soloOpened, setSoloOpened] = useState<BattleOpenedCard[] | null>(null)
+  const [soloRevealed, setSoloRevealed] = useState<boolean[]>([])
   const [soloPlayer, setSoloPlayer] = useState('')
   const [collectionPlayer, setCollectionPlayer] = useState('')
   const [collectionSetIndex, setCollectionSetIndex] = useState(0)
@@ -116,26 +112,42 @@ export function PokemonPackRip({
     onRipSetIndex?.(clamped)
   }
 
-  const handlePackCountChange = (delta: number) => {
-    const next = clampPackCount(packCountField + delta)
-    setPackCountField(next)
-    onRipPackCount?.(next)
-  }
-
+  /**
+   * Open exactly one pack (CP9): roll a fresh random seed locally (no wire),
+   * draw a single 6-card pack from the same 30C definition the ceremony uses,
+   * record its ids (record-on-open, decided with the user 2026-09-24), and show
+   * the cards face-down so they can be revealed one by one or all at once.
+   * Re-clicking replaces the results with a fresh pack â€” nothing accumulates.
+   */
   const handleOpenPacks = () => {
     const trimmed = playerNameField.trim()
     if (!trimmed) return
 
     const rng = createPackBattleRng(randomPackBattleSeed())
-    const opened = openBattlePacks(battleSetCards(), PACK_BATTLE_30C, packCountField, rng)
+    const opened = openBattlePacks(battleSetCards(), PACK_BATTLE_30C, 1, rng)
     const ids = opened.map((entry) => entry.card.id)
 
     recordOpenedCards(trimmed, ids)
     setSoloPlayer(trimmed)
     setSoloOpened(opened)
+    setSoloRevealed(opened.map(() => false))
     onRipPlayerName?.(trimmed)
     onRipSetIndex?.(setIndexField)
-    onRipPackCount?.(packCountField)
+  }
+
+  /** Reveal one face-down card of the current solo pack. */
+  const handleRevealSoloCard = (index: number) => {
+    setSoloRevealed((prev) => {
+      if (!soloOpened || prev[index]) return prev
+      const next = [...prev]
+      next[index] = true
+      return next
+    })
+  }
+
+  /** Reveal every card of the current solo pack at once. */
+  const handleRevealAllSolo = () => {
+    setSoloRevealed((prev) => (soloOpened && prev.some((seen) => !seen) ? soloOpened.map(() => true) : prev))
   }
 
   const handleBackToPackBattle = () => {
@@ -205,16 +217,8 @@ export function PokemonPackRip({
             </div>
 
             <div className="ppb-rip-field">
-              <span className="ppb-rip-field-label">{translate('packBattle.packsLabel')}</span>
-              <div className="ppb-rip-stepper" role="group" aria-label={translate('packBattle.packsLabel')}>
-                <button type="button" aria-label={translate('packBattle.decrease')} onClick={() => handlePackCountChange(-1)}>
-                  -
-                </button>
-                <span className="ppb-rip-stepper-num" aria-live="polite">{packCountField}</span>
-                <button type="button" aria-label={translate('packBattle.increase')} onClick={() => handlePackCountChange(1)}>
-                  +
-                </button>
-              </div>
+              <span className="ppb-rip-field-label">{translate('packBattle.ripPackLabel')}</span>
+              <span className="ppb-rip-stepper-num" aria-live="polite">1</span>
             </div>
           </div>
 
