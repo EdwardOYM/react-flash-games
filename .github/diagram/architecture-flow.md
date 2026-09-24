@@ -71,6 +71,7 @@ flowchart TD
         packPeer -->|"onMessage handler (single stable closure via refs)"| packBattle
         packBattle -->|"shared seed -> identical 6-card battle packs (energy, common, common, pikachu-ir, common-or-better, uncommon-or-better)"| packData["battlePack.ts PACK_BATTLE_30C + scoring.ts tier/points + shared 30c set data"]
         packBattle -->|"pointsForCard per revealed slot by card identity (banked per pack, both packs of the round reveal together); the pack-guaranteed Pikachu IR scores 0 and gets no tier flair; tier-0..5 flair; packs-left counter"| packData
+        packBattle -->|"solo rip (04.3): openBattlePacks(battleSetCards(), PACK_BATTLE_30C, count, fresh session-only seed) — the same 6-slot distribution, no wire; PokemonPackRip renders every pulled card with its translated rarity"| packData
     end
 
     subgraph STATE["View state machine"]
@@ -78,6 +79,7 @@ flowchart TD
         tron -->|"View union"| tronViews["start / tutorial / loading / playing / paused / gameover / victory / highscore (round-over is an overlay sub-state of playing; stick remap is an in-pause overlay, not a view)"]
         pokemonBnb -->|"View union"| pkmViews["start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused / gameover / victory / highscore (battle tabletop renders from playing; paused solid since CP8; results solid since CP10 — settleMatchOver routes the winning seat to victory, the losing seat to gameover, and highscore is reachable from both results views)"]
         packBattle -->|"View union"| packViews["start / tutorial / lobby / lobbyJoin / opening / summary / highscore (opening renders one pack per seat side by side per round and reveals the matching card slot in both packs at once, with a packs-left counter; either seat reveals both seats; the last round holds fully revealed behind a click gate and the summary lists every opened card per seat sorted rarest first)"]
+        packBattle -->|"View union (04.3)"| packRipViews["rip / unlocked — solo pack rips + unlocked collection: start -> rip -> unlocked -> rip -> start, both leaving to start; rip rolls a fresh session-only seed per open and writes the pulled ids to the openedCards bucket, unlocked renders only the cards the chosen player has already opened in the chosen set, in card-number order"]
     end
 
     subgraph PERSIST["Data & persistence layer"]
@@ -87,12 +89,14 @@ flowchart TD
         tronHs["tron/highscores.ts"]
         pkmHs["pokemon-bnb/highscores.ts"]
         packHs["pokemon-pack-battle/highscores.ts"]
+        packCards["pokemon-pack-battle/collection.ts — openedCards helpers"]
         l10n["assets/languages/index.ts"]
         defaults --> cfg
         highscores --> cfg
         tronHs --> cfg
         pkmHs --> cfg
         packHs --> cfg
+        packCards --> cfg
         l10n --> cfg
         settingsModal -->|"audio (music / sfx / mute) / locale / keys"| cfg
         uiSounds -.->|"readConfig() — settings.sfx / muted / sfxVolume"| cfg
@@ -108,6 +112,8 @@ flowchart TD
         packBattle -->|"recordPackBattleWin() once per battle"| packHs
         packHs -->|"readPackBattleHighscores()"| packBattle
         packBattle -->|"persistLocale()"| l10n
+        packBattle -->|"recordOpenedCards(displayName, own-seat pack ids) once per ceremony, and per solo rip (04.3)"| packCards
+        packCards -->|"readOpenedCards / listPlayers / hasCard — rip + unlocked pages"| packBattle
         l10nD["locale JSON files (en / ms / zh)"] --> l10n
         cfg --> ls[("localStorage<br/>flash-games.config")]
     end
@@ -216,6 +222,51 @@ flowchart LR
     PRESULTS -->|"backToStart (leaveLobby())"| PSTART
 ```
 
+## Pokemon Pack Battle view state machine (ephemeral runtime flow)
+
+The pack-battle ceremony is wholly shared and deterministic: the host rolls the
+seed in `lobby-start` and both seats derive identical packs from
+`battlePack.ts`, unsealing one pack per seat per round (host's on the left,
+guest's on the right) and revealing the matching slot in both packs at once, so
+either seat advances both. Since 04.3 the same component also hosts two solo
+views that never touch the wire: `rip` rolls a fresh session-only seed and opens
+`count` packs from the same 30C definition (the RIP page lives inside the
+`pokemon-pack-battle` component, so no extra routing exists), writes the pulled
+ids to the persisted `openedCards` bucket under the entered player name, and
+shows every pull; `unlocked` renders only the cards that player has already
+opened in the chosen set, in card-number order (a never-opened card is simply
+not rendered). On ceremony completion this device records the local seat's own
+packs exactly once (`cardIdsForSeat`: host = even-indexed packs, guest =
+odd-indexed, an odd tail pack belongs to both seats) together with a transient
+`packBattle.collectionSaved` notice, so the opponent's packs never enter this
+device's collection; `resetCeremony` re-arms that one-shot guard so a rematch
+records its own packs too. Confirm/Skip keys (remappable as
+`pokemon-pack-confirm` / `pokemon-pack-skip`) drive the reveal. `leaveLobby()`
+and `leaveRip()` return to `start` from every view, and `highscore` returns to
+`summary` when a match seed exists, else to `start`.
+
+```mermaid
+flowchart LR
+    PBSTART["view: start"] --> PBTUTORIAL["tutorial"]
+    PBTUTORIAL -->|"finish / skip (leaveTutorial: lobby when seated, else start)"| PBSTART
+    PBSTART -->|"create lobby (host)"| PBLOBBY["lobby"]
+    PBSTART -->|"join by code"| PBJOIN["lobbyJoin"]
+    PBJOIN -->|"host hello-ack lands"| PBLOBBY
+    PBLOBBY -->|"leaveLobby()"| PBSTART
+    PBLOBBY -->|"host startMatch() broadcasts lobby-start (shared seed + settings)"| PBOPENING["opening — one pack per seat per round"]
+    PBOPENING -->|"ceremonyComplete -> see all summary; the local seat's own pack ids are recorded once to openedCards (04.3)"| PBSUMMARY["summary — every opened card per seat, rarest first"]
+    PBSUMMARY -->|"acceptRematch() / rematch granted: fresh seed via lobby-start"| PBOPENING
+    PBSUMMARY -->|"highscores"| PBHIGHSCORE["highscore"]
+    PBHIGHSCORE -->|"back (summary when a seed exists, else start)"| PBSUMMARY
+    PBSTART -->|"RIP packs (04.3)"| PBRIP["rip — solo open: name + set + pack count"]
+    PBRIP -->|"open packs: fresh session seed, own bucket write, results grid"| PBRIP
+    PBRIP -->|"Unlocked"| PBUNLOCKED["unlocked — only the opened cards of set + player, in number order"]
+    PBUNLOCKED -->|"back to pack rip"| PBRIP
+    PBRIP -->|"Open more packs (reset the solo open)"| PBRIP
+    PBRIP -->|"leaveRip()"| PBSTART
+    PBUNLOCKED -->|"leaveRip()"| PBSTART
+```
+
 ## Persistence call sites
 
 | Caller | Operation | Effect on `flash-games.config` |
@@ -229,6 +280,9 @@ flowchart LR
 | `TronGame.saveControllerAdjustment` | `updateConfig(...)` | `settings.mobileControls` |
 | `tron/highscores.recordMatchWin` (TronGame victory effect) | `updateConfig(...)` | `highscores['tron']` (per-player match-win tally, top-10 by wins) |
 | `pokemon-bnb/highscores.recordMatchWin` (PokemonBnbGame `settleMatchOver`, once per match per device) | `updateConfig(...)` | `highscores['pokemon-bnb']` (per-player match-win tally, top-10 by wins) |
+| `pokemon-pack-battle/collection.recordOpenedCards` (PokemonPackBattleGame ceremony-complete effect, once per ceremony per device) | `updateConfig(...)` | `openedCards[lowercased player name]` ← union + dedupe + sort of the local seat's **own** pack ids (`cardIdsForSeat`: host = even packs, guest = odd packs, an odd tail pack counts to both); the opponent's packs are never written (04.3) |
+| `pokemon-pack-battle/collection.recordOpenedCards` (PokemonPackRip `handleOpenPacks`, one call per solo rip) | `updateConfig(...)` | `openedCards[lowercased player name]` ← union + dedupe + sort of that rip's pulled ids (same helper, same bucket; re-pulling a card never duplicates it) (04.3) |
+| `pokemon-pack-battle/collection.readOpenedCards / listPlayers / hasCard` (PokemonPackRip unlocked page, read during render) | `readConfig()` | read-only: the player keys and each player's sorted opened card ids — the page has no storage subscription, so it re-reads rather than caching (04.3) |
 
 ### Config change subscriptions
 

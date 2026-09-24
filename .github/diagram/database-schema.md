@@ -23,7 +23,11 @@ AppConfig
 │   └── mobileControls
 │       ├── movement: { x, y, scale }                      (percent pos + 0.5–2.5 scale)
 │       └── shoot: { x, y, scale }
-└── highscores: Record<gameId, { name, score }[]>          (top-10, sorted desc; tron + pokemon-bnb score = lifetime match wins per player name)
+├── highscores: Record<gameId, { name, score }[]>          (top-10, sorted desc; tron + pokemon-bnb score = lifetime match wins per player name)
+└── openedCards: Record<playerName, string[]>              (04.3; key = lowercased trimmed player name → that player's sorted,
+                                                            deduplicated opened card ids; default seed {}. Written only by
+                                                            pokemon-pack-battle: the ceremony records the local seat's own packs,
+                                                            the solo RIP page records each rip)
 ```
 
 ## ER diagram
@@ -33,6 +37,7 @@ erDiagram
     APPCONFIG ||--|| SETTINGS : "1-to-1"
     APPCONFIG ||--o| MOBILE_CONTROLS : "1-to-1 (nested)"
     APPCONFIG ||--o| HIGHSCORE_BUCKETS : "1-to-many (keyed by gameId)"
+    APPCONFIG ||--o| OPENED_CARDS : "04.3, 1-to-many (keyed by player name)"
     APPCONFIG {
         number version PK "schema version = 1"
         string storageKey "localStorage['flash-games.config']"
@@ -83,6 +88,14 @@ erDiagram
         number score "sorted descending; tron / pokemon-bnb / pokemon-pack-battle: lifetime match wins per player name (aggregated)"
     }
 
+    OPENED_CARDS {
+        string playerName PK "lowercased trimmed display name, e.g. ash"
+    }
+    OPENED_CARDS ||--o{ OPENED_CARD_ID : "sorted unique ids"
+    OPENED_CARD_ID {
+        string cardId "set card id (e.g. 30c-042) or the rip's synthetic energy id (e.g. 30c-energy-fire)"
+    }
+
     LOCALE_DICTIONARY ||..|| APPCONFIG : "settings.locale indexes"
     LOCALE_DICTIONARY {
         string code PK "en | ms | zh"
@@ -91,13 +104,16 @@ erDiagram
 ```
 
 > `GAME_CATALOG` and `LOCALE_DICTIONARY` are static/read-only source data (TS modules + JSON), not rows in storage — the dashed line signals that they conceptually "reference" the persisted document but live outside it.
+>
+> `OPENED_CARDS` is the 04.3 collection bucket and lives inside the same single `flash-games.config` document: `pokemon-pack-battle` is its only writer (the ceremony records the local seat's own packs, the solo `rip` page records every rip), while `pokemon-bnb` does not write it.
 
 ## Source references
 
 | Layer | Location | Role |
 |---|---|---|
-| **Schema seed** | `src/config/default.config.json` | Immutable defaults (`version`, `settings`, `highscores`) |
-| **Persistence API** | `src/config/index.ts` | `readConfig()` / `writeConfig()` / `updateConfig()` + `mergeConfig()` deep-merge over defaults |
-| **Persisted document** | `localStorage['flash-games.config']` | Single `AppConfig` record: settings + per-game highscores |
+| **Schema seed** | `src/config/default.config.json` | Immutable defaults (`version`, `settings`, `highscores`, `openedCards`) |
+| **Persistence API** | `src/config/index.ts` | `readConfig()` / `writeConfig()` / `updateConfig()` + `mergeConfig()` deep-merge over defaults (`settings`, `highscores`, `openedCards`) |
+| **Persisted document** | `localStorage['flash-games.config']` | Single `AppConfig` record: settings + per-game highscores + the opened-card collection |
+| **Collection bucket (04.3)** | `pokemon-pack-battle/collection.ts` | `recordOpenedCards()` / `readOpenedCards()` / `listPlayers()` / `hasCard()` over `openedCards`; only the local seat's own packs are ever written (ceremony: `cardIdsForSeat`, host = even packs / guest = odd packs; rip page: the solo open) |
 | **Static data** | `games/index.ts`, `assets/languages/*.json` | Game registry (read-only), en/ms/zh translation dictionaries |
-| **Ephemeral state** | `BubbleTroubleGame.tsx`, `tron/TronGame.tsx`, `pokemon-bnb/PokemonBnbGame.tsx`, `pokemon-pack-battle/PokemonPackBattleGame.tsx` | Per-session runtimes + view state machines (never persisted); Tron adds session-only match options (rounds-to-win 1-9, per-player colors, per-player display names); Pokemon adds session-only lobby settings (set 30C, packs 1-6, prize cards 2-6, timer off/45/60/90s) that deliberately stay out of `AppConfig`; Pack Battle adds session-only lobby settings (set 30C, packs per player 1-18) that deliberately stay out of `AppConfig` |
+| **Ephemeral state** | `BubbleTroubleGame.tsx`, `tron/TronGame.tsx`, `pokemon-bnb/PokemonBnbGame.tsx`, `pokemon-pack-battle/PokemonPackBattleGame.tsx` | Per-session runtimes + view state machines (never persisted); Tron adds session-only match options (rounds-to-win 1-9, per-player colors, per-player display names); Pokemon adds session-only lobby settings (set 30C, packs 1-6, prize cards 2-6, timer off/45/60/90s) that deliberately stay out of `AppConfig`; Pack Battle adds session-only lobby settings (set 30C, packs per player 1-18) that deliberately stay out of `AppConfig`, plus the 04.3 `rip` / `unlocked` views whose solo seed is session-only while the pulled card ids go to the persisted `openedCards` bucket |
