@@ -216,10 +216,11 @@ export function PokemonPackRip({
               </div>
             </div>
 
-            <div className="ppb-rip-field">
+            {/* Not in use atm */}
+            {/* <div className="ppb-rip-field">
               <span className="ppb-rip-field-label">{translate('packBattle.ripPackLabel')}</span>
               <span className="ppb-rip-stepper-num" aria-live="polite">1</span>
-            </div>
+            </div> */}
           </div>
 
           <div className="ppb-rip-actions">
