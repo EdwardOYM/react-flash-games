@@ -536,6 +536,7 @@ type PackBattleTranslationKey =
   | 'unlockedEyebrow'
   | 'unlockedSet'
   | 'unlockedPlayer'
+  | 'unlockedLocked'
   | 'unlockedNoPlayers'
   | 'unlockedEmpty'
   | 'unlockedBack'

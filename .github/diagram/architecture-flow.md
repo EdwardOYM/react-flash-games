@@ -79,7 +79,7 @@ flowchart TD
         tron -->|"View union"| tronViews["start / tutorial / loading / playing / paused / gameover / victory / highscore (round-over is an overlay sub-state of playing; stick remap is an in-pause overlay, not a view)"]
         pokemonBnb -->|"View union"| pkmViews["start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused / gameover / victory / highscore (battle tabletop renders from playing; paused solid since CP8; results solid since CP10 — settleMatchOver routes the winning seat to victory, the losing seat to gameover, and highscore is reachable from both results views)"]
         packBattle -->|"View union"| packViews["start / tutorial / lobby / lobbyJoin / opening / summary / highscore (opening renders one pack per seat side by side per round and reveals the matching card slot in both packs at once, with a packs-left counter; either seat reveals both seats; the last round holds fully revealed behind a click gate and the summary lists every opened card per seat sorted rarest first)"]
-        packBattle -->|"View union (04.3)"| packRipViews["rip / unlocked — solo pack rips + unlocked collection: start -> rip -> unlocked -> rip -> start, both leaving to start; rip rolls a fresh session-only seed per open and writes the pulled ids to the openedCards bucket, unlocked renders only the cards the chosen player has already opened in the chosen set, in card-number order, and is reachable from the rip form without opening a pack"]
+        packBattle -->|"View union (04.3)"| packRipViews["rip / unlocked — solo pack rips + unlocked collection: start -> rip -> unlocked -> rip -> start, both leaving to start; rip rolls a fresh session-only seed per open and writes the pulled ids to the openedCards bucket, unlocked shows every card of the chosen set in card-number order with the cards the chosen player has not opened yet greyscaled and darkened (locked, never hidden), and is reachable from the rip form without opening a pack"]
     end
 
     subgraph PERSIST["Data & persistence layer"]
@@ -236,8 +236,9 @@ ids to the persisted `openedCards` bucket under the entered player name, and
 shows every pull. The RIP form's secondary button opens the collection directly,
 so previously unlocked cards are viewable without ripping anything in this
 session, and the results row offers the same trip right after an open;
-`unlocked` renders only the cards that player has already opened in the chosen
-set, in card-number order (a never-opened card is simply not rendered). On
+`unlocked` shows the whole set in card-number order and greyscales plus darkens
+every card that player has not opened yet (locked tiles carry a translated lock
+chip; nothing is ever hidden). On
 ceremony completion this device records the local seat's own
 packs exactly once (`cardIdsForSeat`: host = even-indexed packs, guest =
 odd-indexed, an odd tail pack belongs to both seats) together with a transient

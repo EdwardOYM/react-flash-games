@@ -35,7 +35,12 @@
 /* Columns follow the card token, so a card never overflows (or overlaps) its
  * column and the grid never widens the page. */
 .ppb-rip-cardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--pkm-card-w, 150px), 100%), 1fr)); gap: 12px; width: min(100%, 960px); margin-top: 18px; }
-.ppb-rip-cardwrap { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.ppb-rip-cardwrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+/* Locked tiles keep their slot in the grid: the face is greyscaled and darkened
+ * while the lock chip riding its foot stays legible (it is not inside the
+ * filtered element). */
+.ppb-rip-cardwrap-locked .ppb-rip-cardface { filter: grayscale(1) brightness(.5); }
+.ppb-rip-lockchip { position: absolute; bottom: 10px; inset-inline: 0; width: fit-content; margin-inline: auto; padding: 3px 8px; border: 1px dashed #50676a; color: #aeb9b9; background: #16222a; font-family: 'DM Mono', monospace; font-size: .62rem; text-transform: uppercase; }
 .ppb-rip-raritychip { padding: 3px 8px; border: 1px solid #5d6f72; color: #aeb9b9; background: #1a262b; font-family: 'DM Mono', monospace; font-size: .62rem; text-transform: uppercase; }
 .ppb-rip-empty { padding: 18px 12px; border: 1px dashed #33454a; color: #aeb9b9; background: transparent; font-family: 'DM Mono', monospace; font-size: .8rem; text-align: center; }
 .ppb-rip-empty button { margin-top: 10px; margin-right: 10px; }

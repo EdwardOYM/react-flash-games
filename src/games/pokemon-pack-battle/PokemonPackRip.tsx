@@ -279,57 +279,62 @@ export function PokemonPackRip({
       <div className="ppb-rip-shell">
         <p className="ppb-rip-eyebrow">{translate('packBattle.unlockedEyebrow')}</p>
 
-        {playersList.length === 0 ? (
-          <p className="ppb-rip-empty" role="status">{translate('packBattle.unlockedNoPlayers')}</p>
-        ) : (
-          <>
-            <div className="ppb-rip-fields">
-              <div className="ppb-rip-field">
-                <span className="ppb-rip-field-label">{translate('packBattle.setLabel')}</span>
-                <div className="ppb-rip-segmented" role="group" aria-label={translate('packBattle.setLabel')}>
-                  {setEntries.map((entry, index) => (
-                    <button
-                      key={entry.id}
-                      type="button"
-                      aria-pressed={unlockedSet.id === entry.id ? 'true' : undefined}
-                      onClick={() => setCollectionSetIndex(index)}
-                    >
-                      {translate(entry.labelKey)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="ppb-rip-field">
-                <span className="ppb-rip-field-label">{translate('packBattle.unlockedPlayer')}</span>
-                <select
-                  className="ppb-rip-select"
-                  value={selectedPlayer}
-                  onChange={(event) => setCollectionPlayer(event.target.value)}
-                  aria-label={translate('packBattle.unlockedPlayer')}
+        <div className="ppb-rip-fields">
+          <div className="ppb-rip-field">
+            <span className="ppb-rip-field-label">{translate('packBattle.setLabel')}</span>
+            <div className="ppb-rip-segmented" role="group" aria-label={translate('packBattle.setLabel')}>
+              {setEntries.map((entry, index) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  aria-pressed={unlockedSet.id === entry.id ? 'true' : undefined}
+                  onClick={() => setCollectionSetIndex(index)}
                 >
-                  {playersList.map((player) => (
-                    <option key={player} value={player}>
-                      {player}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  {translate(entry.labelKey)}
+                </button>
+              ))}
             </div>
+          </div>
 
-            {collectionCards.length === 0 ? (
-              <p className="ppb-rip-empty" role="status">{translate('packBattle.unlockedEmpty')}</p>
-            ) : (
-              <div className="ppb-rip-cardgrid">
-                {collectionCards.map((card) => (
-                  <div key={card.id} className="ppb-rip-cardwrap">
-                    <PokemonCard card={card} rarityLabel={rarityLabelForCard(card.rarity)} />
-                  </div>
+          {playersList.length > 0 && (
+            <div className="ppb-rip-field">
+              <span className="ppb-rip-field-label">{translate('packBattle.unlockedPlayer')}</span>
+              <select
+                className="ppb-rip-select"
+                value={selectedPlayer}
+                onChange={(event) => setCollectionPlayer(event.target.value)}
+                aria-label={translate('packBattle.unlockedPlayer')}
+              >
+                {playersList.map((player) => (
+                  <option key={player} value={player}>
+                    {player}
+                  </option>
                 ))}
-              </div>
-            )}
-          </>
+              </select>
+            </div>
+          )}
+        </div>
+
+        {playersList.length === 0 && (
+          <p className="ppb-rip-empty" role="status">{translate('packBattle.unlockedNoPlayers')}</p>
         )}
+        {playersList.length > 0 && unlockedInSet === 0 && (
+          <p className="ppb-rip-empty" role="status">{translate('packBattle.unlockedEmpty')}</p>
+        )}
+
+        {/* The whole set stays on screen in card-number order: a card the player
+            has not opened is greyscaled and darkened with a lock chip, never
+            hidden, so the collection reads as a set with gaps to fill. */}
+        <div className="ppb-rip-cardgrid">
+          {collectionCards.map(({ card, unlocked }) => (
+            <div key={card.id} className={unlocked ? 'ppb-rip-cardwrap' : 'ppb-rip-cardwrap ppb-rip-cardwrap-locked'}>
+              <div className="ppb-rip-cardface">
+                <PokemonCard card={card} rarityLabel={rarityLabelForCard(card.rarity)} />
+              </div>
+              {!unlocked && <span className="ppb-rip-lockchip">{translate('packBattle.unlockedLocked')}</span>}
+            </div>
+          ))}
+        </div>
 
         <div className="ppb-rip-actions" style={{ marginTop: '16px' }}>
           <button className="ppb-rip-primary" type="button" onClick={handleBackToRip}>
