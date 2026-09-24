@@ -67,18 +67,20 @@ flowchart TD
     end
 
     subgraph PACKBATTLE["Pokemon Pack Battle runtime"]
-        packBattle -->|"hello / lobby-update / lobby-start with shared seed / pair-open / card-reveal / battle-done / leave"| packPeer["pokemon-pack-battle/net: protocol.ts fork (version 2; packs 1-36, 6 cards/pack, 2 packs per round = 1 per seat, maxPairs 18) + bnb-style PeerJS host/guest sessions"]
-        packPeer -->|"onMessage handler (single stable closure via refs)"| packBattle
-        packBattle -->|"shared seed -> identical 6-card battle packs (energy, common, common, pikachu-ir, common-or-better, uncommon-or-better)"| packData["battlePack.ts PACK_BATTLE_30C + scoring.ts tier/points + shared 30c set data"]
-        packBattle -->|"pointsForCard per revealed slot by card identity (banked per pack, both packs of the round reveal together); the pack-guaranteed Pikachu IR scores 0 and gets no tier flair; tier-0..5 flair; packs-left counter"| packData
-        packBattle -->|"solo rip (04.3): openBattlePacks(battleSetCards(), PACK_BATTLE_30C, count, fresh session-only seed) — the same 6-slot distribution, no wire; PokemonPackRip renders every pulled card with its translated rarity"| packData
+        packBattle -->|"hello / lobby-update / lobby-start with shared seed / pack-open / card-reveal / pack-reveal-all / ceremony-sync / battle-done / leave"| packPeer["pokemon-pack-battle/net: protocol.ts fork (version 3; 1-36 packs total, 6 cards/pack, free-order own-pack opening) + bnb-style PeerJS host/guest sessions"]
+        packPeer -->|"onMessage handler (single stable closure via refs; same-seed re-hello merges ceremony-sync)"| packBattle
+        packBattle -->|"shared seed -> identical deterministic 6-card battle packs (energy, common, common, pikachu-ir, common-or-better, uncommon-or-better)"| packData["battlePack.ts PACK_BATTLE_30C + scoring.ts tier/points + shared 30c set data"]
+        packBattle -->|"per-pack session state: opened, six revealed flags, expanded; host/guest focus independently by owned pack; totals derive from revealed flags"| packCeremony["ceremonyState.ts — pure v3 transitions, ownership checks, fixed-order reveal, union merge, totals, completion, focused-pack and key resolvers"]
+        packBattle -->|"two simultaneous seat lanes: one focused PackStack each; normal mode exposes one action target and leaves the latest revealed card on top; pack-reveal-all expands all six for review; completed stack waits for explicit next owned pack"| packStack["PackStack.tsx / PackStack.css — shared stack and PokemonCard flip presentation"]
+        packBattle -->|"pointsForCard per revealed slot by card identity; Pikachu IR scores 0; tier-0..5 flair; packs-left and card-N-of-6 progress"| packData
+        packBattle -->|"solo rip (04.3): openBattlePacks(battleSetCards(), PACK_BATTLE_30C, count, fresh session-only seed) — the same 6-slot distribution, no wire; PackStack renders the fixed seeded reveal and expanded review"| packData
     end
 
     subgraph STATE["View state machine"]
         bubble -->|"View union"| views["start / tutorial / loading / playing / paused / remap / gameover / victory / highscore"]
         tron -->|"View union"| tronViews["start / tutorial / loading / playing / paused / gameover / victory / highscore (round-over is an overlay sub-state of playing; stick remap is an in-pause overlay, not a view)"]
         pokemonBnb -->|"View union"| pkmViews["start / tutorial / lobby / lobbyJoin / opening / deck / loading / playing / paused / gameover / victory / highscore (battle tabletop renders from playing; paused solid since CP8; results solid since CP10 — settleMatchOver routes the winning seat to victory, the losing seat to gameover, and highscore is reachable from both results views)"]
-        packBattle -->|"View union"| packViews["start / tutorial / lobby / lobbyJoin / opening / summary / highscore (opening renders one pack per seat side by side per round and reveals the matching card slot in both packs at once, with a packs-left counter; either seat reveals both seats; the last round holds fully revealed behind a click gate and the summary lists every opened card per seat sorted rarest first)"]
+        packBattle -->|"View union"| packViews["start / tutorial / lobby / lobbyJoin / opening / summary / highscore (opening has two simultaneous seat lanes; each seat focuses one owned PackStack and chooses the next owned pack explicitly after completion; no shared round cursor; summary is gated until every pack is opened and all six cards are revealed)"]
         packBattle -->|"View union (04.3)"| packRipViews["rip / unlocked — solo pack rips + unlocked collection: start -> rip -> unlocked -> rip -> start, both leaving to start; rip rolls a fresh session-only seed per open and writes the pulled ids to the openedCards bucket, unlocked shows every card of the chosen set in card-number order with the cards the chosen player has not opened yet greyscaled and darkened (locked, never hidden), and is reachable from the rip form without opening a pack"]
     end
 
@@ -112,7 +114,7 @@ flowchart TD
         packBattle -->|"recordPackBattleWin() once per battle"| packHs
         packHs -->|"readPackBattleHighscores()"| packBattle
         packBattle -->|"persistLocale()"| l10n
-        packBattle -->|"recordOpenedCards(displayName, own-seat pack ids) once per ceremony, and per solo rip (04.3)"| packCards
+        packBattle -->|"recordOpenedCards(displayName, own-seat pack ids) once per ceremony, and per solo rip (04.3); per-pack ceremony flags remain session-only (04.2)"| packCards
         packCards -->|"readOpenedCards / listPlayers / hasCard — rip + unlocked pages"| packBattle
         l10nD["locale JSON files (en / ms / zh)"] --> l10n
         cfg --> ls[("localStorage<br/>flash-games.config")]
@@ -226,23 +228,34 @@ flowchart LR
 
 The pack-battle ceremony is wholly shared and deterministic: the host rolls the
 seed in `lobby-start` and both seats derive identical packs from
-`battlePack.ts`, unsealing one pack per seat per round (host's on the left,
-guest's on the right) and revealing the matching slot in both packs at once, so
-either seat advances both. Since 04.3 the same component also hosts two solo views that never touch the wire: `rip` rolls a fresh session-only seed and opens one pack from the same 30C definition (the RIP page lives inside the `pokemon-pack-battle` component, so no extra routing exists), writes the pulled ids to the persisted `openedCards` bucket under the entered player name, and shows the six cards as one overlapping stack. The next fixed seeded card is raised and flipped one at a time; "Reveal all cards" processes that same remaining order sequentially. The RIP form's secondary button opens the collection directly,
-so previously unlocked cards are viewable without ripping anything in this
-session, and the results row offers the same trip right after an open;
-`unlocked` shows the whole set in card-number order and greyscales plus darkens
-every card that player has not opened yet (locked tiles carry a translated lock
-chip; nothing is ever hidden). On
-ceremony completion this device records the local seat's own
-packs exactly once (`cardIdsForSeat`: host = even-indexed packs, guest =
-odd-indexed, an odd tail pack belongs to both seats) together with a transient
-`packBattle.collectionSaved` notice, so the opponent's packs never enter this
-device's collection; `resetCeremony` re-arms that one-shot guard so a rematch
-records its own packs too. Confirm/Skip keys (remappable as
-`pokemon-pack-confirm` / `pokemon-pack-skip`) drive the reveal. `leaveLobby()`
-and `leaveRip()` return to `start` from every view, and `highscore` returns to
-`summary` when a match seed exists, else to `start`.
+`battlePack.ts`. Each seat opens only its owned packs in any order, while every
+`pack-open`, `card-reveal`, and `pack-reveal-all` action is mirrored to both
+screens. `ceremonyState.ts` stores session-only per-pack `opened`, six-slot
+`revealed`, and `expanded` flags. The opening view renders two simultaneous
+seat lanes, one focused `PackStack` per seat, with compact owned-pack
+selectors; normal stack mode exposes one action target and leaves the latest
+revealed card on top, while Reveal All expands all six cards for review. A
+completed stack remains visible until its owner explicitly selects another
+owned pack. Confirm/Skip are remappable (`pokemon-pack-confirm` /
+`pokemon-pack-skip`) reveal-only actions; Skip deterministically wins if both
+bindings share a key. The same-seed `lobby-start` plus host `ceremony-sync`
+replay restores opened, revealed, and expanded state after a re-hello, and a
+seeded-match channel drop preserves the ceremony while the guest redials. Since
+04.3 the same component also hosts two solo views that never touch the wire:
+`rip` rolls a fresh session-only seed and opens one pack from the same 30C
+definition, writes the pulled ids to the persisted `openedCards` bucket under
+the entered player name, and uses the same `PackStack` presentation. The RIP
+form's secondary button opens the collection directly, so previously unlocked
+cards are viewable without ripping anything in this session; `unlocked` shows
+the whole set in card-number order and greyscales plus darkens every card that
+player has not opened yet. On ceremony completion this device records the
+local seat's own packs exactly once (`cardIdsForSeat`: host = even-indexed
+packs, guest = odd-indexed, an odd tail pack belongs to both seats) together
+with a transient `packBattle.collectionSaved` notice, so the opponent's packs
+never enter this device's collection; `resetCeremony` re-arms that one-shot
+guard so a rematch records its own packs too. `leaveLobby()` and `leaveRip()`
+return to `start` from every view, and `highscore` returns to `summary` when a
+match seed exists, else to `start`.
 
 ```mermaid
 flowchart LR
@@ -252,8 +265,8 @@ flowchart LR
     PBSTART -->|"join by code"| PBJOIN["lobbyJoin"]
     PBJOIN -->|"host hello-ack lands"| PBLOBBY
     PBLOBBY -->|"leaveLobby()"| PBSTART
-    PBLOBBY -->|"host startMatch() broadcasts lobby-start (shared seed + settings)"| PBOPENING["opening — one pack per seat per round"]
-    PBOPENING -->|"ceremonyComplete -> see all summary; the local seat's own pack ids are recorded once to openedCards (04.3)"| PBSUMMARY["summary — every opened card per seat, rarest first"]
+    PBLOBBY -->|"host startMatch() broadcasts lobby-start (shared seed + settings)"| PBOPENING["opening — two seat lanes, one focused stack each"]
+    PBOPENING -->|"each seat opens owned packs in any order; fixed-order reveals mirror; Reveal All expands; explicit next-pack selection; ceremonyComplete -> see all summary"| PBSUMMARY["summary — every opened card per seat, rarest first"]
     PBSUMMARY -->|"acceptRematch() / rematch granted: fresh seed via lobby-start"| PBOPENING
     PBSUMMARY -->|"highscores"| PBHIGHSCORE["highscore"]
     PBHIGHSCORE -->|"back (summary when a seed exists, else start)"| PBSUMMARY
