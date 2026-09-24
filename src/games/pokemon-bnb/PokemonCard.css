@@ -54,9 +54,8 @@
 .pkm-card-textface { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--pkm-card-w, 168px) * .08); padding: 12% 10%; text-align: center; }
 .pkm-card-name { max-width: 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; font-size: calc(var(--pkm-card-w, 168px) * .105); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
  .pkm-card-textface-rarity { max-width: 100%; padding: 2px 8px; border: 1px solid #50676a; border-radius: 999px; background: rgba(255, 255, 255, .45); font-size: calc(var(--pkm-card-w, 168px) * .062); line-height: 1.4; letter-spacing: .06em; text-transform: uppercase; overflow-wrap: anywhere; }
-/* Translated rarity chip — the only overlay every face carries, so it needs
- * to stay legible over artwork. */
-.pkm-card-rarity { position: absolute; top: 6px; left: 6px; padding: 2px 8px; border-radius: 999px; border: 1px solid #50676a; background: rgba(255, 255, 255, .86); font-size: .6rem; text-transform: uppercase; letter-spacing: .06em; }
+/* (Retired: art faces no longer render a rarity chip — the rarity is printed
+ * on the hosted card image itself. The text-face rarity line above stays.) */
 /* Battle overlays (CP8) — absolutely positioned over the artwork; the card's
  * box never changes size because of them. */
 .pkm-card-damage { position: absolute; right: 6px; bottom: 6px; min-width: 26px; height: 26px; padding: 0 6px; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: #a33; color: #fff; font-size: .72rem; font-weight: 700; }

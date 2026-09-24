@@ -1,8 +1,9 @@
 // Reusable Pokemon TCG card face for B&B mini. The hosted TCGdex artwork
 // (cardImage.ts) IS the face (CP11-E): card-level engine data (HP, attacks,
 // rules) is never rendered — the face reads as the real card image, at one
-// uniform 8/11 size in every view. Battle overlays (damage, status pips) and
-// the pre-translated rarity chip stay on top.
+// uniform 8/11 size in every view. Battle overlays (damage, status pips) stay
+// on top; the rarity is printed on the artwork itself, so no rarity chip is
+// rendered over art faces.
 //
 // Text fallback (player-reported): when no artwork paints the face — a card
 // with no hosted art (synthetic basic energies, `cardImageUrl` -> undefined) or
@@ -103,13 +104,15 @@ export function PokemonCard({ card, faceDown, rarityLabel, faceDownLabel, damage
               />
             </span>
           )}
-          {/* The text face already prints the rarity, so no duplicate chip. */}
+          {/* The text face already prints the rarity, so no duplicate chip.
+              Art faces show no chip either: the rarity is printed on the
+              hosted card image itself. */}
           {showTextFace ? (
             <span className="pkm-card-textface">
               <span className="pkm-card-name">{card.name}</span>
               {rarityLabel && <span className="pkm-card-textface-rarity">{rarityLabel}</span>}
             </span>
-          ) : rarityLabel && <span className="pkm-card-rarity">{rarityLabel}</span>}
+          ) : null}
           {typeof damage === 'number' && damage > 0 && <span className="pkm-card-damage">{damage}</span>}
           {statusList.length > 0 && (
             <span className="pkm-card-statuses">{statusList.map((status) => <i key={status} className={`pkm-card-status pkm-card-status-${status}`} />)}</span>
