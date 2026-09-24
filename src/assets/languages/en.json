@@ -520,6 +520,7 @@
     "ripTitle": "Pack rips",
     "ripEyebrow": "Open packs by yourself",
     "ripOpen": "Open packs",
+    "ripRevealAll": "Reveal all cards",
     "ripResultPacks": "You opened {count} pack{plural}.",
     "ripResultCards": "You pulled {count} card{plural}.",
     "backToPackRip": "Back to pack rips",

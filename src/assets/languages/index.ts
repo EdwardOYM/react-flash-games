@@ -527,6 +527,7 @@ type PackBattleTranslationKey =
   | 'ripTitle'
   | 'ripEyebrow'
   | 'ripOpen'
+  | 'ripRevealAll'
   | 'ripResultPacks'
   | 'ripResultCards'
   | 'backToPackRip'

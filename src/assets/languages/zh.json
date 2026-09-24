@@ -520,6 +520,7 @@
     "ripTitle": "补充包自拆",
     "ripEyebrow": "自己打开补充包",
     "ripOpen": "打开补充包",
+    "ripRevealAll": "全部翻开",
     "ripResultPacks": "你打开了 {count} 包{plural}。",
     "ripResultCards": "你抽到了 {count} 张卡{plural}。",
     "backToPackRip": "返回补充包自拆",

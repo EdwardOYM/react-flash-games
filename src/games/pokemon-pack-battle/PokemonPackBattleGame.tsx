@@ -120,13 +120,13 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   const [copied, setCopied] = useState(false)
 
   /**
-   * 04.3 RIP-packs form state: held here so the rip page keeps the entered name,
-   * set, and pack count when the player steps to the unlocked collection and
+   * 04.3 RIP-packs form state: held here so the rip page keeps the entered name
+   * and set when the player steps to the unlocked collection and
    * back (PokemonPackRip reports every change through its callbacks).
+   * Each "Open packs" click opens exactly one pack (no packs-per-player).
    */
   const [ripPlayerName, setRipPlayerName] = useState('')
   const [ripSetIndex, setRipSetIndex] = useState(0)
-  const [ripPackCount, setRipPackCount] = useState(1)
 
   /**
    * CP4/CP7 shared ceremony cursor: both seats render from this one cursor and
@@ -1264,19 +1264,17 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   // 04.3 RIP packs / unlocked collection (see the plan's view machine):
   // start -> rip -> unlocked -> rip -> start, and both new views leave back to
   // start (`leaveRip`). The form state lives in this component, so a remount
-  // after leaving restores the last name, set, and pack count.
+  // after leaving restores the last name and set.
   if (view === 'rip' || view === 'unlocked') {
     return (
       <PokemonPackRip
         view={view}
         playerName={ripPlayerName}
         setIndex={ripSetIndex}
-        packCount={ripPackCount}
         onViewChange={setView}
         onExit={leaveRip}
         onRipPlayerName={setRipPlayerName}
         onRipSetIndex={setRipSetIndex}
-        onRipPackCount={setRipPackCount}
       />
     )
   }

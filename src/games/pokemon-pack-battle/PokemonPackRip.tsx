@@ -9,6 +9,7 @@ import { listPlayers, readOpenedCards, recordOpenedCards } from './collection'
 import { PACK_BATTLE_30C, battleSetCards, openBattlePacks, type BattleOpenedCard } from './battlePack'
 import { createPackBattleRng, randomPackBattleSeed } from './rng'
 import { listSets } from './sets'
+import './PokemonPackBattleGame.css'
 import './PokemonPackRip.css'
 
 export type PokemonPackRipView = 'rip' | 'unlocked'
@@ -215,12 +216,6 @@ export function PokemonPackRip({
                 ))}
               </div>
             </div>
-
-            {/* Not in use atm */}
-            {/* <div className="ppb-rip-field">
-              <span className="ppb-rip-field-label">{translate('packBattle.ripPackLabel')}</span>
-              <span className="ppb-rip-stepper-num" aria-live="polite">1</span>
-            </div> */}
           </div>
 
           <div className="ppb-rip-actions">
@@ -242,19 +237,48 @@ export function PokemonPackRip({
             </p>
             <p className="ppb-rip-copy" style={{ marginTop: '8px' }}>
               {substituteParams(translate('packBattle.ripResultPacks'), {
-                count: String(packCountField),
-                plural: packCountField === 1 ? '' : 's',
+                count: '1',
+                plural: '',
+                pelandak: '',
               })}
               {' '}
               {substituteParams(translate('packBattle.ripResultCards'), {
                 count: String(soloOpened.length),
                 plural: soloOpened.length === 1 ? '' : 's',
+                pelandak: soloOpened.length === 1 ? '' : 's',
               })}
             </p>
+            {/* Ceremony mirror: each pack opens face-down; clicking a card
+                reveals just that card, while the reveal-all button flips the
+                rest at once (see the ceremony's `revealNext` / `revealAllPack`
+                pair in PokemonPackBattleGame.tsx). */}
+            <div className="ppb-actions ppb-ceremony-actions">
+              <p className="ppb-hint ppb-ceremony-hint">{translate('packBattle.ceremonyRevealHint')}</p>
+              {soloRevealed.some((seen) => !seen) && (
+                <button type="button" onClick={handleRevealAllSolo}>
+                  {translate('packBattle.ripRevealAll')}
+                </button>
+              )}
+            </div>
             <div className="ppb-rip-cardgrid">
               {soloOpened.map((opened, index) => (
                 <div key={`${opened.card.id}-${index}`} className="ppb-rip-cardwrap">
-                  <PokemonCard card={opened.card} rarityLabel={rarityLabelForCard(opened.card.rarity)} />
+                  {soloRevealed[index] ? (
+                    <PokemonCard card={opened.card} rarityLabel={rarityLabelForCard(opened.card.rarity)} />
+                  ) : (
+                    <button
+                      className="ppb-card-button"
+                      type="button"
+                      aria-label={substituteParams(translate('packBattle.revealCardLabel'), {
+                        index: String(index + 1),
+                        total: String(soloOpened.length),
+                        name: soloPlayer || translate('packBattle.defaultName'),
+                      })}
+                      onClick={() => handleRevealSoloCard(index)}
+                    >
+                      <PokemonCard card={opened.card} faceDown faceDownLabel={translate('packBattle.cardFaceDown')} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
