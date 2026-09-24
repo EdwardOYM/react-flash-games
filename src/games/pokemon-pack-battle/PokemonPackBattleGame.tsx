@@ -246,7 +246,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
           const replay = cursorRef.current
           sessionRef.current?.send({ kind: 'pair-open', pairIndex: replay.pairIndex })
           if (replay.opened && replay.cardIndex > 0) {
-            sessionRef.current?.send({ kind: 'card-reveal', pairIndex: replay.pairIndex, cardIndex: replay.cardIndex - 1 })
+            sessionRef.current?.send({ kind: 'card-reveal-pair', pairIndex: replay.pairIndex, cardIndex: replay.cardIndex - 1 })
           }
         }
         return
@@ -291,7 +291,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
         })
         return
       }
-      case 'card-reveal': {
+      case 'card-reveal-pair': {
         if (message.pairIndex >= settingsRef.current.packs) return
         setCursor((prev) => {
           if (message.pairIndex > prev.pairIndex) {
@@ -623,14 +623,14 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   /** Reveal the next card slot of the round's two packs for both seats. */
   const revealNext = () => {
     if (!cursor.opened || cursor.cardIndex >= PACK_BATTLE_LIMITS.cardsPerPack) return
-    sessionRef.current?.send({ kind: 'card-reveal', pairIndex: cursor.pairIndex, cardIndex: cursor.cardIndex })
+    sessionRef.current?.send({ kind: 'card-reveal-pair', pairIndex: cursor.pairIndex, cardIndex: cursor.cardIndex })
     setCursor({ ...cursor, cardIndex: cursor.cardIndex + 1 })
   }
 
   /** Skip: reveal every card of the round's two packs at once. */
   const revealAllPack = () => {
     if (!cursor.opened || cursor.cardIndex >= PACK_BATTLE_LIMITS.cardsPerPack) return
-    sessionRef.current?.send({ kind: 'card-reveal', pairIndex: cursor.pairIndex, cardIndex: PACK_BATTLE_LIMITS.cardsPerPack - 1 })
+    sessionRef.current?.send({ kind: 'card-reveal-pair', pairIndex: cursor.pairIndex, cardIndex: PACK_BATTLE_LIMITS.cardsPerPack - 1 })
     setCursor({ ...cursor, cardIndex: PACK_BATTLE_LIMITS.cardsPerPack })
   }
 

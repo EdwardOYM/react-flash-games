@@ -431,7 +431,7 @@
     "tutorialTitle": "Cara bermain",
     "tutorialLobby": "Cipta lobi atau sertai dengan kod, kemudian setuju 1 hingga 36 pek untuk bertarung.",
     "tutorialOpen": "Setiap pusingan membuka satu pek untuk setiap pihak, bersebelahan. Klik pek yang tersegel untuk membukanya, kemudian klik kad tertutup untuk menelangkannya — kad padanan akan terbuka dalam kedua-dua pek sekali gus, dan dedahan mana-mana pemain dikira untuk kedua-dua pihak.",
-    "tutorialScore": "Pukulan jarang memberi mata: holo standard 1, full art 2, illustration rare 3. Rainbow dan emas 4, special art 5. Pikachu yang dijamin dalam setiap pek memberi 0 mata. Jumlah tertinggi menang.",
+    "tutorialScore": "Skor kad jarang: double rare (EX) 1, Illustration Rare (IR) 2, Special Illustration Rare (SIR) 5, Futuristic Rare (FR) 7. Pikachu dijamin dalam setiap pek mendapat skor 0. Jumlah tertinggi menang.",
     "tutorialComplete": "Bagus — anda sudah bersedia untuk bertarung!",
     "tutorialSkip": "Langkau tutorial",
     "finish": "Selesai",
