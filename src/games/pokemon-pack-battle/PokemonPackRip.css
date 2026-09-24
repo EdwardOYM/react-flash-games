@@ -35,23 +35,30 @@
 /* Columns follow the card token, so a card never overflows (or overlaps) its
  * column and the grid never widens the page. */
 .ppb-rip-cardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--pkm-card-w, 150px), 100%), 1fr)); gap: 12px; width: min(100%, 960px); margin-top: 18px; }
-/* CP11: revealed cards occupy an ordered row above the remaining face-down
- * stack. Every card stays mounted, so changing `faceDown` preserves
- * PokemonCard's flip transition while its grid position moves upward. */
-.ppb-rip-stack { --ppb-stack-depth: clamp(3px, .7vw, 6px); display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(8px, 1.5vw, 14px); width: min(100%, 960px); margin: 18px auto 0; }
-.ppb-rip-stack-card { position: relative; min-width: 0; padding: 0; border: 0; color: inherit; background: transparent; transition: transform .3s ease, filter .3s ease; }
-.ppb-rip-stack-card .pkm-card { width: 100%; max-width: var(--pkm-card-w, 150px); margin-inline: auto; }
-.ppb-rip-card-revealed { grid-row: 1; z-index: 10; transform: translateY(0); pointer-events: none; }
-.ppb-rip-card-hidden { grid-row: 2; grid-column: 1 / -1; justify-self: center; width: min(var(--pkm-card-w, 150px), 100%); pointer-events: none; }
-.ppb-rip-hidden-depth-0 { z-index: 26; transform: translateY(0); }
-.ppb-rip-hidden-depth-1 { z-index: 25; transform: translateY(var(--ppb-stack-depth)); }
-.ppb-rip-hidden-depth-2 { z-index: 24; transform: translateY(calc(var(--ppb-stack-depth) * 2)); }
-.ppb-rip-hidden-depth-3 { z-index: 23; transform: translateY(calc(var(--ppb-stack-depth) * 3)); }
-.ppb-rip-hidden-depth-4 { z-index: 22; transform: translateY(calc(var(--ppb-stack-depth) * 4)); }
-.ppb-rip-hidden-depth-5 { z-index: 21; transform: translateY(calc(var(--ppb-stack-depth) * 5)); }
-.ppb-rip-card-hidden:not(:disabled) { pointer-events: auto; cursor: pointer; }
-.ppb-rip-card-hidden:not(:disabled):hover { filter: brightness(1.08); }
-.ppb-rip-card-hidden:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 4px; }
+/* CP12: normal mode is one overlapping stack. The newest revealed card stays
+ * visible between clicks; clicking the single overlay promotes and flips the next
+ * hidden card. Reveal-all changes these same keyed cards to the final grid. */
+.ppb-rip-stack { --ppb-stack-depth: clamp(3px, .7vw, 6px); position: relative; width: min(100%, 960px); min-height: calc(var(--pkm-card-w, 150px) * 1.45 + var(--ppb-stack-depth) * 5); margin: 18px auto 0; }
+.ppb-rip-stack-card { position: absolute; top: 0; left: 50%; width: min(var(--pkm-card-w, 150px), 100%); min-width: 0; padding: 0; border: 0; color: inherit; background: transparent; transform: translateX(-50%); transition: transform .3s ease, filter .3s ease; }
+.ppb-rip-stack-card .pkm-card { width: 100%; }
+.ppb-rip-card-revealed { z-index: 10; }
+.ppb-rip-card-latest { z-index: 30; transform: translateX(-50%) translateY(calc(var(--ppb-stack-depth) * -1)); }
+.ppb-rip-card-hidden { pointer-events: none; }
+.ppb-rip-hidden-depth-0 { z-index: 25; }
+.ppb-rip-hidden-depth-1 { z-index: 24; transform: translateX(-50%) translateY(var(--ppb-stack-depth)); }
+.ppb-rip-hidden-depth-2 { z-index: 23; transform: translateX(-50%) translateY(calc(var(--ppb-stack-depth) * 2)); }
+.ppb-rip-hidden-depth-3 { z-index: 22; transform: translateX(-50%) translateY(calc(var(--ppb-stack-depth) * 3)); }
+.ppb-rip-hidden-depth-4 { z-index: 21; transform: translateX(-50%) translateY(calc(var(--ppb-stack-depth) * 4)); }
+.ppb-rip-hidden-depth-5 { z-index: 20; transform: translateX(-50%) translateY(calc(var(--ppb-stack-depth) * 5)); }
+.ppb-rip-stack-action { position: absolute; z-index: 40; top: 0; left: 50%; width: min(var(--pkm-card-w, 150px), 100%); height: calc(var(--pkm-card-w, 150px) * 1.4); padding: 0; border: 0; color: transparent; background: transparent; transform: translateX(-50%); cursor: pointer; }
+.ppb-rip-stack-action:hover { filter: brightness(1.08); }
+.ppb-rip-stack-action:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 4px; }
+.ppb-rip-stack-expanded { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(8px, 1.5vw, 14px); min-height: 0; }
+.ppb-rip-stack-expanded .ppb-rip-stack-card { position: relative; top: auto; left: auto; width: 100%; transform: none; }
+.ppb-rip-stack-expanded .ppb-rip-card-latest { transform: none; }
+@media (max-width: 520px) {
+  .ppb-rip-stack-expanded { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (prefers-reduced-motion: reduce) {
   .ppb-rip-stack-card { transition: none; }
 }

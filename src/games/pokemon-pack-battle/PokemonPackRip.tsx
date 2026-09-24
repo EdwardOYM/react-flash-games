@@ -1,7 +1,7 @@
 // Pokemon Pack Rips â€” solo pack rip page + unlocked collection page (04.3).
 // Reuses the shared 30C pack definition and card pool so a solo rip draws from the
 // same rarity distribution as the ceremony without any new weights or slots.
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { type Locale, useTranslations } from '../../assets/languages'
 import { readConfig } from '../../config'
 import { PokemonCard } from '../pokemon-bnb/PokemonCard'
@@ -70,9 +70,7 @@ export function PokemonPackRip({
   const [setIndexField, setSetIndexField] = useState(setIndex)
   const [soloOpened, setSoloOpened] = useState<BattleOpenedCard[] | null>(null)
   const [soloRevealed, setSoloRevealed] = useState<boolean[]>([])
-  /** Timed fixed-order reveal queue used by the solo reveal-all control. */
-  const soloRevealQueueRef = useRef<number[]>([])
-  const soloRevealTimerRef = useRef<number | null>(null)
+  const [soloExpanded, setSoloExpanded] = useState(false)
   const [soloPlayer, setSoloPlayer] = useState('')
   const [collectionPlayer, setCollectionPlayer] = useState('')
   const [collectionSetIndex, setCollectionSetIndex] = useState(0)
@@ -116,23 +114,11 @@ export function PokemonPackRip({
     onRipSetIndex?.(clamped)
   }
 
-  const cancelQueuedSoloReveals = () => {
-    soloRevealQueueRef.current = []
-    if (soloRevealTimerRef.current !== null) {
-      window.clearTimeout(soloRevealTimerRef.current)
-      soloRevealTimerRef.current = null
-    }
-  }
-
-  /**
-   * CP10: one fixed-order front stack. Opening a pack clears a pending queue so
-   * a new pack never inherits the old pack's reveal animation.
-   */
+  /** Open one fresh six-card stack in the fixed seeded reveal order. */
   const handleOpenPacks = () => {
     const trimmed = playerNameField.trim()
     if (!trimmed) return
 
-    cancelQueuedSoloReveals()
     const rng = createPackBattleRng(randomPackBattleSeed())
     const opened = openBattlePacks(battleSetCards(), PACK_BATTLE_30C, 1, rng)
     const ids = opened.map((entry) => entry.card.id)
@@ -141,13 +127,13 @@ export function PokemonPackRip({
     setSoloPlayer(trimmed)
     setSoloOpened(opened)
     setSoloRevealed(opened.map(() => false))
+    setSoloExpanded(false)
     onRipPlayerName?.(trimmed)
     onRipSetIndex?.(setIndexField)
   }
 
-  /** Reveal only the next fixed seeded card in the current solo stack. */
+  /** Reveal the single hidden card currently waiting beneath the visible top card. */
   const handleRevealNextSoloCard = () => {
-    cancelQueuedSoloReveals()
     setSoloRevealed((prev) => {
       const nextIndex = prev.findIndex((seen) => !seen)
       if (nextIndex < 0) return prev
@@ -157,40 +143,11 @@ export function PokemonPackRip({
     })
   }
 
-  /**
-   * Reveal-all keeps the same fixed order and shared card flip, spacing the
-   * state changes enough for each front card to rise and settle before the next.
-   */
+  /** Reveal the complete pack immediately and expand it for side-by-side review. */
   const handleRevealAllSolo = () => {
-    const nextIndex = soloRevealed.findIndex((seen) => !seen)
-    if (nextIndex < 0) return
-    cancelQueuedSoloReveals()
-    soloRevealQueueRef.current = Array.from(
-      { length: soloRevealed.length - nextIndex },
-      (_, index) => nextIndex + index,
-    )
-
-    const revealQueuedCard = () => {
-      const queuedIndex = soloRevealQueueRef.current.shift()
-      if (queuedIndex === undefined) {
-        soloRevealTimerRef.current = null
-        return
-      }
-      setSoloRevealed((prev) => {
-        if (prev[queuedIndex]) return prev
-        const next = [...prev]
-        next[queuedIndex] = true
-        return next
-      })
-      soloRevealTimerRef.current = window.setTimeout(revealQueuedCard, 650)
-    }
-
-    soloRevealTimerRef.current = window.setTimeout(revealQueuedCard, 0)
+    setSoloRevealed((prev) => prev.map(() => true))
+    setSoloExpanded(true)
   }
-
-  useEffect(() => () => {
-    if (soloRevealTimerRef.current !== null) window.clearTimeout(soloRevealTimerRef.current)
-  }, [])
 
   const handleBackToPackBattle = () => {
     onExit?.()
@@ -289,36 +246,33 @@ export function PokemonPackRip({
                 pelandak: soloOpened.length === 1 ? '' : 's',
               })}
             </p>
-            {/* CP11: keep every card mounted so the front card retains its
-                face-down to face-up transition. Revealed cards occupy the
-                ordered row above; only hidden cards share the lower stack. */}
+            {/* All six keyed cards stay mounted. Normal mode overlaps them in one
+                stack; reveal-all switches those same cards to the final grid. */}
             <div className="ppb-actions ppb-ceremony-actions">
-              <p className="ppb-hint ppb-ceremony-hint">{translate('packBattle.ceremonyRevealHint')}</p>
-              {soloRevealed.some((seen) => !seen) && (
-                <button type="button" onClick={handleRevealAllSolo}>
-                  {translate('packBattle.ripRevealAll')}
-                </button>
+              {!soloExpanded && soloRevealed.some((seen) => !seen) && (
+                <>
+                  <p className="ppb-hint ppb-ceremony-hint">{translate('packBattle.ceremonyRevealHint')}</p>
+                  <button type="button" onClick={handleRevealAllSolo}>
+                    {translate('packBattle.ripRevealAll')}
+                  </button>
+                </>
               )}
             </div>
-            <div className="ppb-rip-stack" aria-label={translate('packBattle.ceremonyRevealHint')}>
+            <div className={`ppb-rip-stack${soloExpanded ? ' ppb-rip-stack-expanded' : ''}`} aria-label={translate('packBattle.ceremonyRevealHint')}>
               {soloOpened.map((opened, index) => {
                 const revealed = soloRevealed[index] === true
-                const nextUnrevealed = soloRevealed.findIndex((seen) => !seen)
-                const isFront = !revealed && index === nextUnrevealed
+                const latestRevealed = soloRevealed.reduce(
+                  (latest, seen, seenIndex) => (seen ? seenIndex : latest),
+                  -1,
+                )
+                const isLatestRevealed = revealed && index === latestRevealed
                 const hiddenDepth = soloRevealed.slice(0, index).filter((seen) => !seen).length
+                const visibleToAssistiveTech = soloExpanded || isLatestRevealed
                 return (
-                  <button
+                  <div
                     key={`${opened.card.id}-${index}`}
-                    className={`ppb-rip-stack-card ${revealed ? 'ppb-rip-card-revealed' : `ppb-rip-card-hidden ppb-rip-hidden-depth-${hiddenDepth}`}`}
-                    type="button"
-                    aria-hidden={!isFront ? 'true' : undefined}
-                    aria-label={substituteParams(translate('packBattle.revealCardLabel'), {
-                      index: String(index + 1),
-                      total: String(soloOpened.length),
-                      name: soloPlayer || translate('packBattle.defaultName'),
-                    })}
-                    disabled={!isFront}
-                    onClick={handleRevealNextSoloCard}
+                    className={`ppb-rip-stack-card ${revealed ? 'ppb-rip-card-revealed' : `ppb-rip-card-hidden ppb-rip-hidden-depth-${hiddenDepth}`}${isLatestRevealed ? ' ppb-rip-card-latest' : ''}`}
+                    aria-hidden={visibleToAssistiveTech ? undefined : 'true'}
                   >
                     <PokemonCard
                       card={opened.card}
@@ -326,9 +280,21 @@ export function PokemonPackRip({
                       rarityLabel={rarityLabelForCard(opened.card.rarity)}
                       faceDownLabel={translate('packBattle.cardFaceDown')}
                     />
-                  </button>
+                  </div>
                 )
               })}
+              {!soloExpanded && soloRevealed.some((seen) => !seen) && (
+                <button
+                  className="ppb-rip-stack-action"
+                  type="button"
+                  aria-label={substituteParams(translate('packBattle.revealCardLabel'), {
+                    index: String(soloRevealed.findIndex((seen) => !seen) + 1),
+                    total: String(soloOpened.length),
+                    name: soloPlayer || translate('packBattle.defaultName'),
+                  })}
+                  onClick={handleRevealNextSoloCard}
+                />
+              )}
             </div>
             <div className="ppb-rip-actions" style={{ marginTop: '16px' }}>
               <button className="ppb-rip-primary" type="button" onClick={handleToUnlocked}>
