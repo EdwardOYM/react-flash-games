@@ -35,6 +35,24 @@
 /* Columns follow the card token, so a card never overflows (or overlaps) its
  * column and the grid never widens the page. */
 .ppb-rip-cardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--pkm-card-w, 150px), 100%), 1fr)); gap: 12px; width: min(100%, 960px); margin-top: 18px; }
+/* CP10: one overlapping card stack. All six cards stay mounted so the active
+ * card reuses PokemonCard's face-down to face-up 3D transition. Only the next
+ * unrevealed seeded slot is interactive; revealed cards settle beneath it. */
+.ppb-rip-stack { --ppb-stack-depth: clamp(3px, .7vw, 6px); position: relative; width: var(--pkm-card-w, 150px); max-width: 100%; aspect-ratio: 8 / 11; margin: 18px auto 0; }
+.ppb-rip-stack-card { position: absolute; inset: 0; width: 100%; padding: 0; border: 0; background: transparent; pointer-events: none; transition: transform .3s ease, filter .3s ease; }
+.ppb-rip-stack-card .pkm-card { width: 100%; }
+.ppb-rip-stack-card:nth-child(1) { z-index: 1; transform: translateY(calc(var(--ppb-stack-depth) * 5)); }
+.ppb-rip-stack-card:nth-child(2) { z-index: 2; transform: translateY(calc(var(--ppb-stack-depth) * 4)); }
+.ppb-rip-stack-card:nth-child(3) { z-index: 3; transform: translateY(calc(var(--ppb-stack-depth) * 3)); }
+.ppb-rip-stack-card:nth-child(4) { z-index: 4; transform: translateY(calc(var(--ppb-stack-depth) * 2)); }
+.ppb-rip-stack-card:nth-child(5) { z-index: 5; transform: translateY(var(--ppb-stack-depth)); }
+.ppb-rip-stack-card:nth-child(6) { z-index: 6; transform: translateY(0); }
+.ppb-rip-stack-card.ppb-rip-stack-front { z-index: 20; pointer-events: auto; cursor: pointer; transform: translateY(0); }
+.ppb-rip-stack-front:hover { filter: brightness(1.08); }
+.ppb-rip-stack-front:focus, .ppb-rip-stack-front:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .ppb-rip-stack-card { transition: none; }
+}
 .ppb-rip-cardwrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 /* Locked tiles keep their slot in the grid: the face is greyscaled and darkened
  * while the lock chip riding its foot stays legible (it is not inside the

@@ -228,12 +228,7 @@ The pack-battle ceremony is wholly shared and deterministic: the host rolls the
 seed in `lobby-start` and both seats derive identical packs from
 `battlePack.ts`, unsealing one pack per seat per round (host's on the left,
 guest's on the right) and revealing the matching slot in both packs at once, so
-either seat advances both. Since 04.3 the same component also hosts two solo
-views that never touch the wire: `rip` rolls a fresh session-only seed and opens
-`count` packs from the same 30C definition (the RIP page lives inside the
-`pokemon-pack-battle` component, so no extra routing exists), writes the pulled
-ids to the persisted `openedCards` bucket under the entered player name, and
-shows every pull. The RIP form's secondary button opens the collection directly,
+either seat advances both. Since 04.3 the same component also hosts two solo views that never touch the wire: `rip` rolls a fresh session-only seed and opens one pack from the same 30C definition (the RIP page lives inside the `pokemon-pack-battle` component, so no extra routing exists), writes the pulled ids to the persisted `openedCards` bucket under the entered player name, and shows the six cards as one overlapping stack. The next fixed seeded card is raised and flipped one at a time; "Reveal all cards" processes that same remaining order sequentially. The RIP form's secondary button opens the collection directly,
 so previously unlocked cards are viewable without ripping anything in this
 session, and the results row offers the same trip right after an open;
 `unlocked` shows the whole set in card-number order and greyscales plus darkens
@@ -262,8 +257,8 @@ flowchart LR
     PBSUMMARY -->|"acceptRematch() / rematch granted: fresh seed via lobby-start"| PBOPENING
     PBSUMMARY -->|"highscores"| PBHIGHSCORE["highscore"]
     PBHIGHSCORE -->|"back (summary when a seed exists, else start)"| PBSUMMARY
-    PBSTART -->|"RIP packs (04.3)"| PBRIP["rip — solo open: name + set + pack count"]
-    PBRIP -->|"open packs: fresh session seed, own bucket write, results grid"| PBRIP
+    PBSTART -->|"RIP packs (04.3)"| PBRIP["rip — solo open: name + set, one six-card stack"]
+    PBRIP -->|"open packs: fresh session seed + own bucket write; reveal the fixed stack one card at a time"| PBRIP
     PBRIP -->|"Unlocked cards — always available, newly opened or not"| PBUNLOCKED["unlocked — only the opened cards of set + player, in number order"]
     PBUNLOCKED -->|"back to pack rip"| PBRIP
     PBRIP -->|"leaveRip()"| PBSTART
