@@ -37,16 +37,19 @@ function cardSortNumber(card: { number: string }): number {
 }
 
 /**
- * Cards the player has opened in one set, in set-number order. Cards that were
- * never opened are not rendered (the collection shows exactly what was pulled).
- * The bucket is read here — not memoised — because a rip writes straight to the
- * persisted config and this page has no storage subscription.
+ * Every card of one set in card-number order, each tagged with whether the named
+ * player has opened it. The collection shows the whole set and greyscales the
+ * cards that are not unlocked yet (nothing is hidden — progress reads as a set
+ * with gaps to fill). The bucket is read here — not memoised — because a rip
+ * writes straight to the persisted config and this page has no storage
+ * subscription.
  */
-function cardsForPlayerSet(player: string, setId: string) {
-  const ids = new Set(readOpenedCards(player))
+function setCollectionCards(player: string, setId: string) {
+  const opened = new Set(readOpenedCards(player))
   return battleSetCards()
-    .filter((card) => card.set === setId && ids.has(card.id))
+    .filter((card) => card.set === setId)
     .sort((a, b) => cardSortNumber(a) - cardSortNumber(b))
+    .map((card) => ({ card, unlocked: opened.has(card.id) }))
 }
 
 export function PokemonPackRip({
@@ -98,7 +101,8 @@ export function PokemonPackRip({
     }
   }
 
-  const collectionCards = selectedPlayer ? cardsForPlayerSet(selectedPlayer, unlockedSet.id) : []
+  const collectionCards = setCollectionCards(selectedPlayer, unlockedSet.id)
+  const unlockedInSet = collectionCards.filter((entry) => entry.unlocked).length
 
   const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextValue = event.target.value.slice(0, 16)
@@ -142,9 +146,15 @@ export function PokemonPackRip({
     onViewChange?.('rip')
   }
 
+  /**
+   * Open the collection. This backs two entry points: the form's always-available
+   * "Unlocked cards" button (no rip needed, so previously opened cards are viewable
+   * straight away) and the post-rip button in the results row. The form's current
+   * set and name are carried over, so a typed name lands on that player's
+   * collection; an empty name simply falls back to the first player the unlocked
+   * page finds in the bucket (bucket keys are lowercased).
+   */
   const handleToUnlocked = () => {
-    // Carry the rip's set and player into the collection page, so (Unlocked)
-    // lands on the cards the player just opened (bucket keys are lowercased).
     setCollectionSetIndex(setIndexField)
     setCollectionPlayer((soloPlayer || playerNameField.trim()).toLowerCase())
     onViewChange?.('unlocked')
@@ -212,8 +222,8 @@ export function PokemonPackRip({
             <button className="ppb-rip-primary" type="button" onClick={handleOpenPacks} disabled={!playerNameField.trim()}>
               {translate('packBattle.ripOpen')}
             </button>
-            <button className="ppb-rip-secondary" type="button" onClick={() => setSoloOpened(null)} disabled={!soloOpened}>
-              {translate('packBattle.ripMorePacks')}
+            <button className="ppb-rip-secondary" type="button" onClick={handleToUnlocked}>
+              {translate('packBattle.unlocked')}
             </button>
           </div>
         </div>
