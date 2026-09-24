@@ -1,7 +1,7 @@
 // Pokemon Pack Rips — solo pack rip page + unlocked collection page (04.3).
 // Reuses the shared 30C pack definition and card pool so a solo rip draws from the
 // same rarity distribution as the ceremony without any new weights or slots.
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { type Locale, useTranslations } from '../../assets/languages'
 import { readConfig } from '../../config'
 import { PokemonCard } from '../pokemon-bnb/PokemonCard'
@@ -36,6 +36,19 @@ function cardSortNumber(card: { number: string }): number {
   return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER
 }
 
+/**
+ * Cards the player has opened in one set, in set-number order. Cards that were
+ * never opened are not rendered (the collection shows exactly what was pulled).
+ * The bucket is read here — not memoised — because a rip writes straight to the
+ * persisted config and this page has no storage subscription.
+ */
+function cardsForPlayerSet(player: string, setId: string) {
+  const ids = new Set(readOpenedCards(player))
+  return battleSetCards()
+    .filter((card) => card.set === setId && ids.has(card.id))
+    .sort((a, b) => cardSortNumber(a) - cardSortNumber(b))
+}
+
 export function PokemonPackRip({
   view,
   playerName = '',
@@ -50,6 +63,9 @@ export function PokemonPackRip({
   const translate = useTranslations((readConfig().settings.locale ?? 'en') as Locale)
   const setEntries = useMemo(() => listSets(), [])
 
+  // The fields are seeded by the props and the parent mirrors every change back
+  // down, so a remount restores the last name, set, and pack count; no effect has
+  // to re-sync a value that already matches.
   const [playerNameField, setPlayerNameField] = useState(playerName)
   const [setIndexField, setSetIndexField] = useState(setIndex)
   const [packCountField, setPackCountField] = useState(clampPackCount(packCount))
@@ -58,31 +74,14 @@ export function PokemonPackRip({
   const [collectionPlayer, setCollectionPlayer] = useState('')
   const [collectionSetIndex, setCollectionSetIndex] = useState(0)
 
-  const playersList = useMemo(() => listPlayers().filter(Boolean), [])
+  // The bucket is read during render (no memo): the player list must include a
+  // player the rip just created, and a stale list would hide them entirely.
+  const playersList = listPlayers().filter(Boolean)
+  const selectedPlayer = collectionPlayer && playersList.includes(collectionPlayer)
+    ? collectionPlayer
+    : playersList[0] ?? ''
   const currentSet = setEntries[Math.min(setIndexField, setEntries.length - 1)] ?? setEntries[0]
   const unlockedSet = setEntries[Math.min(collectionSetIndex, setEntries.length - 1)] ?? setEntries[0]
-
-  useEffect(() => {
-    setPlayerNameField(playerName)
-  }, [playerName])
-
-  useEffect(() => {
-    setSetIndexField(setIndex)
-  }, [setIndex])
-
-  useEffect(() => {
-    setPackCountField(clampPackCount(packCount))
-  }, [packCount])
-
-  useEffect(() => {
-    if (!playersList.length) {
-      setCollectionPlayer('')
-      return
-    }
-    if (!playersList.includes(collectionPlayer)) {
-      setCollectionPlayer(playersList[0])
-    }
-  }, [playersList, collectionPlayer])
 
   const rarityLabelForCard = (rarity: string): string => {
     switch (rarity) {
@@ -99,13 +98,7 @@ export function PokemonPackRip({
     }
   }
 
-  const collectionCards = useMemo(() => {
-    if (!collectionPlayer) return []
-    const ids = new Set(readOpenedCards(collectionPlayer))
-    return battleSetCards()
-      .filter((card) => card.set === unlockedSet.id && ids.has(card.id))
-      .sort((a, b) => cardSortNumber(a) - cardSortNumber(b))
-  }, [collectionPlayer, unlockedSet.id])
+  const collectionCards = selectedPlayer ? cardsForPlayerSet(selectedPlayer, unlockedSet.id) : []
 
   const handleNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const nextValue = event.target.value.slice(0, 16)
@@ -150,6 +143,10 @@ export function PokemonPackRip({
   }
 
   const handleToUnlocked = () => {
+    // Carry the rip's set and player into the collection page, so (Unlocked)
+    // lands on the cards the player just opened (bucket keys are lowercased).
+    setCollectionSetIndex(setIndexField)
+    setCollectionPlayer((soloPlayer || playerNameField.trim()).toLowerCase())
     onViewChange?.('unlocked')
   }
 
@@ -297,7 +294,7 @@ export function PokemonPackRip({
                 <span className="ppb-rip-field-label">{translate('packBattle.unlockedPlayer')}</span>
                 <select
                   className="ppb-rip-select"
-                  value={collectionPlayer}
+                  value={selectedPlayer}
                   onChange={(event) => setCollectionPlayer(event.target.value)}
                   aria-label={translate('packBattle.unlockedPlayer')}
                 >

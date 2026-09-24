@@ -43,6 +43,9 @@ import { randomPackBattleSeed } from './rng'
 import { listSets } from './sets'
 import { LobbyFields } from './LobbyFields'
 import './PokemonPackBattleGame.css'
+import { PokemonPackRip } from './PokemonPackRip'
+
+import { cardIdsForSeat, recordOpenedCards } from './collection'
 
 /**
  * Remappable ceremony keys (settings → controllers → extra bindings, persisted
@@ -55,7 +58,7 @@ const packBattleKeyBindings: AdditionalKeyBinding[] = [
   { id: 'pokemon-pack-skip', labelKey: 'keyNames.skip', defaultKey: 'S' },
 ]
 
-type View = 'start' | 'tutorial' | 'lobby' | 'lobbyJoin' | 'opening' | 'summary' | 'highscore'
+type View = 'start' | 'tutorial' | 'lobby' | 'lobbyJoin' | 'opening' | 'summary' | 'highscore' | 'rip' | 'unlocked'
 
 type PokemonPackBattleProps = {
   locale?: Locale
@@ -117,6 +120,15 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   const [copied, setCopied] = useState(false)
 
   /**
+   * 04.3 RIP-packs form state: held here so the rip page keeps the entered name,
+   * set, and pack count when the player steps to the unlocked collection and
+   * back (PokemonPackRip reports every change through its callbacks).
+   */
+  const [ripPlayerName, setRipPlayerName] = useState('')
+  const [ripSetIndex, setRipSetIndex] = useState(0)
+  const [ripPackCount, setRipPackCount] = useState(1)
+
+  /**
    * CP4/CP7 shared ceremony cursor: both seats render from this one cursor and
    * either seat's open/reveal advances both (max-merge on receive). One cursor
    * step is a PAIR (the round's pack for each seat, side by side): `opened`
@@ -143,12 +155,15 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   /** CP5 one-shot guard so the winner's tally records exactly once per device. */
   const resultRecordedRef = useRef(false)
   const rematchSentRef = useRef(false)
+  /** 04.3 one-shot guard so one ceremony records its own-seat cards once. */
+  const recordedCeremonyRef = useRef(false)
 
   const resetCeremony = useCallback(() => {
     setCursor({ pairIndex: 0, cardIndex: 0, opened: false })
     battleDoneSentRef.current = false
     resultRecordedRef.current = false
     rematchSentRef.current = false
+    recordedCeremonyRef.current = false
     setRematchSent(false)
     setRematchOffered(false)
     // 04.1-CP2: the cascade ramp belongs to one round — drop it so a rematch
@@ -192,8 +207,10 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
    * Transient notice that auto-clears, so a disconnect/leave message cannot
    * outlive the moment it describes. `{name}` defaults to the other seat's
    * display name so no call site can render a literal placeholder token.
+   * Memoised on the active translator so the 04.3 collection effect can depend
+   * on it without re-running on every render.
    */
-  const showNotice = (key: TranslationKey, params?: Record<string, string>) => {
+  const showNotice = useCallback((key: TranslationKey, params?: Record<string, string>) => {
     setNotice(key)
     const other = opponentNameRef.current || translate('packBattle.defaultName')
     setNoticeParams({ name: other, ...params })
@@ -203,7 +220,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
       setNotice(null)
       setNoticeParams(null)
     }, 6000)
-  }
+  }, [translate])
 
   const noticeText = notice === null ? null : substituteParams(translate(notice), noticeParams ?? {})
 
@@ -659,6 +676,21 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     // The one-shot guard makes re-runs no-ops; refs hold the freshest names.
   }, [view, ceremonyComplete, role, totals, translate])
 
+  // 04.3 collection integration: when the ceremony completes on this device,
+  // record the local seat's OWN packs into the persisted collection bucket. The
+  // host owns the even-indexed packs and the guest the odd-indexed ones, and an
+  // odd tail pack is owned by `both`, so the opponent's packs never reach this
+  // device's collection. `resetCeremony` re-arms the one-shot guard, so a rematch
+  // records its own packs too.
+  useEffect(() => {
+    if (view !== 'opening' || !ceremonyComplete || recordedCeremonyRef.current) return
+    recordedCeremonyRef.current = true
+    const localSeat = role === 'guest' ? 'guest' : 'host'
+    recordOpenedCards(displayName, cardIdsForSeat(battlePacks, seatForPack, totalPacks, localSeat))
+    showNotice('packBattle.collectionSaved', { player: displayName })
+    // The one-shot guard makes re-runs no-ops; refs hold the freshest names.
+  }, [view, ceremonyComplete, role, battlePacks, totalPacks, displayName, showNotice])
+
   /** Guest: ask the host for a rematch (the host re-seeds via lobby-start). */
   const requestRematch = () => {
     if (roleRef.current !== 'guest' || rematchSentRef.current) return
@@ -719,6 +751,9 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
 
   /** Tutorial is reachable from start and the lobby; back goes to either. */
   const leaveTutorial = () => setView(roleRef.current ? 'lobby' : 'start')
+
+  /** Leave RIP/unlocked views back to start. */
+  const leaveRip = () => setView('start')
 
   const toggleMusic = () => {
     const next = !musicOn
@@ -1226,6 +1261,26 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
     )
   }
 
+  // 04.3 RIP packs / unlocked collection (see the plan's view machine):
+  // start -> rip -> unlocked -> rip -> start, and both new views leave back to
+  // start (`leaveRip`). The form state lives in this component, so a remount
+  // after leaving restores the last name, set, and pack count.
+  if (view === 'rip' || view === 'unlocked') {
+    return (
+      <PokemonPackRip
+        view={view}
+        playerName={ripPlayerName}
+        setIndex={ripSetIndex}
+        packCount={ripPackCount}
+        onViewChange={setView}
+        onExit={leaveRip}
+        onRipPlayerName={setRipPlayerName}
+        onRipSetIndex={setRipSetIndex}
+        onRipPackCount={setRipPackCount}
+      />
+    )
+  }
+
   return (
     <main className="ppb-page">
       <header className="ppb-topbar">
@@ -1261,6 +1316,9 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
         <div className="ppb-actions">
           <button className="ppb-primary" type="button" onClick={() => beginSession('host')}>{translate('packBattle.createLobby')}</button>
           <button type="button" onClick={() => { setErrorKey(null); setNotice(null); setView('lobbyJoin') }}>{translate('packBattle.joinLobby')}</button>
+        </div>
+        <div className="ppb-actions ppb-actions-rip">
+          <button type="button" onClick={() => setView('rip')}>{translate('packBattle.rip')}</button>
         </div>
         {noticeText && <p className="ppb-notice" role="status">{noticeText}</p>}
         <p className="ppb-copy ppb-inspired">{translate('packBattle.inspiredBy')}</p>

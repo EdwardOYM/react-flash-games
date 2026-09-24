@@ -16,6 +16,8 @@
 .ppb-actions .ppb-primary:focus, .ppb-actions .ppb-primary:focus-visible { color: #aeb9b9; }
 .ppb-actions button:disabled { border-color: #33454a; color: #5d6f72; background: transparent; cursor: not-allowed; }
 .ppb-actions .ppb-primary:disabled { border-color: #33454a; color: #5d6f72; background: #1a262b; }
+/* Solo pack-rip row on the start shell, one gap under the lobby row. */
+.ppb-actions-rip { margin-top: 12px; }
 .ppb-inspired { margin-top: 18px; font-size: .85rem; }
 .ppb-highscores { width: min(100%, 960px); margin: 8px 0 24px; }
 .ppb-tutorial-card { width: min(100%, 760px); }
