@@ -1,8 +1,5 @@
-// Turn lifecycle (CP7-B/D): start-of-turn draw and flag reset, end-of-turn
-// handover, the between-turns Pokemon Checkup, the per-turn timeout, and the
-// Knock Out / Prize / victory settlement shared by attacks and Checkup damage.
-// (The effects <-> turns cross-import is function-declaration-only; see
-// ./effects.ts.)
+// Turn lifecycle: Draw reset/draw/deck-out, Main→Attack→Between-Turns flow,
+// ordered Special Conditions/KOs/Prizes, timer, and promotion handover.
 //
 // Part of the game-core module split (CP7-E-a); see ./index.ts for the full
 // engine header and the re-export barrel.
@@ -14,13 +11,22 @@ import type { BattleState } from './types'
 import { flipCoin } from './effects'
 
 /**
- * Hand the turn to the opponent, running the between-turns Pokemon Checkup
- * (Poison/Burn damage, Asleep wake-up, Paralyzed recovery) before the switch.
+ * Hand the turn to the opponent, running Between-Turns before the switch.
  */
 export function applyEndTurn(state: BattleState, actor: PlayerSlot): BattleState {
+  state.phase = 'between'
   applyCheckup(state, actor)
   if (state.over) return state
-  state.activePlayer = foeOf(actor)
+  const next = foeOf(actor)
+  state.promotionQueue.sort((a, b) => Number(b === next) - Number(a === next))
+  state.pendingPromotion = state.promotionQueue[0] ?? null
+  if (state.pendingPromotion) {
+    state.activePlayer = next
+    state.turn += 1
+    state.turnStarted = false
+    return state
+  }
+  state.activePlayer = next
   state.turn += 1
   state.turnStarted = false
   state.phase = 'draw'
@@ -30,11 +36,10 @@ export function applyEndTurn(state: BattleState, actor: PlayerSlot): BattleState
 /**
  * Start of turn: reset the active player's once-per-turn flags, then draw one
  * card. Guarded by `turnStarted`, so calling it twice cannot double-draw — the
- * caller runs it once after `setupBattle`, and `endTurn` runs it thereafter.
+ * caller runs it once after setup, and Between-Turns runs it thereafter.
  *
- * Special-condition timing (Poison/Burn damage, Asleep/Paralyzed wake checks,
- * Confused self-hit) is added by CP7-D. Failing to draw is an immediate
- * deck-out defeat, settled by `applyDeckOutLoss`.
+ * Special-condition timing is ordered in `applyCheckup`; failing to draw is an
+ * immediate deck-out defeat.
  */
 export function applyStartOfTurn(state: BattleState): BattleState {
   if (state.over || state.turnStarted) return state
@@ -43,15 +48,21 @@ export function applyStartOfTurn(state: BattleState): BattleState {
   side.energyAttachedThisTurn = 0
   side.attackedThisTurn = false
   side.stadiumPlayedTurn = -1
+  side.retreatedThisTurn = false
   // Pokemon placed during setup (enteredTurn -1) adopt this turn number, which
   // is what stops them evolving on their controller's first turn (rulebook).
   for (const pokemon of inPlayList(side)) {
     if (pokemon.enteredTurn < 0) pokemon.enteredTurn = state.turn
   }
+  // Draw draws one card and resets per-turn limits. Keep phase draw until the
+  // existing draw succeeds, then enter Main; failing to draw is an immediate loss.
+  logEvent(state, 'pokemonBnb.log.turnStart', { player: state.activePlayer, turn: state.turn })
+  if (drawCards(side, 1).length === 0) {
+    applyDeckOutLoss(state, state.activePlayer)
+    return state
+  }
   state.phase = 'main'
   state.turnStarted = true
-  logEvent(state, 'pokemonBnb.log.turnStart', { player: state.activePlayer, turn: state.turn })
-  if (drawCards(side, 1).length === 0) applyDeckOutLoss(state, state.activePlayer)
   return state
 }
 
@@ -75,6 +86,7 @@ export function applyDeckOutLoss(state: BattleState, slot: PlayerSlot): void {
   state.winReason = 'deck-out'
   state.over = true
   state.pendingPromotion = null
+  state.promotionQueue = []
 }
 
 /** Victory checks: all Prizes taken first, then an empty board. */
@@ -116,7 +128,7 @@ export function performKo(state: BattleState, koSlot: PlayerSlot): void {
   const knockedOut = koSide.active
   if (!knockedOut) return
   koSide.active = null
-  koSide.discard.push(knockedOut.card, ...knockedOut.attachedEnergy)
+  koSide.discard.push(knockedOut.card, ...knockedOut.attachedEnergy, ...(knockedOut.attachedTool ? [knockedOut.attachedTool] : []))
   logEvent(state, 'pokemonBnb.log.knockOut', { player: koSlot, card: knockedOut.card.name })
 
   const beneficiary = foeOf(koSlot)
@@ -124,7 +136,8 @@ export function performKo(state: BattleState, koSlot: PlayerSlot): void {
   if (state.over) return
 
   if (koSide.bench.length > 0) {
-    state.pendingPromotion = koSlot
+    if (!state.promotionQueue.includes(koSlot)) state.promotionQueue.push(koSlot)
+    state.pendingPromotion = state.promotionQueue[0] ?? null
     logEvent(state, 'pokemonBnb.log.mustPromote', { player: koSlot })
   } else {
     state.winner = beneficiary
@@ -135,54 +148,43 @@ export function performKo(state: BattleState, koSlot: PlayerSlot): void {
 
 // -- CP7-D: turn lifecycle, statuses, timer, snapshots --
 
-/**
- * Pokemon Checkup, which happens between turns (rulebook): both Active Pokemon
- * are checked.
- * - Poisoned: 2 damage counters (20 damage) at every Checkup.
- * - Burned: 20 damage, then a coin flip; tails cures Burned.
- * - Asleep: a coin flip; heads wakes it up.
- * - Paralyzed: cured only for the player who just finished their turn, because
- *   Paralysis costs its victim the turn after it lands.
- * Confused is deliberately *not* checked here: it is rolled when that Pokemon
- * attacks (see `declareAttack`).
- */
+/** Between-Turns Special Conditions in global Poison→Burn→Asleep→Paralysis order. */
 export function applyCheckup(state: BattleState, justFinished: PlayerSlot): void {
   if (state.over) return
-  for (const slot of ['host', 'guest'] as const) {
-    const pokemon = sideOf(state, slot).active
-    if (!pokemon) continue
-    const conditions = pokemon.conditions
-    if (conditions.poisoned) {
-      pokemon.damage += POISON_DAMAGE
-      logEvent(state, 'pokemonBnb.log.poisonDamage', {
-        player: slot,
-        card: pokemon.card.name,
-        amount: POISON_DAMAGE,
-      })
+  const actives = (['host', 'guest'] as const)
+    .map((slot) => ({ slot, pokemon: sideOf(state, slot).active }))
+    .filter((entry): entry is { slot: PlayerSlot; pokemon: NonNullable<ReturnType<typeof sideOf>['active']> } => entry.pokemon !== null)
+
+  for (const { slot, pokemon } of actives) {
+    if (!pokemon.conditions.poisoned) continue
+    pokemon.damage += POISON_DAMAGE
+    logEvent(state, 'pokemonBnb.log.poisonDamage', { player: slot, card: pokemon.card.name, amount: POISON_DAMAGE })
+  }
+  for (const { slot, pokemon } of actives) {
+    if (!pokemon.conditions.burned) continue
+    pokemon.damage += BURN_DAMAGE
+    logEvent(state, 'pokemonBnb.log.burnDamage', { player: slot, card: pokemon.card.name, amount: BURN_DAMAGE })
+    if (flipCoin(state)) {
+      pokemon.conditions.burned = false
+      logEvent(state, 'pokemonBnb.log.burnCured', { player: slot, card: pokemon.card.name })
     }
-    if (conditions.burned) {
-      pokemon.damage += BURN_DAMAGE
-      logEvent(state, 'pokemonBnb.log.burnDamage', {
-        player: slot,
-        card: pokemon.card.name,
-        amount: BURN_DAMAGE,
-      })
-      if (!flipCoin(state)) {
-        conditions.burned = false
-        logEvent(state, 'pokemonBnb.log.burnCured', { player: slot, card: pokemon.card.name })
-      }
-    }
-    if (conditions.asleep && flipCoin(state)) {
-      conditions.asleep = false
+  }
+  for (const { slot, pokemon } of actives) {
+    if (pokemon.conditions.asleep && flipCoin(state)) {
+      pokemon.conditions.asleep = false
       logEvent(state, 'pokemonBnb.log.wokeUp', { player: slot, card: pokemon.card.name })
     }
-    if (conditions.paralyzed && slot === justFinished) {
-      conditions.paralyzed = false
+  }
+  for (const { slot, pokemon } of actives) {
+    if (pokemon.conditions.paralyzed && slot === justFinished) {
+      pokemon.conditions.paralyzed = false
       logEvent(state, 'pokemonBnb.log.paralysisEnded', { player: slot, card: pokemon.card.name })
     }
   }
-  // Checkup damage can Knock Out either Active (poison or burn).
-  for (const slot of ['host', 'guest'] as const) {
+
+  // No between-turn card effects are registered yet (CP5 owns Ability effects).
+  const nextPlayer = foeOf(justFinished)
+  for (const slot of [nextPlayer, foeOf(nextPlayer)] as const) {
     const pokemon = sideOf(state, slot).active
     if (pokemon && isKnockedOut(pokemon)) performKo(state, slot)
     if (state.over) return

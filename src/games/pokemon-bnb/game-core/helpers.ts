@@ -109,6 +109,14 @@ export function checkTurn(state: BattleState, actor: PlayerSlot): string | null 
   return null
 }
 
+export function checkAttackPhase(state: BattleState, actor: PlayerSlot): string | null {
+  if (state.setup.phase !== 'complete') return 'setup-incomplete'
+  if (state.over) return 'match-over'
+  if (state.activePlayer !== actor) return 'not-your-turn'
+  if (state.phase !== 'attack') return 'not-attack-phase'
+  return null
+}
+
 /** Log entries appended by the action just applied. */
 export function tailLog(state: BattleState, from: number): BattleLogEntry[] {
   return state.log.slice(from)

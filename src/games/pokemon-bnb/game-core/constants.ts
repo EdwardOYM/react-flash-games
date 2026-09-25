@@ -16,14 +16,14 @@ export const MAX_BENCH = 5
 export const ENERGY_PER_TURN = 1
 /** One retreat per Pokemon per turn. */
 export const RETREATS_PER_TURN = 1
-/** Poison damage at Checkup. */
-export const POISON_DAMAGE = 20
-/** Burn damage at Checkup. */
+/** Poison damage at Between-Turns (one counter). */
+export const POISON_DAMAGE = 10
+/** Burn damage at Between-Turns. */
 export const BURN_DAMAGE = 20
 /** Confusion self-hit damage. The 50% chance itself is modelled in CP7-D as
  * `randomInt(rng, 2) === 0` so it stays integer-only and seed-replayable. */
 export const CONFUSION_SELF_DAMAGE = 30
 /** Timer options (seconds); 0 = timer disabled. */
 export const TURN_TIMER_DEFAULTS: number[] = [45, 60, 90]
-/** B&B mini: no first-turn attack restriction. */
-export const FIRST_TURN_ATTACK_OK = true
+/** The player going first cannot attack on Turn 1. */
+export const FIRST_TURN_ATTACK_OK = false

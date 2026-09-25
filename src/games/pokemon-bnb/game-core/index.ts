@@ -13,16 +13,13 @@
 // - Evolutions in 30C carry no `evolvesFrom` links (verified: 0 occurrences in
 //   cards.json), so CP7-B matches by stage progression + a shared type, and
 //   falls back to name matching when a future set does supply `evolvesFrom`.
-// - `InPlayPokemon.attachedEnergy` holds Energy cards, not ids, because attack
-//   costs are checked against each card's `provides`.
+// - Shared Stadium and one attached Tool are explicit turn/snapshot state; the
+//   deterministic ability-effect registry lands in CP5.
 // - `state.log` holds structured `{ key, params }` entries, never English copy:
 //   the log strip is player-facing status text, so templates are translated in
 //   the UI while card names stay verbatim data.
-// - Attacks resolve through `resolveAttack`: damage modifiers, Weakness and
-//   Resistance (parsed from the verbatim value strings), damage, card-text
-//   clauses, then the Knock Out. (Named `declareAttack`, not the plan's
-//   `useAttack`, because the `use` prefix trips the repo's
-//   `react/rules-of-hooks` error; it is not a hook.)
+// - Attacks resolve through `resolveAttack`; CP5 replaces the provisional
+//   pattern-driven clauses with the audited Ability/effect registry.
 // - `applyEffect` is pattern-driven because 30C card data carries no `effectId`
 //   field at all (verified: 0 occurrences in cards.json) while 154 of its
 //   attacks have effect text. Unsupported text logs

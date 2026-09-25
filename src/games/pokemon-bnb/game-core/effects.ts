@@ -251,11 +251,8 @@ export function applyEffect(
  * modifiers, Weakness/Resistance, damage, the attack's non-damage clauses, then
  * the Knock Out.
  *
- * Self-Knock-Out sources (attack recoil, Confusion self-hit, Poison/Burn at
- * Checkup) are deliberately not handled here: they can KO the attacker during
- * their own turn, which needs the promotion-timing design that arrives with
- * statuses in CP7-D. `This Pokemon also does N damage to itself` is therefore
- * reported as unsupported for now rather than KO'ing the wrong side.
+ * Self-Knock-Out attack recoil remains outside this resolver; Confusion self-hit
+ * and Between-Turns damage use the ordered KO queue.
  */
 export function resolveAttack(
   state: BattleState,

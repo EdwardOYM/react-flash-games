@@ -5,14 +5,14 @@
 // Part of the game-core module split (CP7-E-a); see ./index.ts for the full
 // engine header and the re-export barrel.
 
-import type { CardDef, EnergyCardDef, PokemonCardDef } from '../cards'
+import type { CardDef, EnergyCardDef, PokemonCardDef, TrainerCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 
 export const STATUS_CONDITIONS = ['asleep', 'paralyzed', 'confused', 'poisoned', 'burned'] as const
 export type StatusCondition = (typeof STATUS_CONDITIONS)[number]
 
 export type ZoneKind = 'deck' | 'hand' | 'active' | 'bench' | 'prize' | 'discard' | 'lostZone' | 'energy'
-export type TurnPhase = 'draw' | 'main' | 'end'
+export type TurnPhase = 'draw' | 'main' | 'attack' | 'between'
 export type SetupPhase = 'turnOrder' | 'mulligan' | 'placement' | 'prizes' | 'complete'
 export type SetupPlayerState = {
   phase: SetupPhase
@@ -30,6 +30,8 @@ export type InPlayPokemon = {
   damage: number
   /** Attached Energy cards (not ids) so attack costs can read `provides`. */
   attachedEnergy: EnergyCardDef[]
+  /** Single Pokemon Tool attachment (CP4 action model; CP6 renders it). */
+  attachedTool: TrainerCardDef | null
   conditions: SpecialConditionState
   enteredTurn: number
   evolvedTurn: number
@@ -55,6 +57,8 @@ export type SideState = {
   attackedThisTurn: boolean
   /** Turn number a Stadium was played on, or -1 when none. */
   stadiumPlayedTurn: number
+  /** Once-per-side Retreat marker for the current turn. */
+  retreatedThisTurn: boolean
   /** Number of opening-hand Mulligans. The opponent chooses the extra-card penalty. */
   mulliganCount: number
   /** Face-down setup Active selected from this side's private hand. */
@@ -89,6 +93,10 @@ export type BattleState = {
   prizeCards: number
   timerSeconds: number
   setup: SetupPlayerState
+  /** Shared Stadium currently in play, or null. */
+  stadium: TrainerCardDef | null
+  /** Ordered promotion queue; simultaneous KOs enqueue next player first. */
+  promotionQueue: PlayerSlot[]
   /** Side that must choose a new Active after a KO before anything else. */
   pendingPromotion: PlayerSlot | null
   /** True once the current turn's start step (draw + flag reset) has run. */
@@ -128,6 +136,8 @@ export type Snapshot = {
   prizeCards: number
   timerSeconds: number
   pendingPromotion: PlayerSlot | null
+  promotionQueue: PlayerSlot[]
+  stadium: TrainerCardDef | null
   turnStarted: boolean
   setup: SetupPlayerState
   log: BattleLogEntry[]
@@ -141,11 +151,15 @@ export type BattleAction =
   | { type: 'chooseSetupPokemon'; activeHandIndex: number; benchHandIndexes: number[]; penaltyCards: number }
   | { type: 'confirmSetupReveal' }
   | { type: 'attachEnergy'; handIndex: number; target: 'active' | number }
+  | { type: 'playBasic'; handIndex: number }
   | { type: 'playTrainer'; handIndex: number }
+  | { type: 'attachTool'; handIndex: number; target: 'active' | number }
+  | { type: 'useAbility'; target: 'active' | number; abilityIndex: number }
   | { type: 'evolve'; handIndex: number; target: 'active' | number }
   | { type: 'retreatToBench'; benchIndex: number }
+  | { type: 'beginAttack' }
+  | { type: 'pass' }
   | { type: 'useAttack'; attackIndex: number }
   | { type: 'promoteActive'; benchIndex: number }
-  | { type: 'endTurn' }
 
 export type ActionResult = { state: BattleState; log: BattleLogEntry[]; error?: string }

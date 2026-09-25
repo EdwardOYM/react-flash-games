@@ -269,13 +269,16 @@ function LocalSeatControls({ actor, side, promotionPending, onAction, t }: Local
       </div>
       <div className="bnb-harness-row">
         <button type="button" onClick={() => onAction({ type: 'attachEnergy', handIndex: safeIndex, target })}>attachEnergy</button>
+        <button type="button" onClick={() => onAction({ type: 'playBasic', handIndex: safeIndex })}>playBasic</button>
         <button type="button" onClick={() => onAction({ type: 'playTrainer', handIndex: safeIndex })}>playTrainer</button>
+        <button type="button" onClick={() => onAction({ type: 'attachTool', handIndex: safeIndex, target })}>attachTool</button>
         <button type="button" onClick={() => onAction({ type: 'evolve', handIndex: safeIndex, target })}>evolve</button>
       </div>
       <div className="bnb-harness-row">
         <button type="button" onClick={() => onAction({ type: 'retreatToBench', benchIndex: 0 })}>retreatToBench</button>
         <button type="button" disabled={!promotionPending} onClick={() => onAction({ type: 'promoteActive', benchIndex: 0 })}>promoteActive</button>
-        <button type="button" onClick={() => onAction({ type: 'endTurn' })}>endTurn</button>
+        <button type="button" onClick={() => onAction({ type: 'beginAttack' })}>beginAttack</button>
+        <button type="button" onClick={() => onAction({ type: 'pass' })}>pass</button>
       </div>
       {active && (
         <div className="bnb-harness-row">
@@ -1721,6 +1724,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
           <header className="bnb-battle-head">
             <p className="bnb-battle-turn">
               {substituteParams(t('pokemonBnb.turnHeader'), { turn: String(battle.turn), player: seatName(battle.activePlayer) })}
+              <span className="bnb-battle-phase">{t(battle.phase === 'main' ? 'pokemonBnb.phaseMain' : battle.phase === 'attack' ? 'pokemonBnb.phaseAttack' : battle.phase === 'between' ? 'pokemonBnb.phaseBetweenTurns' : 'pokemonBnb.phaseDraw')}</span>
               {secondsLeft !== null && battle.timerSeconds > 0 && (
                 <span className="bnb-timer">{substituteParams(t('pokemonBnb.timerRemaining'), { count: String(secondsLeft) })}</span>
               )}
@@ -1786,6 +1790,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                 const myHandCard = selHand !== null ? mySide.hand[selHand] ?? null : null
                 const benchTarget = selBench !== null ? mySide.bench[selBench] ?? null : null
                 const isMyTurn = !battle.over && battle.pendingPromotion === null && battle.activePlayer === (localMode ? battle.activePlayer : mySlot)
+                const inMain = isMyTurn && battle.phase === 'main'
+                const inAttack = isMyTurn && battle.phase === 'attack'
                 const actor: PlayerSlot = localMode ? battle.activePlayer : mySlot
                 const attacks = mySide.active?.card.attacks ?? []
                 return (
@@ -1795,11 +1801,11 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                         {substituteParams(t('pokemonBnb.waitingTurn'), { player: seatName(battle.activePlayer) })}
                       </span>
                     )}
-                    {isMyTurn && <span className="bnb-hint">{t('pokemonBnb.yourTurn')}</span>}
+                    {isMyTurn && <span className="bnb-hint">{t(battle.phase === 'main' ? 'pokemonBnb.phaseMain' : battle.phase === 'attack' ? 'pokemonBnb.phaseAttack' : battle.phase === 'between' ? 'pokemonBnb.phaseBetweenTurns' : 'pokemonBnb.phaseDraw')}</span>}
                     <div className="bnb-actions">
                       <button
                         type="button"
-                        disabled={!isMyTurn || selHand === null}
+                        disabled={!inMain || selHand === null}
                         onClick={() => {
                           if (selHand === null) return
                           const target: 'active' | number = selBench !== null ? selBench : 'active'
@@ -1810,14 +1816,54 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                       </button>
                       <button
                         type="button"
-                        disabled={!isMyTurn || selHand === null}
+                        disabled={!inMain || selHand === null}
+                        onClick={() => selHand !== null && runBattleAction(actor, { type: 'playBasic', handIndex: selHand })}
+                      >
+                        {t('pokemonBnb.actionPlayBasic')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!inMain || selHand === null}
                         onClick={() => selHand !== null && runBattleAction(actor, { type: 'playTrainer', handIndex: selHand })}
                       >
                         {t('pokemonBnb.actionPlayTrainer')}
                       </button>
                       <button
                         type="button"
-                        disabled={!isMyTurn || selHand === null}
+                        disabled={!inMain || selHand === null}
+                        onClick={() => {
+                          if (selHand === null) return
+                          const target: 'active' | number = selBench !== null ? selBench : 'active'
+                          runBattleAction(actor, { type: 'attachTool', handIndex: selHand, target })
+                        }}
+                      >
+                        {t('pokemonBnb.actionPlayTool')}
+                      </button>
+                      {(mySide.active?.card.abilities ?? []).map((ability, abilityIndex) => (
+                        <button
+                          key={`active-${ability.name}-${abilityIndex}`}
+                          type="button"
+                          disabled={!inMain}
+                          aria-label={`${t('pokemonBnb.actionUseAbility')} — ${ability.name}`}
+                          onClick={() => runBattleAction(actor, { type: 'useAbility', target: 'active', abilityIndex })}
+                        >
+                          {ability.name}
+                        </button>
+                      ))}
+                      {(benchTarget?.card.abilities ?? []).map((ability, abilityIndex) => (
+                        <button
+                          key={`bench-${ability.name}-${abilityIndex}`}
+                          type="button"
+                          disabled={!inMain || selBench === null}
+                          aria-label={`${t('pokemonBnb.actionUseAbility')} — ${ability.name}`}
+                          onClick={() => selBench !== null && runBattleAction(actor, { type: 'useAbility', target: selBench, abilityIndex })}
+                        >
+                          {ability.name}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={!inMain || selHand === null}
                         onClick={() => {
                           if (selHand === null) return
                           const target: 'active' | number = selBench !== null ? selBench : 'active'
@@ -1828,7 +1874,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                       </button>
                       <button
                         type="button"
-                        disabled={!isMyTurn || selBench === null}
+                        disabled={!inMain || selBench === null}
                         onClick={() => selBench !== null && runBattleAction(actor, { type: 'retreatToBench', benchIndex: selBench })}
                       >
                         {t('pokemonBnb.actionRetreat')}
@@ -1837,7 +1883,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                         <button
                           key={attack.name}
                           type="button"
-                          disabled={!isMyTurn}
+                          disabled={!inAttack}
                           aria-label={`${t('pokemonBnb.actionAttack')} — ${attack.name}`}
                           onClick={() => runBattleAction(actor, { type: 'useAttack', attackIndex: index })}
                         >
@@ -1846,10 +1892,17 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                       ))}
                       <button
                         type="button"
-                        disabled={!isMyTurn}
-                        onClick={() => runBattleAction(actor, { type: 'endTurn' })}
+                        disabled={!inMain}
+                        onClick={() => runBattleAction(actor, { type: 'beginAttack' })}
                       >
-                        {t('pokemonBnb.actionEndTurn')}
+                        {t('pokemonBnb.actionBeginAttack')}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={!inAttack}
+                        onClick={() => runBattleAction(actor, { type: 'pass' })}
+                      >
+                        {t('pokemonBnb.actionPass')}
                       </button>
                     </div>
                     {isMyTurn && selHand === null && <p className="bnb-hint">{t('pokemonBnb.selectHandCard')}</p>}

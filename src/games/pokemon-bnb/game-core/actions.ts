@@ -1,19 +1,17 @@
-// Player actions and the single dispatcher entry point (CP7-B): attachEnergy,
-// playTrainer, evolve, retreatToBench, declareAttack, endTurn, promoteActive,
-// and processAction. Every local or network intent funnels through
-// processAction; invalid actions never mutate state.
+// Player actions and the single dispatcher entry point: Main-phase card/Retreat
+// actions, explicit Attack/Pass, setup intents, promotion, and processAction.
 //
 // Part of the game-core module split (CP7-E-a); see ./index.ts for the full
 // engine header and the re-export barrel.
 
-import { cardIsEnergy, cardIsPokemon, cardIsTrainer } from '../cards'
+import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN } from './constants'
-import { canEvolveOnto, canPayCost, checkTurn, cloneBattleState, failure, inPlayOf, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
+import { canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, failure, inPlayOf, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState } from './types'
 import { flipCoin, parseAttackEffects, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, mulliganSetup } from './setup'
-import { applyEndTurn, checkVictory, performKo } from './turns'
+import { applyEndTurn, applyStartOfTurn, checkVictory, performKo } from './turns'
 
 // -- CP7-B: turn sub-phases + action dispatcher --
 
@@ -70,15 +68,84 @@ export function playTrainer(state: BattleState, actor: PlayerSlot, handIndex: nu
   const card = side.hand[handIndex]
   if (!card || !cardIsTrainer(card)) return failure(state, 'not-trainer')
   const trainerType = card.trainerType.trim().toLowerCase()
+  if (trainerType === 'tool') return failure(state, 'not-trainer')
   if (trainerType === 'supporter' && side.supporterPlayedTurn) return failure(state, 'supporter-limit')
+  if (trainerType === 'supporter' && state.turn === 1 && state.setup.firstPlayer === actor) return failure(state, 'first-turn-supporter')
+  if (trainerType === 'stadium' && next.stadium?.name === card.name) return failure(state, 'same-stadium')
   if (trainerType === 'stadium' && side.stadiumPlayedTurn === next.turn) return failure(state, 'stadium-limit')
 
   const logStart = next.log.length
   side.hand.splice(handIndex, 1)
-  side.discard.push(card)
+  if (trainerType === 'stadium') {
+    if (next.stadium) next.host.discard.push(next.stadium)
+    next.stadium = card
+  } else side.discard.push(card)
   if (trainerType === 'supporter') side.supporterPlayedTurn = true
   if (trainerType === 'stadium') side.stadiumPlayedTurn = next.turn
   logEvent(next, 'pokemonBnb.log.playTrainer', { player: actor, card: card.name })
+  return { state: next, log: tailLog(next, logStart) }
+}
+
+/** Play a Basic Pokemon from hand onto the next open Bench slot. */
+export function playBasic(state: BattleState, actor: PlayerSlot, handIndex: number): ActionResult {
+  const blocked = checkTurn(state, actor)
+  if (blocked) return failure(state, blocked)
+  const next = cloneBattleState(state)
+  const side = sideOf(next, actor)
+  const card = side.hand[handIndex]
+  if (!card || !isBasicPokemon(card)) return failure(state, 'not-basic')
+  if (side.bench.length >= 5) return failure(state, 'bench-full')
+  const logStart = next.log.length
+  side.hand.splice(handIndex, 1)
+  side.bench.push({
+    uid: `${card.id}#${next.turn}`,
+    card: card as PokemonCardDef,
+    damage: 0,
+    attachedEnergy: [],
+    attachedTool: null,
+    conditions: { asleep: false, paralyzed: false, confused: false, poisoned: false, burned: false },
+    enteredTurn: next.turn,
+    evolvedTurn: 0,
+    energyAttachedTurn: 0,
+    retreatedTurn: 0,
+    abilityUsedTurn: 0,
+  })
+  logEvent(next, 'pokemonBnb.log.playBasic', { player: actor, card: card.name })
+  return { state: next, log: tailLog(next, logStart) }
+}
+
+/** Activate an eligible once-during-turn Ability; CP5 resolves its effect. */
+export function activateAbility(state: BattleState, actor: PlayerSlot, target: 'active' | number, abilityIndex: number): ActionResult {
+  const blocked = checkTurn(state, actor)
+  if (blocked) return failure(state, blocked)
+  const next = cloneBattleState(state)
+  const pokemon = inPlayOf(sideOf(next, actor), target)
+  if (!pokemon) return failure(state, 'no-target')
+  const ability = pokemon.card.abilities[abilityIndex]
+  if (!ability) return failure(state, 'no-ability')
+  if (!/once during your turn/i.test(ability.text)) return failure(state, 'ability-ineligible')
+  if (pokemon.abilityUsedTurn === next.turn) return failure(state, 'ability-limit')
+  const logStart = next.log.length
+  pokemon.abilityUsedTurn = next.turn
+  logEvent(next, 'pokemonBnb.log.useAbility', { player: actor, pokemon: pokemon.card.name, ability: ability.name })
+  return { state: next, log: tailLog(next, logStart) }
+}
+
+/** Attach one Pokemon Tool to a Pokemon that does not already carry one. */
+export function attachTool(state: BattleState, actor: PlayerSlot, handIndex: number, target: 'active' | number): ActionResult {
+  const blocked = checkTurn(state, actor)
+  if (blocked) return failure(state, blocked)
+  const next = cloneBattleState(state)
+  const side = sideOf(next, actor)
+  const card = side.hand[handIndex]
+  if (!card || !cardIsTrainer(card) || card.trainerType.trim().toLowerCase() !== 'tool') return failure(state, 'not-tool')
+  const pokemon = inPlayOf(side, target)
+  if (!pokemon) return failure(state, 'no-target')
+  if (pokemon.attachedTool) return failure(state, 'tool-limit')
+  const logStart = next.log.length
+  side.hand.splice(handIndex, 1)
+  pokemon.attachedTool = card
+  logEvent(next, 'pokemonBnb.log.attachTool', { player: actor, card: card.name, target: pokemon.card.name })
   return { state: next, log: tailLog(next, logStart) }
 }
 
@@ -134,7 +201,7 @@ export function retreatToBench(state: BattleState, actor: PlayerSlot, benchIndex
   if (!active) return failure(state, 'no-active')
   if (!incoming) return failure(state, 'no-target')
   if (active.conditions.asleep || active.conditions.paralyzed) return failure(state, 'cannot-retreat')
-  if (active.retreatedTurn === next.turn) return failure(state, 'retreated-this-turn')
+  if (side.retreatedThisTurn) return failure(state, 'retreat-limit')
   if (active.attachedEnergy.length < active.card.retreat) return failure(state, 'retreat-cost')
 
   const logStart = next.log.length
@@ -143,6 +210,7 @@ export function retreatToBench(state: BattleState, actor: PlayerSlot, benchIndex
   side.bench.splice(benchIndex, 1)
   side.bench.push(active)
   active.retreatedTurn = next.turn
+  side.retreatedThisTurn = true
   side.active = incoming
   logEvent(next, 'pokemonBnb.log.retreat', {
     player: actor,
@@ -163,8 +231,16 @@ export function retreatToBench(state: BattleState, actor: PlayerSlot, benchIndex
  * Damage, Weakness/Resistance, card-text effects, KO, prizes and victory are
  * resolved at the marked CP7-C seam below, before the turn is closed.
  */
-export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex: number): ActionResult {
+export function beginAttack(state: BattleState, actor: PlayerSlot): ActionResult {
   const blocked = checkTurn(state, actor)
+  if (blocked) return failure(state, blocked)
+  const next = cloneBattleState(state)
+  next.phase = 'attack'
+  return { state: next, log: [] }
+}
+
+export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex: number): ActionResult {
+  const blocked = checkAttackPhase(state, actor)
   if (blocked) return failure(state, blocked)
   const next = cloneBattleState(state)
   const side = sideOf(next, actor)
@@ -173,6 +249,7 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
   const attack = active.card.attacks[attackIndex]
   if (!attack) return failure(state, 'no-attack')
   if (active.conditions.asleep || active.conditions.paralyzed) return failure(state, 'cannot-attack')
+  if (state.turn === 1 && state.setup.firstPlayer === actor) return failure(state, 'first-turn-attack')
   if (side.attackedThisTurn) return failure(state, 'already-attacked')
   if (!canPayCost(active.attachedEnergy, attack.cost)) return failure(state, 'insufficient-energy')
 
@@ -205,13 +282,13 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
 
 // -- Sub-phase: end the turn --
 
-/** End the turn voluntarily (the actor must own the current turn). */
-export function endTurn(state: BattleState, actor: PlayerSlot): ActionResult {
-  const blocked = checkTurn(state, actor)
+/** Pass ends the turn without an attack. */
+export function pass(state: BattleState, actor: PlayerSlot): ActionResult {
+  const blocked = checkAttackPhase(state, actor)
   if (blocked) return failure(state, blocked)
   const next = cloneBattleState(state)
   const logStart = next.log.length
-  logEvent(next, 'pokemonBnb.log.endTurn', { player: actor })
+  logEvent(next, 'pokemonBnb.log.pass', { player: actor })
   const closed = applyEndTurn(next, actor)
   return { state: closed, log: tailLog(closed, logStart) }
 }
@@ -257,18 +334,26 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
       return failure(state, 'setup-wrong-phase')
     case 'attachEnergy':
       return attachEnergy(state, actor, action.handIndex, action.target)
+    case 'playBasic':
+      return playBasic(state, actor, action.handIndex)
     case 'playTrainer':
       return playTrainer(state, actor, action.handIndex)
+    case 'attachTool':
+      return attachTool(state, actor, action.handIndex, action.target)
+    case 'useAbility':
+      return activateAbility(state, actor, action.target, action.abilityIndex)
     case 'evolve':
       return evolve(state, actor, action.handIndex, action.target)
     case 'retreatToBench':
       return retreatToBench(state, actor, action.benchIndex)
+    case 'beginAttack':
+      return beginAttack(state, actor)
     case 'useAttack':
       return declareAttack(state, actor, action.attackIndex)
+    case 'pass':
+      return pass(state, actor)
     case 'promoteActive':
       return failure(state, 'no-promotion-pending')
-    case 'endTurn':
-      return endTurn(state, actor)
     default:
       return failure(state, 'unknown-action')
   }
@@ -290,8 +375,17 @@ export function promoteActive(state: BattleState, actor: PlayerSlot, benchIndex:
   const logStart = next.log.length
   side.bench.splice(benchIndex, 1)
   side.active = promoted
-  next.pendingPromotion = null
+  next.promotionQueue = next.promotionQueue.filter((slot) => slot !== actor)
+  next.pendingPromotion = next.promotionQueue[0] ?? null
   logEvent(next, 'pokemonBnb.log.promote', { player: actor, card: promoted.card.name })
+  if (!next.pendingPromotion && next.phase === 'between') {
+    next.turnStarted = false
+    next.phase = 'draw'
+    next.pendingPromotion = null
+    next.promotionQueue = []
+    const started = applyStartOfTurn(next)
+    return { state: started, log: tailLog(started, logStart) }
+  }
   checkVictory(next)
   return { state: next, log: tailLog(next, logStart) }
 }
