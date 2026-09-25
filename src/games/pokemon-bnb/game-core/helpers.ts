@@ -102,6 +102,7 @@ export function failure(state: BattleState, error: string): ActionResult {
 
 /** Shared precondition: the match is live and it is `actor`'s main phase. */
 export function checkTurn(state: BattleState, actor: PlayerSlot): string | null {
+  if (state.setup.phase !== 'complete') return 'setup-incomplete'
   if (state.over) return 'match-over'
   if (state.activePlayer !== actor) return 'not-your-turn'
   if (state.phase !== 'main') return 'not-main-phase'

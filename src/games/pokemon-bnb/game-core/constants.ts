@@ -8,12 +8,10 @@
 
 /** Official opening hand size. */
 export const OPENING_HAND_SIZE = 7
-/** Prize cards taken at setup. */
+/** Default Prize count when no lobby-specific count is supplied. */
 export const PRIZE_COUNT = 6
 /** Bench slot cap per side. */
 export const MAX_BENCH = 5
-/** Auto-bench target on setup. */
-export const BENCH_TARGET = 3
 /** One energy attachment per Pokemon per turn. */
 export const ENERGY_PER_TURN = 1
 /** One retreat per Pokemon per turn. */

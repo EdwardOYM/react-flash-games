@@ -45,6 +45,7 @@ type View =
   | 'opening'
   | 'deck'
   | 'loading'
+  | 'setup'
   | 'playing'
   | 'paused'
   | 'gameover'
@@ -384,6 +385,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const opponentDeckIdsRef = useRef<string[] | null>(null)
   /** Battle state for the current match (null until both decks are ready). */
   const [battle, setBattle] = useState<BattleState | null>(null)
+  const [localSetupSeat, setLocalSetupSeat] = useState<PlayerSlot>('host')
+  const [setupActiveIndex, setSetupActiveIndex] = useState<number | null>(null)
+  const [setupBenchIndexes, setSetupBenchIndexes] = useState<number[]>([])
+  const [setupPenaltyCards, setSetupPenaltyCards] = useState(0)
   /** Last rejected action code from the engine; shown translated in-battle. */
   const [battleError, setBattleError] = useState<string | null>(null)
   /** CP8-B selection state: hand/bench/attack picks for the turn action bar. */
@@ -396,6 +401,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     setSelHand(null)
     setSelBench(null)
     setSelAttack(null)
+    setSetupActiveIndex(null)
+    setSetupBenchIndexes([])
+    setSetupPenaltyCards(0)
   }, [])
   void _selAttack
   // CP8-C/D tabletop + action bar now consume the selection above.
@@ -453,7 +461,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     sessionRef.current?.send({ kind: 'battle-snapshot', snapshot: { snapshot: toSnapshot(state, 'host') } })
     sessionRef.current?.send({ kind: 'battle-snapshot', snapshot: { snapshot: toSnapshot(state, 'guest') } })
     battleRef.current = state
-    setBattle(applySnapshot(toSnapshot(state, 'host')))
+    if (roleRef.current === 'host') setBattle(state)
   }, [])
 
   /**
@@ -626,7 +634,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     const energyNeeded = Math.max(0, DECK_SIZE - nonEnergy.length)
     const deck = [...nonEnergy, ...Array.from({ length: energyNeeded }, () => catalog[0])]
     setBattle(setupBattle(settingsRef.current, deck, deck, seed))
-    setView('playing')
+    setView('setup')
   }, [])
 
   const closeSession = useCallback(() => {
@@ -803,6 +811,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         setSelHand(null)
         setSelBench(null)
         setSelAttack(null)
+        clearBattleSelection()
+        if (next.setup.phase === 'complete') setView('playing')
         // CP10-C: the snapshot may be the first sight of the match result on
         // this seat; settle (record + route) exactly once.
         settleMatchOver(next)
@@ -854,10 +864,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       if (localMode) {
         battleRef.current = state
         setBattle(state)
+        setView('setup')
         return
       }
       if (roleRef.current === 'host') {
         broadcastBattle(state)
+        setView('setup')
         return
       }
       // Guest renders from the host's snapshot (arrives right after); nothing
@@ -920,9 +932,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       resultRecordedRef.current = false
       setBattle(null)
       setBattleError(null)
-      setSelHand(null)
-      setSelBench(null)
-      setSelAttack(null)
+      clearBattleSelection()
       setHelpOpen(false)
       // CP9-E: a fresh match (or leave) clears the rematch offer flags so the
       // stale "waiting for…" / "wants a rematch" copy cannot survive a reseed.
@@ -938,14 +948,13 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       connLostRef.current = false
       setConnLost(false)
     }
-  }, [openingReady, opponentReady, deckReady, opponentDeckReady, openedPool, energyCatalog])
+  }, [openingReady, opponentReady, deckReady, opponentDeckReady, openedPool, energyCatalog, clearBattleSelection])
 
-  // loading -> short beat -> playing (Tron's 500 ms pattern). The timer only
-  // starts once the battle state exists, so a failed setup cannot leave a
-  // seat staring at a battle that never renders.
+  // loading -> short beat -> explicit setup. The timer only starts once the
+  // battle state exists, so a failed setup cannot leave a seat without a view.
   useEffect(() => {
     if (view !== 'loading' || battle === null) return
-    const timer = window.setTimeout(() => setView('playing'), 500)
+    const timer = window.setTimeout(() => setView('setup'), 500)
     return () => window.clearTimeout(timer)
   }, [view, battle])
 
@@ -1197,6 +1206,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       return false
     }
     clearBattleSelection()
+    if (result.state.setup.phase === 'complete') setView('playing')
     // CP10-C: a finishing action settles the match exactly once.
     settleMatchOver(result.state)
     if (roleRef.current === 'host' && !localMode) {
@@ -1557,6 +1567,109 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
             {deckReady && !opponentDeckReady && <span className="bnb-waiting" aria-live="polite">{t('pokemonBnb.deckWaiting')}</span>}
           </div>
         </div>
+      </main>
+    )
+  }
+
+  if (view === 'setup' && battle) {
+    const mySlot: PlayerSlot = localMode ? localSetupSeat : role === 'guest' ? 'guest' : 'host'
+    const mySide = battle[mySlot]
+    const maxPenalty = battle[mySlot === 'host' ? 'guest' : 'host'].mulliganCount
+    return (
+      <main className="bnb-page">
+        <header className="bnb-topbar">
+          <span className="bnb-hud-label">{t('pokemonBnb.title')}</span>
+          <div className="bnb-topbar-actions">
+            <button type="button" onClick={leaveLobby}>{t('pokemonBnb.leaveLobby')}</button>
+            <button type="button" onClick={onExit}>{t('pokemonBnb.exit')}</button>
+          </div>
+        </header>
+        <section className="bnb-shell bnb-shell-lobby bnb-setup-shell">
+          {localMode && (
+            <div className="bnb-segmented" role="group" aria-label={t('pokemonBnb.setupLocalSeat')}>
+              <button type="button" aria-pressed={localSetupSeat === 'host'} onClick={() => { setLocalSetupSeat('host'); clearBattleSelection() }}>{t('pokemonBnb.hostRole')}</button>
+              <button type="button" aria-pressed={localSetupSeat === 'guest'} onClick={() => { setLocalSetupSeat('guest'); clearBattleSelection() }}>{t('pokemonBnb.guestRole')}</button>
+            </div>
+          )}
+          <h1>{t('pokemonBnb.setupTitle')}</h1>
+          <p className="bnb-status" role="status">
+            {battle.setup.phase === 'turnOrder'
+              ? t('pokemonBnb.setupCoinFlip')
+              : battle.setup.phase === 'mulligan'
+                ? t('pokemonBnb.setupMulligan')
+                : battle.setup.phase === 'placement'
+                  ? t('pokemonBnb.setupChooseActive')
+                  : t('pokemonBnb.setupRevealHint')}
+          </p>
+          {battle.setup.phase === 'turnOrder' && (
+            <div className="bnb-setup-panel">
+              <p>{substituteParams(t('pokemonBnb.setupCoinWinner'), { player: seatName(battle.setup.coinWinner) })}</p>
+              {battle.setup.coinWinner === mySlot || localMode ? (
+                <div className="bnb-segmented" role="group" aria-label={t('pokemonBnb.setupOrderChoice')}>
+                  <button type="button" onClick={() => runBattleAction(localMode ? battle.setup.coinWinner : mySlot, { type: 'chooseTurnOrder', firstPlayer: 'host' })}>{t('pokemonBnb.setupHostFirst')}</button>
+                  <button type="button" onClick={() => runBattleAction(localMode ? battle.setup.coinWinner : mySlot, { type: 'chooseTurnOrder', firstPlayer: 'guest' })}>{t('pokemonBnb.setupGuestFirst')}</button>
+                </div>
+              ) : <p className="bnb-waiting">{substituteParams(t('pokemonBnb.setupWaiting'), { name: seatName(mySlot) })}</p>}
+            </div>
+          )}
+          {battle.setup.phase === 'mulligan' && (
+            <div className="bnb-setup-panel">
+              <p>{t('pokemonBnb.setupMulligan')}</p>
+              {battle.setup.mulliganDone[mySlot]
+                ? <p className="bnb-notice" role="status">{t('pokemonBnb.setupHandReady')}</p>
+                : <button className="bnb-primary" type="button" onClick={() => runBattleAction(mySlot, { type: 'mulliganSetup' })}>{t('pokemonBnb.setupMulliganAction')}</button>}
+              {!battle.setup.mulliganDone.host || !battle.setup.mulliganDone.guest ? <p className="bnb-waiting">{t('pokemonBnb.setupWaitingOpponent')}</p> : null}
+            </div>
+          )}
+          {battle.setup.phase === 'placement' && !mySide.setupReady && (
+            <div className="bnb-setup-panel">
+              <p>{t('pokemonBnb.setupChooseActive')}</p>
+              <p className="bnb-hint">{t('pokemonBnb.setupChooseBench')}</p>
+              <ol className="bnb-card-grid bnb-setup-hand">
+                {mySide.hand.map((card, index) => {
+                  const basic = card.supertype === 'pokemon' && card.stage === 'Basic'
+                  const selectedActive = setupActiveIndex === index
+                  const selectedBench = setupBenchIndexes.includes(index)
+                  return (
+                    <li key={`${card.id}-${index}`}>
+                      <button
+                        type="button"
+                        className="bnb-setup-card"
+                        disabled={!basic || battle.setup.ready[mySlot]}
+                        aria-pressed={selectedActive || selectedBench}
+                        onClick={() => {
+                          if (selectedActive) setSetupActiveIndex(null)
+                          else if (selectedBench) setSetupBenchIndexes((indexes) => indexes.filter((item) => item !== index))
+                          else if (setupActiveIndex === index) setSetupBenchIndexes((indexes) => [...indexes, index].slice(0, 5))
+                          else setSetupActiveIndex(index)
+                        }}
+                      >
+                        <PokemonCard card={card} rarityLabel={rarityLabel(card.rarity)} faceDownLabel={t('pokemonBnb.cardFaceDown')} />
+                        <span>{selectedActive ? t('pokemonBnb.setupActiveSelected') : selectedBench ? t('pokemonBnb.setupBenchSelected') : t('pokemonBnb.setupSelectPokemon')}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ol>
+              <label className="bnb-field-label" htmlFor="bnb-setup-penalty">{substituteParams(t('pokemonBnb.setupMulliganPenalty'), { count: String(maxPenalty) })}</label>
+              <select id="bnb-setup-penalty" className="bnb-input" value={setupPenaltyCards} onChange={(event) => setSetupPenaltyCards(Number(event.target.value))}>
+                {Array.from({ length: maxPenalty + 1 }, (_, count) => <option key={count} value={count}>{count}</option>)}
+              </select>
+              <button className="bnb-primary" type="button" disabled={setupActiveIndex === null} onClick={() => {
+                if (setupActiveIndex === null) return
+                runBattleAction(mySlot, { type: 'chooseSetupPokemon', activeHandIndex: setupActiveIndex, benchHandIndexes: setupBenchIndexes, penaltyCards: setupPenaltyCards })
+              }}>{t('pokemonBnb.setupConfirmPokemon')}</button>
+            </div>
+          )}
+          {battle.setup.phase === 'placement' && mySide.setupReady && <p className="bnb-notice" role="status">{t('pokemonBnb.setupWaitingOpponent')}</p>}
+          {battle.setup.phase === 'prizes' && (
+            <div className="bnb-setup-panel">
+              <p>{t('pokemonBnb.setupRevealHint')}</p>
+              <button className="bnb-primary" type="button" onClick={() => runBattleAction(mySlot, { type: 'confirmSetupReveal' })}>{t('pokemonBnb.setupReveal')}</button>
+            </div>
+          )}
+          {battleError && <p className="bnb-error" role="alert">{battleErrorCopy(battleError)}</p>}
+        </section>
       </main>
     )
   }

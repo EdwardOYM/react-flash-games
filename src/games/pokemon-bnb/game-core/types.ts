@@ -13,6 +13,15 @@ export type StatusCondition = (typeof STATUS_CONDITIONS)[number]
 
 export type ZoneKind = 'deck' | 'hand' | 'active' | 'bench' | 'prize' | 'discard' | 'lostZone' | 'energy'
 export type TurnPhase = 'draw' | 'main' | 'end'
+export type SetupPhase = 'turnOrder' | 'mulligan' | 'placement' | 'prizes' | 'complete'
+export type SetupPlayerState = {
+  phase: SetupPhase
+  coinWinner: PlayerSlot
+  firstPlayer: PlayerSlot | null
+  mulliganDone: Record<PlayerSlot, boolean>
+  ready: Record<PlayerSlot, boolean>
+  revealed: boolean
+}
 export type SpecialConditionState = Record<StatusCondition, boolean>
 
 export type InPlayPokemon = {
@@ -46,13 +55,23 @@ export type SideState = {
   attackedThisTurn: boolean
   /** Turn number a Stadium was played on, or -1 when none. */
   stadiumPlayedTurn: number
+  /** Number of opening-hand Mulligans. The opponent chooses the extra-card penalty. */
   mulliganCount: number
+  /** Face-down setup Active selected from this side's private hand. */
+  setupActive: PokemonCardDef | null
+  /** Face-down setup Bench selected from this side's private hand. */
+  setupBench: PokemonCardDef[]
+  /** Extra cards this player elected to take after the opponent Mulliganed. */
+  setupPenaltyCards: number
+  /** True after this side's Active/Bench/Prize selection is locked. */
+  setupReady: boolean
 }
 
 /**
  * Log entries stay structured (a translation key plus raw data params) so the
  * battle-log strip can translate the template while card names stay verbatim
- * data. Keys are `pokemonBnb.log.*`, added to en/ms/zh in CP7-E.
+ * data. Keys are `pokemonBnb.log.*`, added to en/ms/zh in CP7-E and
+ * extended with setup events by CP3.
  */
 export type BattleLogEntry = { key: string; params?: Record<string, string | number> }
 
@@ -69,6 +88,7 @@ export type BattleState = {
   seed: number
   prizeCards: number
   timerSeconds: number
+  setup: SetupPlayerState
   /** Side that must choose a new Active after a KO before anything else. */
   pendingPromotion: PlayerSlot | null
   /** True once the current turn's start step (draw + flag reset) has run. */
@@ -91,6 +111,11 @@ export type SnapshotSide = {
   active: InPlayPokemon | null
   bench: InPlayPokemon[]
   hand: CardDef[] | null
+  mulliganCount: number
+  setupActiveCount: number
+  setupBenchCount: number
+  setupPenaltyCards: number
+  setupReady: boolean
 }
 
 export type Snapshot = {
@@ -104,12 +129,17 @@ export type Snapshot = {
   timerSeconds: number
   pendingPromotion: PlayerSlot | null
   turnStarted: boolean
+  setup: SetupPlayerState
   log: BattleLogEntry[]
   host: SnapshotSide
   guest: SnapshotSide
 }
 
 export type BattleAction =
+  | { type: 'chooseTurnOrder'; firstPlayer: PlayerSlot }
+  | { type: 'mulliganSetup' }
+  | { type: 'chooseSetupPokemon'; activeHandIndex: number; benchHandIndexes: number[]; penaltyCards: number }
+  | { type: 'confirmSetupReveal' }
   | { type: 'attachEnergy'; handIndex: number; target: 'active' | number }
   | { type: 'playTrainer'; handIndex: number }
   | { type: 'evolve'; handIndex: number; target: 'active' | number }

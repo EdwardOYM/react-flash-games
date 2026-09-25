@@ -53,6 +53,11 @@ function snapshotSide(side: SideState, isViewer: boolean): SnapshotSide {
     active: side.active ? cloneInPlay(side.active) : null,
     bench: side.bench.map(cloneInPlay),
     hand: isViewer ? [...side.hand] : null,
+    mulliganCount: side.mulliganCount,
+    setupActiveCount: side.setupActive ? 1 : 0,
+    setupBenchCount: side.setupBench.length,
+    setupPenaltyCards: side.setupPenaltyCards,
+    setupReady: side.setupReady,
   }
 }
 
@@ -76,6 +81,7 @@ export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
     timerSeconds: state.timerSeconds,
     pendingPromotion: state.pendingPromotion,
     turnStarted: state.turnStarted,
+    setup: structuredClone(state.setup),
     log: [...state.log],
     host: snapshotSide(state.host, viewer === 'host'),
     guest: snapshotSide(state.guest, viewer === 'guest'),
@@ -96,7 +102,11 @@ function snapshotSideToState(snapshot: SnapshotSide): SideState {
     energyAttachedThisTurn: 0,
     attackedThisTurn: false,
     stadiumPlayedTurn: -1,
-    mulliganCount: 0,
+    mulliganCount: snapshot.mulliganCount,
+    setupActive: snapshot.setupActiveCount > 0 ? HIDDEN_CARD as unknown as SideState['setupActive'] : null,
+    setupBench: fillHidden(snapshot.setupBenchCount) as SideState['setupBench'],
+    setupPenaltyCards: snapshot.setupPenaltyCards,
+    setupReady: snapshot.setupReady,
   }
 }
 
@@ -119,6 +129,7 @@ export function applySnapshot(snapshot: Snapshot): BattleState {
     timerSeconds: snapshot.timerSeconds,
     pendingPromotion: snapshot.pendingPromotion,
     turnStarted: snapshot.turnStarted,
+    setup: structuredClone(snapshot.setup),
     viewOnly: true,
     log: [...snapshot.log],
     rngDraws: 0,

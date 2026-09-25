@@ -67,6 +67,15 @@
 .bnb-energy-grid { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0 20px; padding: 0; }
 .bnb-energy-grid > li { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .bnb-energy-count { min-width: 40px; padding: 4px 8px; border: 1px solid #ffc857; color: #ffc857; font-family: 'DM Mono', monospace; text-align: center; }
+/* CP3 explicit setup: private hand, face-down choices, and reveal controls. */
+.bnb-setup-shell { margin-top: clamp(14px, 3vh, 36px); }
+.bnb-setup-panel { display: grid; gap: 10px; width: min(100%, 960px); }
+.bnb-setup-hand { margin: 0; }
+.bnb-setup-card { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; padding: 5px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .62rem; cursor: pointer; }
+.bnb-setup-card:hover:not(:disabled) { border-color: #ffc857; color: #ffc857; }
+.bnb-setup-card:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.bnb-setup-card[aria-pressed='true'] { border-color: #ffc857; color: #101820; background: #ffc857; }
+.bnb-setup-card:disabled { border-color: #33454a; color: #5d6f72; cursor: not-allowed; }
 @keyframes bnb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
 /* Battle: 16:9 tabletop stage capped at the 960x540 embed width. */
@@ -165,6 +174,8 @@
   .bnb-code-row { margin: 0 0 8px; gap: 8px; }
   .bnb-summary { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0 0 8px; }
   .bnb-energy-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 8px 0 10px; }
+  .bnb-setup-shell { margin-top: max(10px, env(safe-area-inset-top)); }
+  .bnb-setup-hand { gap: 6px; }
   .bnb-input { padding: 8px 10px; }
   .bnb-segmented button, .bnb-stepper button { padding: 7px 10px; }
   /* Battle stage fits the shorter viewport dimension below the top bar. */

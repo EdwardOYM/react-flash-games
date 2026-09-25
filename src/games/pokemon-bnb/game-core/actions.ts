@@ -12,6 +12,7 @@ import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN } from './constants'
 import { canEvolveOnto, canPayCost, checkTurn, cloneBattleState, failure, inPlayOf, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState } from './types'
 import { flipCoin, parseAttackEffects, resolveAttack } from './effects'
+import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, mulliganSetup } from './setup'
 import { applyEndTurn, checkVictory, performKo } from './turns'
 
 // -- CP7-B: turn sub-phases + action dispatcher --
@@ -227,6 +228,20 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
   // A state rebuilt from a Snapshot carries placeholder hidden zones: it is a
   // render model, never the source of truth.
   if (state.viewOnly) return failure(state, 'view-only')
+  if (state.setup.phase !== 'complete') {
+    switch (action.type) {
+      case 'chooseTurnOrder':
+        return chooseTurnOrder(state, actor, action.firstPlayer)
+      case 'mulliganSetup':
+        return mulliganSetup(state, actor)
+      case 'chooseSetupPokemon':
+        return chooseSetupPokemon(state, actor, action.activeHandIndex, action.benchHandIndexes, action.penaltyCards)
+      case 'confirmSetupReveal':
+        return confirmSetupReveal(state, actor)
+      default:
+        return failure(state, 'setup-incomplete')
+    }
+  }
   // A Knock Out blocks everything until the KO'd side has chosen a new Active.
   if (state.pendingPromotion) {
     if (action.type === 'promoteActive' && actor === state.pendingPromotion) {
@@ -235,6 +250,11 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
     return failure(state, 'must-promote')
   }
   switch (action.type) {
+    case 'confirmSetupReveal':
+    case 'chooseTurnOrder':
+    case 'mulliganSetup':
+    case 'chooseSetupPokemon':
+      return failure(state, 'setup-wrong-phase')
     case 'attachEnergy':
       return attachEnergy(state, actor, action.handIndex, action.target)
     case 'playTrainer':
