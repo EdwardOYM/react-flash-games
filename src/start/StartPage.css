@@ -14,7 +14,6 @@
 .game-row small { color: #74888b; font-family: 'DM Mono', monospace; font-size: .65rem; text-transform: uppercase; }
 .preview { position: relative; width: min(100%, 460px); aspect-ratio: 1; border: 1px solid #50676a; border-radius: 50%; background: linear-gradient(145deg, rgba(255,200,87,.08), rgba(241,129,101,.13)); box-shadow: 0 0 0 18px rgba(255,255,255,.015), 0 0 100px rgba(255,200,87,.12); }
 .preview canvas { width: 100%; height: 100%; }
-.preview-label { position: absolute; right: 14%; bottom: 12%; padding: 6px 10px; color: #101820; background: #ffc857; font-family: 'DM Mono', monospace; font-size: .65rem; }
 
 @media (max-width: 720px) {
   .start-page { padding: 22px 24px 40px; }
