@@ -15,8 +15,8 @@
 .ppb-pack-stack-action { position: absolute; z-index: 40; top: 0; left: 50%; width: min(var(--pkm-card-w, 150px), 100%); height: calc(var(--pkm-card-w, 150px) * 1.4); padding: 0; border: 0; color: transparent; background: transparent; transform: translateX(-50%); cursor: pointer; }
 .ppb-pack-stack-action:hover { filter: brightness(1.08); }
 .ppb-pack-stack-action:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 4px; }
-.ppb-pack-stack-expanded { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(8px, 1.5vw, 14px); min-height: 0; }
-.ppb-pack-stack-expanded .ppb-pack-stack-card { position: relative; top: auto; left: auto; width: 100%; transform: none; }
+.ppb-pack-stack-expanded { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(10px, 1.5vw, 16px); min-height: 0; }
+.ppb-pack-stack-expanded .ppb-pack-stack-card { position: relative; top: auto; left: auto; width: min(var(--pkm-card-w, 150px), 100%); transform: none; justify-self: center; }
 .ppb-pack-stack-expanded .ppb-pack-stack-card-latest { transform: none; }
 @media (max-width: 520px) {
   .ppb-pack-stack-expanded { grid-template-columns: repeat(2, minmax(0, 1fr)); }

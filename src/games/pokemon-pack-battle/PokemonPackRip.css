@@ -1,9 +1,10 @@
 /* Pokemon Pack Rips — RIP page + unlocked collection page (960x540 embed-conformant). */
-.ppb-rip-page { height: 100dvh; min-height: 0; padding: clamp(22px, 4vw, 40px) clamp(20px, 6vw, 72px) 48px; color: #f5f0e8; background: radial-gradient(circle at 72% 16%, #2c3a4d 0, #101820 46%), #101820; overflow-x: hidden; overflow-y: auto; --pkm-card-w: clamp(104px, 15vw, 150px); }
-.ppb-rip-topbar { display: flex; justify-content: space-between; align-items: center; width: min(100%, 960px); margin: 0 auto 22px; }
+.ppb-rip-page { height: 100dvh; min-height: 0; padding: clamp(22px, 4vw, 40px) clamp(20px, 6vw, 72px) 48px; color: #f5f0e8; background: radial-gradient(circle at 72% 16%, #2c3a4d 0, #101820 46%), #101820; overflow-x: hidden; overflow-y: auto; --pkm-card-w: clamp(120px, 18vw, 170px); }
+.ppb-rip-topbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; width: min(100%, 960px); margin: 0 auto 22px; }
 .ppb-rip-topbar h1 { font-size: clamp(1.6rem, 5vw, 3rem); margin: 0; }
-.ppb-rip-topbar-actions { display: flex; gap: 10px; }
+.ppb-rip-topbar-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .ppb-rip-topbar-actions button { padding: 9px 12px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .66rem; text-transform: uppercase; cursor: pointer; }
+.ppb-rip-topbar-actions .ppb-rip-column-button { border-color: #ffc857; color: #ffc857; }
 .ppb-rip-topbar-actions button:hover { border-color: #ffc857; color: #ffc857; }
 .ppb-rip-topbar-actions button:focus, .ppb-rip-topbar-actions button:focus-visible { color: #aeb9b9; outline: 2px solid #f5f0e8; outline-offset: 2px; }
 .ppb-rip-shell { width: min(100%, 960px); margin: 0 auto; }
@@ -34,8 +35,16 @@
 .ppb-rip-notice { margin: 10px 0 4px; padding: 8px 12px; border: 1px solid #3a6a4a; color: #a9d4b0; background: #16231c; font-family: 'DM Mono', monospace; font-size: .72rem; }
 /* Columns follow the card token, so a card never overflows (or overlaps) its
  * column and the grid never widens the page. */
-.ppb-rip-cardgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(var(--pkm-card-w, 150px), 100%), 1fr)); gap: 12px; width: min(100%, 960px); margin-top: 18px; }
-.ppb-rip-cardwrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.ppb-rip-cardgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; width: min(100%, 960px); margin-top: 18px; }
+.ppb-rip-cardgrid[data-columns="1"] { grid-template-columns: minmax(0, 1fr); }
+.ppb-rip-cardgrid[data-columns="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ppb-rip-cardgrid[data-columns="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ppb-rip-cardgrid[data-columns="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.ppb-rip-cardgrid[data-columns="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.ppb-rip-cardgrid[data-columns="6"] { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.ppb-rip-cardwrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; }
+.ppb-rip-cardface { display: flex; justify-content: center; width: 100%; min-width: 0; }
+.ppb-rip-cardwrap .pkm-card { width: 100%; max-width: 190px; }
 /* Locked tiles keep their slot in the grid: the face is greyscaled and darkened
  * while the lock chip riding its foot stays legible (it is not inside the
  * filtered element). */
@@ -52,7 +61,7 @@
 /* Mobile landscape (shared pattern): fixed full-viewport page, safe-area padded,
  * the shell cages the vertical scroll so nothing needs a horizontal one. */
 @media (orientation: landscape) and (max-height: 600px) {
-  .ppb-rip-page { height: 100dvh; min-height: 0; overflow: hidden; --pkm-card-w: clamp(52px, 11vh, 92px); padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+  .ppb-rip-page { height: 100dvh; min-height: 0; overflow: hidden; --pkm-card-w: clamp(120px, 26vh, 170px); padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
   .ppb-rip-topbar { margin: 0 auto 10px; }
   .ppb-rip-topbar h1 { font-size: clamp(1.3rem, 4vh, 1.9rem); }
   .ppb-rip-shell { max-height: calc(100dvh - 62px); overflow-y: auto; overscroll-behavior: contain; }
@@ -66,7 +75,8 @@
 
 /* Narrow portrait (<=520px): touch-friendly targets, stacked fields. */
 @media (max-width: 520px) {
-  .ppb-rip-page { --pkm-card-w: clamp(104px, 26vw, 140px); }
+  .ppb-rip-page { --pkm-card-w: clamp(132px, 42vw, 180px); }
+  .ppb-rip-cardgrid { gap: 8px; }
   .ppb-rip-topbar-actions button, .ppb-rip-primary, .ppb-rip-secondary, .ppb-rip-segmented button, .ppb-rip-stepper button { min-height: 42px; }
   .ppb-rip-fields { grid-template-columns: 1fr; }
 }

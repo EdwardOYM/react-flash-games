@@ -247,7 +247,9 @@ definition, writes the pulled ids to the persisted `openedCards` bucket under
 the entered player name, and uses the same `PackStack` presentation. The RIP
 form's secondary button opens the collection directly, so previously unlocked
 cards are viewable without ripping anything in this session; `unlocked` shows
-the whole set in card-number order and greyscales plus darkens every card that
+the whole set in card-number order, defaults to three columns, and provides a
+translated topbar button that cycles a session-local 1–6 column display choice.
+It greyscales plus darkens every card that
 player has not opened yet. On ceremony completion this device records the
 local seat's own packs exactly once (`cardIdsForSeat`: host = even-indexed
 packs, guest = odd-indexed, an odd tail pack belongs to both seats) together
@@ -272,7 +274,7 @@ flowchart LR
     PBHIGHSCORE -->|"back (summary when a seed exists, else start)"| PBSUMMARY
     PBSTART -->|"RIP packs (04.3)"| PBRIP["rip — solo open: name + set, one six-card stack"]
     PBRIP -->|"open packs: fresh session seed + own bucket write; reveal the fixed stack one card at a time"| PBRIP
-    PBRIP -->|"Unlocked cards — always available, newly opened or not"| PBUNLOCKED["unlocked — only the opened cards of set + player, in number order"]
+    PBRIP -->|"Unlocked cards — always available, newly opened or not"| PBUNLOCKED["unlocked — every set card for the selected player, in number order; local 1–6 column display control"]
     PBUNLOCKED -->|"back to pack rip"| PBRIP
     PBRIP -->|"leaveRip()"| PBSTART
     PBUNLOCKED -->|"leaveRip()"| PBSTART

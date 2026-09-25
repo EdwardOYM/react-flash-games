@@ -532,6 +532,7 @@
     "unlockedLocked": "Not unlocked",
     "unlockedNoPlayers": "No collection yet. Open a pack first.",
     "unlockedEmpty": "No cards opened in this set yet.",
+    "unlockedColumns": "Columns: {count}",
     "unlockedBack": "Back",
     "collectionSaved": "Your pack {player} pulled is saved.",
     "rip": "Pack rips"

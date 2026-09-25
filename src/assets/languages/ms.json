@@ -533,6 +533,7 @@
     "unlockedLocked": "Belum dibuka",
     "unlockedNoPlayers": "Tiada koleksi lagi. Buka pek dahulu.",
     "unlockedEmpty": "Tiada kad dibuka dalam set ini lagi.",
+    "unlockedColumns": "Lajur: {count}",
     "unlockedBack": "Kembali",
     "collectionSaved": "Pek {player} yang anda tarik tersimpan.",
     "rip": "Pek rip"

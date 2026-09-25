@@ -85,7 +85,7 @@
 .ppb-seat-lane-local { border-color: #5d6f72; }
 .ppb-seat-lane-shared { grid-column: 1 / -1; }
 .ppb-seat-lane.ppb-seat-lane-shared .ppb-pack-stack { --pkm-card-w: clamp(88px, 13vw, 132px); }
-.ppb-seat-lane.ppb-seat-lane-shared .ppb-pack-stack-expanded { --pkm-card-w: clamp(68px, 8vw, 92px); grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.ppb-seat-lane.ppb-seat-lane-shared .ppb-pack-stack-expanded { --pkm-card-w: clamp(120px, 15vw, 180px); grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ppb-seat-lane-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
 .ppb-seat-lane-name, .ppb-seat-lane-score { font-family: 'DM Mono', monospace; font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; overflow-wrap: anywhere; }
 .ppb-seat-lane-name { color: #ffc857; }
@@ -107,7 +107,7 @@
 .ppb-seat-controls button:hover { filter: brightness(1.08); }
 .ppb-seat-controls button:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
 .ppb-seat-lane .ppb-pack-stack { --pkm-card-w: clamp(82px, 11vw, 118px); width: 100%; min-height: calc(var(--pkm-card-w) * 1.45 + var(--ppb-stack-depth) * 5); margin: 8px auto 0; }
-.ppb-seat-lane .ppb-pack-stack-expanded { --pkm-card-w: clamp(48px, 6vw, 66px); grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.ppb-seat-lane .ppb-pack-stack-expanded { --pkm-card-w: clamp(96px, 11vw, 132px); grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .ppb-seat-lane .ppb-pack-stack-expanded .ppb-pack-stack-card { width: min(var(--pkm-card-w, 150px), 100%); justify-self: center; }
 .ppb-stack-points { position: absolute; right: -4px; top: -8px; z-index: 35; padding: 2px 7px; border-radius: 999px; background: #ffc857; color: #101820; font-family: 'DM Mono', monospace; font-size: .62rem; font-weight: 700; }
 .ppb-ceremony-actions { align-items: center; margin: 8px 0; min-height: 38px; }
@@ -181,8 +181,8 @@
   .ppb-opening-page .eyebrow { display: none; }
   .ppb-seat-lanes { gap: 8px; }
   .ppb-seat-lane { --pkm-card-w: clamp(52px, 11vh, 78px); padding: 7px 8px 8px; }
-  .ppb-seat-lane .ppb-pack-stack { --pkm-card-w: clamp(52px, 10vh, 76px); margin-top: 5px; }
-  .ppb-seat-lane .ppb-pack-stack-expanded { --pkm-card-w: clamp(40px, 10vh, 52px); grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .ppb-seat-lane .ppb-pack-stack { --pkm-card-w: clamp(84px, 18vh, 116px); margin-top: 5px; }
+  .ppb-seat-lane .ppb-pack-stack-expanded { --pkm-card-w: clamp(80px, 20vh, 112px); grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ppb-seat-lane-head { margin-bottom: 5px; }
   .ppb-owned-packs { gap: 3px; margin-bottom: 5px; }
   .ppb-owned-pack { min-width: 24px; min-height: 24px; padding: 3px 5px; }
@@ -203,8 +203,8 @@
   .ppb-card-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ppb-seat-lanes { grid-template-columns: 1fr; }
   .ppb-seat-lane { --pkm-card-w: clamp(104px, 30vw, 140px); }
-  .ppb-seat-lane .ppb-pack-stack { --pkm-card-w: clamp(104px, 30vw, 140px); }
-  .ppb-seat-lane .ppb-pack-stack-expanded { --pkm-card-w: clamp(84px, 24vw, 110px); grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ppb-seat-lane .ppb-pack-stack { --pkm-card-w: clamp(132px, 42vw, 180px); }
+  .ppb-seat-lane .ppb-pack-stack-expanded { --pkm-card-w: clamp(120px, 40vw, 170px); grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ppb-owned-pack { min-width: 42px; min-height: 42px; }
   .ppb-seat-controls button { min-height: 42px; }
   .ppb-shell.ppb-summary { --pkm-card-w: clamp(84px, 24vw, 110px); }

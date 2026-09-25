@@ -75,6 +75,7 @@ export function PokemonPackRip({
   const [soloPlayer, setSoloPlayer] = useState('')
   const [collectionPlayer, setCollectionPlayer] = useState('')
   const [collectionSetIndex, setCollectionSetIndex] = useState(0)
+  const [collectionColumns, setCollectionColumns] = useState<1 | 2 | 3 | 4 | 5 | 6>(3)
 
   // The bucket is read during render (no memo): the player list must include a
   // player the rip just created, and a stale list would hide them entirely.
@@ -292,6 +293,13 @@ export function PokemonPackRip({
       <div className="ppb-rip-topbar">
         <h1>{translate('packBattle.unlockedTitle')}</h1>
         <div className="ppb-rip-topbar-actions">
+          <button
+            className="ppb-rip-column-button"
+            type="button"
+            onClick={() => setCollectionColumns(((collectionColumns % 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6)}
+          >
+            {substituteParams(translate('packBattle.unlockedColumns'), { count: String(collectionColumns) })}
+          </button>
           <button type="button" onClick={handleBackToPackBattle}>{translate('packBattle.back')}</button>
         </div>
       </div>
@@ -345,7 +353,7 @@ export function PokemonPackRip({
         {/* The whole set stays on screen in card-number order: a card the player
             has not opened is greyscaled and darkened with a lock chip, never
             hidden, so the collection reads as a set with gaps to fill. */}
-        <div className="ppb-rip-cardgrid">
+        <div className="ppb-rip-cardgrid" data-columns={collectionColumns}>
           {collectionCards.map(({ card, unlocked }) => (
             <div key={card.id} className={unlocked ? 'ppb-rip-cardwrap' : 'ppb-rip-cardwrap ppb-rip-cardwrap-locked'}>
               <div className="ppb-rip-cardface">

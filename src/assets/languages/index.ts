@@ -539,6 +539,7 @@ type PackBattleTranslationKey =
   | 'unlockedLocked'
   | 'unlockedNoPlayers'
   | 'unlockedEmpty'
+  | 'unlockedColumns'
   | 'unlockedBack'
   | 'collectionSaved'
   | 'rip'

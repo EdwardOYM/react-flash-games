@@ -532,6 +532,7 @@
     "unlockedLocked": "未解锁",
     "unlockedNoPlayers": "还没有收藏。先打开一包。",
     "unlockedEmpty": "该系列还没有打开过的卡。",
+    "unlockedColumns": "列数：{count}",
     "unlockedBack": "返回",
     "collectionSaved": "你抽到的 {player} 的包已保存。",
     "rip": "补充包自拆"
