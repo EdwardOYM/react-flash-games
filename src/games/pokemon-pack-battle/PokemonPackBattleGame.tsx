@@ -497,13 +497,51 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
   }
 
   const copyCode = () => {
-    const clipboard = navigator.clipboard
-    if (!clipboard) return
-    void clipboard.writeText(code).then(() => {
+    if (!code) return
+
+    const showCopied = () => {
       setCopied(true)
       if (copyTimerRef.current !== null) window.clearTimeout(copyTimerRef.current)
       copyTimerRef.current = window.setTimeout(() => setCopied(false), 1600)
-    }).catch(() => undefined)
+    }
+
+    // itch.io embeds can block the async Clipboard API in a cross-origin frame.
+    // Keep the whole fallback inside the click gesture so execCommand can still
+    // copy where clipboard.writeText is unavailable or permission-denied.
+    const textArea = document.createElement('textarea')
+    const selection = document.getSelection()
+    const previousRange = selection?.rangeCount ? selection.getRangeAt(0) : null
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    textArea.value = code
+    textArea.setAttribute('readonly', '')
+    textArea.style.position = 'fixed'
+    textArea.style.opacity = '0'
+    textArea.style.pointerEvents = 'none'
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+    textArea.setSelectionRange(0, textArea.value.length)
+
+    let copiedWithFallback = false
+    try {
+      copiedWithFallback = document.execCommand('copy')
+    } catch {
+      copiedWithFallback = false
+    } finally {
+      textArea.remove()
+      if (previousRange) selection?.removeAllRanges()
+      if (previousRange) selection?.addRange(previousRange)
+      previousFocus?.focus()
+    }
+
+    if (copiedWithFallback) {
+      showCopied()
+      return
+    }
+
+    const clipboard = navigator.clipboard
+    if (!clipboard) return
+    void clipboard.writeText(code).then(showCopied).catch(() => undefined)
   }
 
   // ---- 04.2 CP2: per-pack ceremony state and per-seat totals ----
