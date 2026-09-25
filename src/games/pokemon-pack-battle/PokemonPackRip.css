@@ -64,7 +64,7 @@
   .ppb-rip-page { height: 100dvh; min-height: 0; overflow: hidden; --pkm-card-w: clamp(120px, 26vh, 170px); padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
   .ppb-rip-topbar { margin: 0 auto 10px; }
   .ppb-rip-topbar h1 { font-size: clamp(1.3rem, 4vh, 1.9rem); }
-  .ppb-rip-shell { max-height: calc(100dvh - 62px); overflow-y: auto; overscroll-behavior: contain; }
+  .ppb-rip-scroll-shell { max-height: calc(100dvh - 62px); overflow-y: auto; overscroll-behavior: contain; }
   .ppb-rip-copy { margin: 8px 0 14px; }
   .ppb-rip-form, .ppb-rip-fields { gap: 8px; }
   .ppb-rip-input, .ppb-rip-select { padding: 8px 10px; }

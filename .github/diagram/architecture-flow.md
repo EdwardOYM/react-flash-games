@@ -244,7 +244,12 @@ seeded-match channel drop preserves the ceremony while the guest redials. Since
 04.3 the same component also hosts two solo views that never touch the wire:
 `rip` rolls a fresh session-only seed and opens one pack from the same 30C
 definition, writes the pulled ids to the persisted `openedCards` bucket under
-the entered player name, and uses the same `PackStack` presentation. The RIP
+the entered player name, and uses the same `PackStack` presentation. In mobile
+landscape each top-level shell is the only vertical scroll container: the RIP
+form/results shell keeps the expanded pack from trapping touch scrolling in a
+nested result, while the unlocked gallery scrolls through its full card set.
+The display name, set selector, Open packs action, and collection remain
+reachable by scrolling upward. The RIP
 form's secondary button opens the collection directly, so previously unlocked
 cards are viewable without ripping anything in this session; `unlocked` shows
 the whole set in card-number order, defaults to three columns, and provides a

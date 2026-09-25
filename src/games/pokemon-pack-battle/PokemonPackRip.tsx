@@ -182,7 +182,7 @@ export function PokemonPackRip({
         </div>
       </div>
 
-      <div className="ppb-rip-shell">
+      <div className="ppb-rip-shell ppb-rip-scroll-shell">
         <p className="ppb-rip-eyebrow">{translate('packBattle.ripEyebrow')}</p>
         <div className="ppb-rip-form">
           <div className="ppb-rip-field">
@@ -304,7 +304,7 @@ export function PokemonPackRip({
         </div>
       </div>
 
-      <div className="ppb-rip-shell">
+      <div className="ppb-rip-shell ppb-rip-scroll-shell">
         <p className="ppb-rip-eyebrow">{translate('packBattle.unlockedEyebrow')}</p>
 
         <div className="ppb-rip-fields">
