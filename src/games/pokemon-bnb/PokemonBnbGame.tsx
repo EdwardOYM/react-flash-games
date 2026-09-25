@@ -10,7 +10,7 @@ import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import type { CardDef, CardRarity, SetId } from './cards'
 import { buildPoolIsValid, type DeckLegalityReason } from './deck'
 import { STATUS_CONDITIONS, applySnapshot, applyTimeout, processAction, setupBattle, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
-import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
+import { DECK_SIZE, LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
 import { openPacks, buildPool, type OpenedCard, type OpenedPool } from './pack'
 import { createRng, randomSeed } from './rng'
@@ -321,8 +321,8 @@ function LobbyFields({ settings, editable, idPrefix, t, onChange }: LobbyFieldsP
       <div className="bnb-field">
         <span className="bnb-field-label" id={ids.prizes}>{t('pokemonBnb.prizeCardsLabel')}</span>
         {editable
-          ? <div className="bnb-stepper" role="group" aria-labelledby={ids.prizes}><button type="button" aria-label={t('pokemonBnb.decrease')} disabled={settings.prizeCards <= LOBBY_LIMITS.minPrizeCards} onClick={() => patch({ prizeCards: settings.prizeCards - 1 })}>−</button><span className="bnb-stepper-value" aria-live="polite">{settings.prizeCards}</span><button type="button" aria-label={t('pokemonBnb.increase')} disabled={settings.prizeCards >= LOBBY_LIMITS.maxPrizeCards} onClick={() => patch({ prizeCards: settings.prizeCards + 1 })}>+</button></div>
-          : <span className="bnb-field-value">{settings.prizeCards}</span>}
+          ? <div className="bnb-segmented" role="group" aria-labelledby={ids.prizes}>{LOBBY_LIMITS.prizeChoices.map((count) => <button key={count} type="button" aria-pressed={settings.prizeCards === count} onClick={() => patch({ prizeCards: count })}>{substituteParams(t('pokemonBnb.prizeChoice'), { count: String(count) })}</button>)}</div>
+          : <span className="bnb-field-value">{substituteParams(t('pokemonBnb.prizeChoice'), { count: String(settings.prizeCards) })}</span>}
       </div>
       <div className="bnb-field">
         <span className="bnb-field-label" id={ids.timer}>{t('pokemonBnb.timerLabel')}</span>
@@ -676,7 +676,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         return
       }
       case 'lobby-update': {
-        if (roleRef.current === 'guest') setSettings(clampLobbySettings(message.settings))
+        if (roleRef.current !== 'guest') return
+        const next = clampLobbySettings(message.settings)
+        settingsRef.current = next
+        setSettings(next)
         return
       }
       case 'lobby-start': {
@@ -687,7 +690,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         rematchSentRef.current = false
         setRematchSent(false)
         setRematchOffered(false)
-        setSettings(clampLobbySettings(message.settings))
+        const next = clampLobbySettings(message.settings)
+        settingsRef.current = next
+        setSettings(next)
         setMatchSeed(message.seed)
         resetMatchState()
         setNotice(null)
@@ -1088,9 +1093,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     })
   }
 
-  /** Mark our deck ready and send the id list (one entry per copy). */
+  /** Mark our 40-card deck ready and send the id list (one entry per copy). */
   const markDeckReady = () => {
-    if (!deckCheck.ok || deckReady) return
+    if (!deckCheck.ok || deckIds.length !== DECK_SIZE || deckReady) return
     setDeckReady(true)
     deckReadyRef.current = true
     sessionRef.current?.send({ kind: 'deck-ready', deckIds })
@@ -1451,9 +1456,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
           <p className="bnb-status" aria-live="polite">
             {substituteParams(t('pokemonBnb.deckCount'), { count: String(deckCheck.summary.total), total: String(poolTotal) })}
             <span className="bnb-status-sep" aria-hidden="true">·</span>
-            <span>{t('pokemonBnb.prizeCardsLabel')}: {settings.prizeCards}</span>
+            <span>{substituteParams(t('pokemonBnb.deckRequiredSize'), { count: String(DECK_SIZE) })}</span>
+            <span className="bnb-status-sep" aria-hidden="true">·</span>
+            <span>{substituteParams(t('pokemonBnb.prizeChoice'), { count: String(settings.prizeCards) })}</span>
           </p>
           {openedPool.cards.length === 0 && <p className="bnb-error" role="alert">{t('pokemonBnb.deckEmpty')}</p>}
+          {deckIds.length !== DECK_SIZE && <p className="bnb-error" role="alert">{substituteParams(t('pokemonBnb.deckErrorExactSize'), { count: String(DECK_SIZE) })}</p>}
           <h2 className="bnb-field-label">{t('pokemonBnb.deckSelectedLabel')}</h2>
           <ol className="bnb-card-grid">
             {openedPool.cards.map((card) => {
@@ -1499,7 +1507,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
           {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
           {errorKey && <p className="bnb-error" role="alert">{t(errorKey)}</p>}
           <div className="bnb-actions">
-            {!deckReady && <button className="bnb-primary" type="button" disabled={!deckCheck.ok} onClick={markDeckReady}>{t('pokemonBnb.deckSubmit')}</button>}
+            {!deckReady && <button className="bnb-primary" type="button" disabled={!deckCheck.ok || deckIds.length !== DECK_SIZE} onClick={markDeckReady}>{t('pokemonBnb.deckSubmit')}</button>}
             {deckReady && !opponentDeckReady && <span className="bnb-waiting" aria-live="polite">{t('pokemonBnb.deckWaiting')}</span>}
           </div>
         </div>

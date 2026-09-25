@@ -9,13 +9,16 @@
 
 import type { SetId } from '../cards'
 
-export const PROTOCOL_VERSION = 1
+export const PROTOCOL_VERSION = 2
+
+export const DECK_SIZE = 40
 
 export const LOBBY_LIMITS = {
   minPacks: 1,
   maxPacks: 6,
-  minPrizeCards: 2,
-  maxPrizeCards: 6,
+  /** Build & Battle setup supports exactly these Prize counts. */
+  prizeChoices: [4, 6],
+  defaultPrizeCards: 4,
   /** Seconds per turn; 0 disables the timer. */
   timerChoices: [0, 45, 60, 90],
 } as const
@@ -30,14 +33,18 @@ export type LobbySettings = {
 }
 
 export function defaultLobbySettings(set: SetId): LobbySettings {
-  return { set, packs: 1, prizeCards: 4, timerSeconds: 0 }
+  return { set, packs: 1, prizeCards: LOBBY_LIMITS.defaultPrizeCards, timerSeconds: 0 }
+}
+
+export function isPrizeCardCount(value: number): value is 4 | 6 {
+  return (LOBBY_LIMITS.prizeChoices as readonly number[]).includes(value)
 }
 
 export function clampLobbySettings(settings: LobbySettings): LobbySettings {
   return {
     set: settings.set,
     packs: Math.min(LOBBY_LIMITS.maxPacks, Math.max(LOBBY_LIMITS.minPacks, Math.round(settings.packs))),
-    prizeCards: Math.min(LOBBY_LIMITS.maxPrizeCards, Math.max(LOBBY_LIMITS.minPrizeCards, Math.round(settings.prizeCards))),
+    prizeCards: isPrizeCardCount(settings.prizeCards) ? settings.prizeCards : LOBBY_LIMITS.defaultPrizeCards,
     timerSeconds: (LOBBY_LIMITS.timerChoices as readonly number[]).includes(settings.timerSeconds) ? settings.timerSeconds : 0,
   }
 }
@@ -49,8 +56,7 @@ export function validateLobbySettings(value: unknown): value is LobbySettings {
     typeof candidate.set === 'string' && candidate.set.length > 0 &&
     typeof candidate.packs === 'number' && Number.isInteger(candidate.packs) &&
     candidate.packs >= LOBBY_LIMITS.minPacks && candidate.packs <= LOBBY_LIMITS.maxPacks &&
-    typeof candidate.prizeCards === 'number' && Number.isInteger(candidate.prizeCards) &&
-    candidate.prizeCards >= LOBBY_LIMITS.minPrizeCards && candidate.prizeCards <= LOBBY_LIMITS.maxPrizeCards &&
+    typeof candidate.prizeCards === 'number' && Number.isInteger(candidate.prizeCards) && isPrizeCardCount(candidate.prizeCards) &&
     typeof candidate.timerSeconds === 'number' && (LOBBY_LIMITS.timerChoices as readonly number[]).includes(candidate.timerSeconds)
   )
 }
@@ -100,7 +106,7 @@ export function isNetMessage(value: unknown): value is NetMessage {
       return true
     case 'deck-ready': {
       const candidate = value as { deckIds?: unknown }
-      return Array.isArray(candidate.deckIds) && candidate.deckIds.every((id) => typeof id === 'string' && id.length > 0)
+      return Array.isArray(candidate.deckIds) && candidate.deckIds.length === DECK_SIZE && candidate.deckIds.every((id) => typeof id === 'string' && id.length > 0)
     }
     case 'battle-action': {
       const candidate = value as { action?: { player?: unknown; action?: unknown } }
