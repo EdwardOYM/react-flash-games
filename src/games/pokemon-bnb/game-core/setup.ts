@@ -6,6 +6,7 @@
 
 import type { CardDef, PokemonCardDef } from '../cards'
 import type { LobbySettings, PlayerSlot } from '../net/protocol'
+import { DECK_SIZE } from '../net/protocol'
 import { createRng, randomInt, shuffleCards, type Rng } from '../rng'
 import { BENCH_TARGET, MAX_BENCH, OPENING_HAND_SIZE, PRIZE_COUNT } from './constants'
 import { drawCards, foeOf, logEvent, sideOf } from './helpers'
@@ -68,8 +69,9 @@ export function sideEmpty(): SideState {
 }
 
 /**
- * Place prize cards from the top of the deck. Clamps to deck size so
- * thin mini-format pools never start with negative prizes.
+ * Set the configured Prize cards. Protocol-v2 decks are guaranteed to have
+ * 40 cards, but the defensive clamp keeps this pure helper total-preserving if
+ * a future non-network caller supplies a shorter array.
  */
 function placePrizes(side: SideState, count: number): void {
   const prizes = Math.min(count, side.deck.length)
@@ -113,6 +115,10 @@ export function setupBattle(
   guestDeck: CardDef[],
   seed: number,
 ): BattleState {
+  if (hostDeck.length !== DECK_SIZE || guestDeck.length !== DECK_SIZE) {
+    throw new RangeError(`setupBattle requires exactly ${DECK_SIZE} cards per deck`)
+  }
+
   // Count every rng.next() through one wrapper so both seats (and the CP7-G
   // determinism check) can assert an identical draw count for a shared seed.
   let rngCalls = 0

@@ -8,8 +8,8 @@
 // - OPENING_HAND_SIZE = 7 per the real rulebook. The "4" value from the
 //   pre-checkpoint draft is deliberately discarded here.
 // - BENCH_TARGET = 3 (rulebook: auto-bench as many Basics as fit, up to 5).
-// - prizeCards comes from LobbySettings; decks smaller than prizeCards just
-//   have a thinner prize area (placePrizes clamps to deck size).
+// - Exact protocol-v2 deck size is 40; setupBattle rejects any other submitted deck.
+// - `prizeCards` comes from LobbySettings and is taken from that same 40-card deck during setup.
 // - Evolutions in 30C carry no `evolvesFrom` links (verified: 0 occurrences in
 //   cards.json), so CP7-B matches by stage progression + a shared type, and
 //   falls back to name matching when a future set does supply `evolvesFrom`.

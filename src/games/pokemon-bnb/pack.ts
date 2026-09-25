@@ -4,25 +4,31 @@
 // The same seed + pack config always yields the identical pool on every peer.
 
 import type { CardDef, CardRarity, EnergyCardDef } from './cards'
-import { cardIsPokemon } from './cards'
+import { cardIsEnergy, cardIsPokemon } from './cards'
 import { pickUniform, randomInt, type Rng } from './rng'
 import type { PackDef, PackSlotDef } from './sets'
 
 export type OpenedCard = { card: CardDef; slotId: string }
 
 export type OpenedPool = {
-  /** Ordered unique card definitions in the opened pool. */
+  /** Ordered unique non-Energy definitions in the opened pool. */
   cards: CardDef[]
   /** cardId -> total copies opened. */
   byId: Map<string, number>
 }
 
-const BASIC_ENERGY_TYPES = ['grass', 'fire', 'water', 'lightning', 'psychic', 'fighting', 'darkness', 'metal'] as const
+export const BASIC_ENERGY_TYPES = ['grass', 'fire', 'water', 'lightning', 'psychic', 'fighting', 'darkness', 'metal'] as const
+export type BasicEnergyType = (typeof BASIC_ENERGY_TYPES)[number]
 
 /** Synthesize a basic energy card (physical packs include one; set data does not). */
-export function basicEnergyCard(setId: string, type: (typeof BASIC_ENERGY_TYPES)[number]): EnergyCardDef {
+export function basicEnergyCard(setId: string, type: BasicEnergyType): EnergyCardDef {
   const label = type.charAt(0).toUpperCase() + type.slice(1)
   return { id: `${setId}-energy-${type}`, set: setId, number: `E-${type}`, name: `${label} Energy`, rarity: 'common', supertype: 'energy', types: [], energyType: 'normal', provides: type }
+}
+
+/** Stable construction catalog: every standard basic type, in ruleset order. */
+export function basicEnergyCatalog(setId: string): EnergyCardDef[] {
+  return BASIC_ENERGY_TYPES.map((type) => basicEnergyCard(setId, type))
 }
 
 function isGuaranteedIr(card: CardDef): boolean {
@@ -49,7 +55,7 @@ function pickLadderRarity(ladder: CardRarity[], weights: Record<string, number>,
 
 function drawSlot(cards: CardDef[], slot: PackSlotDef, pack: PackDef, rng: Rng): CardDef[] {
   if (slot.poolRef === 'basicEnergy') {
-    const types = (pack.pools.basicEnergy?.types ?? [...BASIC_ENERGY_TYPES]) as (typeof BASIC_ENERGY_TYPES)[number][]
+    const types = (pack.pools.basicEnergy?.types ?? [...BASIC_ENERGY_TYPES]) as BasicEnergyType[]
     return Array.from({ length: slot.count }, () => basicEnergyCard(pack.set, pickUniform(types, rng)))
   }
   if (slot.poolRef === 'guaranteedPikachuIr') {
@@ -85,11 +91,12 @@ export function openPacks(cards: CardDef[], pack: PackDef, packCount: number, rn
   return opened
 }
 
-/** Aggregate an opened sequence into a deck-building pool with copy counts. */
+/** Aggregate opened non-Energy cards into the copy-limited deck pool. */
 export function buildPool(opened: OpenedCard[]): OpenedPool {
   const cards: CardDef[] = []
   const byId = new Map<string, number>()
   for (const { card } of opened) {
+    if (cardIsEnergy(card)) continue
     if (!byId.has(card.id)) cards.push(card)
     byId.set(card.id, (byId.get(card.id) ?? 0) + 1)
   }

@@ -62,6 +62,11 @@
 .bnb-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 0 0 18px; }
 .bnb-summary dt { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; }
 .bnb-summary dd { margin: 4px 0 0; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .9rem; }
+/* CP2 deck construction: eight uniform Energy faces with independent unlimited counters. */
+.bnb-deck-counts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.bnb-energy-grid { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0 20px; padding: 0; }
+.bnb-energy-grid > li { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.bnb-energy-count { min-width: 40px; padding: 4px 8px; border: 1px solid #ffc857; color: #ffc857; font-family: 'DM Mono', monospace; text-align: center; }
 @keyframes bnb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
 /* Battle: 16:9 tabletop stage capped at the 960x540 embed width. */
@@ -159,6 +164,7 @@
   .bnb-status { margin: 0 0 8px; }
   .bnb-code-row { margin: 0 0 8px; gap: 8px; }
   .bnb-summary { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin: 0 0 8px; }
+  .bnb-energy-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 8px 0 10px; }
   .bnb-input { padding: 8px 10px; }
   .bnb-segmented button, .bnb-stepper button { padding: 7px 10px; }
   /* Battle stage fits the shorter viewport dimension below the top bar. */
@@ -191,6 +197,8 @@
   /* CP10-E portrait: touch-friendly targets + stacked results summary. */
   .bnb-actions button, .bnb-rematch button, .bnb-topbar button { min-height: 42px; }
   .bnb-results .bnb-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bnb-deck-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bnb-energy-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bnb-highscore .highscore-table-head, .bnb-highscore .highscore-row { grid-template-columns: 44px minmax(0, 1fr) 56px; gap: 10px; }
 }
 

@@ -8,11 +8,11 @@ import { getPreferredLocale, type Locale, type TranslationKey, useTranslations }
 import { readConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import type { CardDef, CardRarity, SetId } from './cards'
-import { buildPoolIsValid, type DeckLegalityReason } from './deck'
+import { DECK_SIZE, buildPoolIsValid, serializeDeck, type DeckLegalityReason, type EnergySelection } from './deck'
 import { STATUS_CONDITIONS, applySnapshot, applyTimeout, processAction, setupBattle, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
-import { DECK_SIZE, LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
+import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
-import { openPacks, buildPool, type OpenedCard, type OpenedPool } from './pack'
+import { basicEnergyCatalog, openPacks, buildPool, type OpenedCard, type OpenedPool } from './pack'
 import { createRng, randomSeed } from './rng'
 import { getSet, listSets } from './sets'
 import { readHighscores, recordMatchWin } from './highscores'
@@ -372,8 +372,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const [openingReady, setOpeningReady] = useState(false)
   const [opponentReady, setOpponentReady] = useState(false)
   const opponentReadyRef = useRef(false)
-  /** Deck-builder inclusion counts by card id (0..opened copies). */
+  /** Opened non-Energy inclusion counts by card id (0..opened copies). */
   const [deckCounts, setDeckCounts] = useState<Record<string, number>>({})
+  /** Unlimited basic-Energy construction counts, kept separate from opened cards. */
+  const [energyCounts, setEnergyCounts] = useState<EnergySelection>({})
   const [deckReady, setDeckReady] = useState(false)
   const [opponentDeckReady, setOpponentDeckReady] = useState(false)
   const opponentDeckReadyRef = useRef(false)
@@ -532,13 +534,14 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
 
   /** Unique-card pool with opened copy counts (deck-builder source). */
   const openedPool = useMemo<OpenedPool>(() => buildPool(openedCards), [openedCards])
-  const poolTotal = useMemo(
+  const openedCount = useMemo(
     () => openedPool.cards.reduce((sum, card) => sum + (openedPool.byId.get(card.id) ?? 0), 0),
     [openedPool],
   )
+  const energyCatalog = useMemo(() => basicEnergyCatalog(settings.set), [settings.set])
 
-  /** Deck id list: one entry per included copy, in pool order. */
-  const deckIds = useMemo<string[]>(() => {
+  /** Opened non-Energy ids: one entry per included copy, in pool order. */
+  const nonEnergyIds = useMemo<string[]>(() => {
     const ids: string[] = []
     for (const card of openedPool.cards) {
       const count = Math.min(deckCounts[card.id] ?? 0, openedPool.byId.get(card.id) ?? 0)
@@ -546,14 +549,21 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     }
     return ids
   }, [deckCounts, openedPool])
+  const energyCount = useMemo(
+    () => energyCatalog.reduce((sum, card) => sum + (energyCounts[card.id] ?? 0), 0),
+    [energyCatalog, energyCounts],
+  )
 
-  const deckCheck = useMemo(() => buildPoolIsValid(deckIds, openedPool, settings.prizeCards), [deckIds, openedPool, settings.prizeCards])
+  /** One deterministic combined id list for validation and deck-ready. */
+  const deckIds = useMemo(() => serializeDeck(nonEnergyIds, energyCounts, energyCatalog), [nonEnergyIds, energyCounts, energyCatalog])
+  const deckCheck = useMemo(() => buildPoolIsValid(deckIds, openedPool, energyCatalog), [deckIds, openedPool, energyCatalog])
   const deckErrorKey = (reason: DeckLegalityReason): TranslationKey => {
     switch (reason) {
-      case 'too-small': return 'pokemonBnb.deckErrorTooSmall'
+      case 'wrong-size': return 'pokemonBnb.deckErrorExactSize'
       case 'no-basic': return 'pokemonBnb.deckErrorNoBasic'
-      case 'no-energy': return 'pokemonBnb.deckErrorNoEnergy'
+      case 'unknown-id': return 'pokemonBnb.deckErrorUnknownId'
       case 'over-pool': return 'pokemonBnb.deckErrorOverPool'
+      case 'invalid-energy': return 'pokemonBnb.deckErrorInvalidEnergy'
     }
   }
   const rarityLabel = (rarity: CardRarity): string => {
@@ -609,7 +619,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     const entry = getSet(settingsRef.current.set)
     if (!entry) return
     const seed = randomSeed()
-    const deck: CardDef[] = openPacks(entry.data.cards, entry.pack, LOBBY_LIMITS.maxPacks, createRng(seed)).map((opened) => opened.card)
+    const opened = openPacks(entry.data.cards, entry.pack, LOBBY_LIMITS.maxPacks, createRng(seed)).map((item) => item.card)
+    const pool = buildPool(opened.map((card) => ({ card, slotId: 'local' })))
+    const nonEnergy = opened.filter((card) => pool.byId.has(card.id))
+    const catalog = basicEnergyCatalog(entry.id)
+    const energyNeeded = Math.max(0, DECK_SIZE - nonEnergy.length)
+    const deck = [...nonEnergy, ...Array.from({ length: energyNeeded }, () => catalog[0])]
     setBattle(setupBattle(settingsRef.current, deck, deck, seed))
     setView('playing')
   }, [])
@@ -819,9 +834,11 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     beginBattleRef.current = () => {
       if (matchSeed === null || opponentDeckIdsRef.current === null) return
       const resolveDeck = (ids: string[]): CardDef[] => {
+        const definitions = new Map(openedPool.cards.map((card) => [card.id, card]))
+        for (const card of energyCatalog) definitions.set(card.id, card)
         const defs: CardDef[] = []
         for (const id of ids) {
-          const def = openedPool.cards.find((card) => card.id === id)
+          const def = definitions.get(id)
           if (def) defs.push(def)
         }
         return defs
@@ -879,6 +896,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     openedPoolRef.current = openedPool
     enterDeckBuilderRef.current = () => {
       setDeckCounts(Object.fromEntries(openedPool.cards.map((card) => [card.id, openedPool.byId.get(card.id) ?? 0])))
+      setEnergyCounts({})
       setDeckReady(false)
       deckReadyRef.current = false
       setOpponentDeckReady(false)
@@ -892,6 +910,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       setOpponentReady(false)
       opponentReadyRef.current = false
       setDeckCounts({})
+      setEnergyCounts({})
       setDeckReady(false)
       deckReadyRef.current = false
       setOpponentDeckReady(false)
@@ -919,7 +938,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       connLostRef.current = false
       setConnLost(false)
     }
-  }, [openingReady, opponentReady, deckReady, opponentDeckReady, openedPool])
+  }, [openingReady, opponentReady, deckReady, opponentDeckReady, openedPool, energyCatalog])
 
   // loading -> short beat -> playing (Tron's 500 ms pattern). The timer only
   // starts once the battle state exists, so a failed setup cannot leave a
@@ -1085,6 +1104,18 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     const opened = openedPool.byId.get(cardId) ?? 0
     setDeckCounts((counts) => {
       const next = Math.min(opened, Math.max(0, (counts[cardId] ?? 0) + delta))
+      if (next === 0) {
+        const { [cardId]: _removed, ...rest } = counts
+        return rest
+      }
+      return { ...counts, [cardId]: next }
+    })
+  }
+
+  /** Unlimited basic-Energy copies, capped only by the exact 40-card total. */
+  const adjustEnergyCount = (cardId: string, delta: number) => {
+    setEnergyCounts((counts) => {
+      const next = Math.max(0, (counts[cardId] ?? 0) + delta)
       if (next === 0) {
         const { [cardId]: _removed, ...rest } = counts
         return rest
@@ -1453,15 +1484,30 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         <div className="bnb-shell bnb-shell-lobby">
           <p className="eyebrow">{displayName}</p>
           <h1>{t('pokemonBnb.deckTitle')}</h1>
-          <p className="bnb-status" aria-live="polite">
-            {substituteParams(t('pokemonBnb.deckCount'), { count: String(deckCheck.summary.total), total: String(poolTotal) })}
-            <span className="bnb-status-sep" aria-hidden="true">·</span>
-            <span>{substituteParams(t('pokemonBnb.deckRequiredSize'), { count: String(DECK_SIZE) })}</span>
-            <span className="bnb-status-sep" aria-hidden="true">·</span>
-            <span>{substituteParams(t('pokemonBnb.prizeChoice'), { count: String(settings.prizeCards) })}</span>
-          </p>
+          <dl className="bnb-summary bnb-deck-counts">
+            <div><dt>{t('pokemonBnb.deckOpenedCountLabel')}</dt><dd>{nonEnergyIds.length} / {openedCount}</dd></div>
+            <div><dt>{t('pokemonBnb.energyCountLabel')}</dt><dd>{energyCount}</dd></div>
+            <div><dt>{t('pokemonBnb.deckTotalCountLabel')}</dt><dd>{deckIds.length} / {DECK_SIZE}</dd></div>
+            <div><dt>{t('pokemonBnb.prizeCardsLabel')}</dt><dd>{settings.prizeCards}</dd></div>
+          </dl>
           {openedPool.cards.length === 0 && <p className="bnb-error" role="alert">{t('pokemonBnb.deckEmpty')}</p>}
-          {deckIds.length !== DECK_SIZE && <p className="bnb-error" role="alert">{substituteParams(t('pokemonBnb.deckErrorExactSize'), { count: String(DECK_SIZE) })}</p>}
+          <h2 className="bnb-field-label">{t('pokemonBnb.energyPoolLabel')}</h2>
+          <p className="bnb-hint">{t('pokemonBnb.energyPoolHint')}</p>
+          <ul className="bnb-energy-grid">
+            {energyCatalog.map((card) => {
+              const count = energyCounts[card.id] ?? 0
+              return (
+                <li key={card.id}>
+                  <PokemonCard card={card} rarityLabel={rarityLabel(card.rarity)} faceDownLabel={t('pokemonBnb.cardFaceDown')} />
+                  <output className="bnb-energy-count" aria-label={substituteParams(t('pokemonBnb.energySelectedCount'), { count: String(count) })}>{count}</output>
+                  <div className="bnb-actions">
+                    <button type="button" disabled={deckReady} onClick={() => adjustEnergyCount(card.id, 1)} aria-label={substituteParams(t('pokemonBnb.energyInclude'), { name: card.name })}>+</button>
+                    <button type="button" disabled={deckReady || count === 0} onClick={() => adjustEnergyCount(card.id, -1)} aria-label={substituteParams(t('pokemonBnb.energyExclude'), { name: card.name })}>−</button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
           <h2 className="bnb-field-label">{t('pokemonBnb.deckSelectedLabel')}</h2>
           <ol className="bnb-card-grid">
             {openedPool.cards.map((card) => {
@@ -1498,8 +1544,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
           </ol>
           {deckCheck.reasons.map((reason) => (
             <p key={reason} className="bnb-error" role="alert">
-              {reason === 'too-small'
-                ? substituteParams(t(deckErrorKey(reason)), { minimum: String(deckCheck.minimum) })
+              {reason === 'wrong-size'
+                ? substituteParams(t(deckErrorKey(reason)), { count: String(DECK_SIZE) })
                 : t(deckErrorKey(reason))}
             </p>
           ))}
