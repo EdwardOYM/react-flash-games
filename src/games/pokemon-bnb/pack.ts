@@ -2,6 +2,10 @@
 // card list + PackDef (src/assets/pokemon-bnb/sets/<id>/pack.json) and a
 // seeded Rng, returns the ordered card sequence for the opening ceremony.
 // The same seed + pack config always yields the identical pool on every peer.
+//
+// Each seat gets its OWN stream via `seatSeed`, derived from the one shared
+// lobby seed, so the two players open different packs while both peers still
+// derive both pools deterministically from the single broadcast seed.
 
 import type { CardDef, CardRarity, EnergyCardDef } from './cards'
 import { cardIsEnergy, cardIsPokemon } from './cards'
@@ -79,6 +83,19 @@ function drawSlot(cards: CardDef[], slot: PackSlotDef, pack: PackDef, rng: Rng):
  * Open `packCount` packs. Returns the card sequence in ceremony order
  * (pack by pack, slot by slot) so the UI can reveal one card at a time.
  */
+/**
+ * Fold a seat into a shared match seed, so each player opens their OWN packs
+ * from the one seed the lobby already broadcasts.
+ *
+ * Both peers receive the same `seed` in `lobby-start` and can derive both seat
+ * streams from it, so distinct pools need no new protocol field and no card
+ * data on the wire. The multipliers are distinct odd constants, so the two
+ * streams are independent rather than adjacent.
+ */
+export function seatSeed(seed: number, seat: 'host' | 'guest'): number {
+  return (Math.imul(seed | 0, seat === 'host' ? 0x27d4eb2d : 0x165667b1) ^ 0x9e3779b9) >>> 0
+}
+
 export function openPacks(cards: CardDef[], pack: PackDef, packCount: number, rng: Rng): OpenedCard[] {
   const opened: OpenedCard[] = []
   for (let index = 0; index < packCount; index++) {

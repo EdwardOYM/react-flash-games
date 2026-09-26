@@ -152,6 +152,44 @@
 
 /* CP6: attached Energy + Tool chips. Deliberately text-scale, never full card
    faces, so a heavily charged Pokemon cannot overflow the 16:9 stage. */
+/* A card face that opens the focus overlay. The button is transparent and
+   inherits the card's own size, so wrapping a face in it does not change the
+   layout that CP6 sized. */
+.bnb-inspect {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 0;
+  cursor: pointer;
+}
+
+.bnb-inspect:hover .pkm-card,
+.bnb-inspect:focus-visible .pkm-card { outline: 2px solid #ffc857; outline-offset: 1px; }
+
+/* Bench/hand sit inside a slot that already has a picker, so the inspect
+   affordance is a corner badge rather than a second full-size target. */
+.bnb-inspect-corner {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  z-index: 2;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid #ffc857;
+  border-radius: 2px;
+  background: #0d1b1f;
+  color: #ffc857;
+  font-size: .55rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bnb-bench-slot, .bnb-hand-slot { position: relative; }
+
+.bnb-inspect-corner:hover, .bnb-inspect-corner:focus-visible { background: #ffc857; color: #0d1b1f; }
+
 .bnb-attachments {
   display: flex;
   flex-wrap: wrap;

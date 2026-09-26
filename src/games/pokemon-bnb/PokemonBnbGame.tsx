@@ -7,17 +7,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getPreferredLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
 import { readConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
-import { isBasicPokemon, type CardDef, type CardRarity, type SetId } from './cards'
+import { isBasicPokemon, cardIsEnergy, type CardDef, type CardRarity, type SetId } from './cards'
 import { DECK_SIZE, buildPoolIsValid, poolHasBasic, serializeDeck, type DeckLegalityReason, type EnergySelection } from './deck'
-import { applySnapshot, applyTimeout, classifyAbility, processAction, setupBattle, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
+import { applySnapshot, applyTimeout, classifyAbility, HIDDEN_CARD, processAction, setupBattle, STATUS_CONDITIONS, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
-import { basicEnergyCatalog, openPacks, buildPool, type OpenedCard, type OpenedPool } from './pack'
+import { basicEnergyCatalog, openPacks, buildPool, seatSeed, type OpenedCard, type OpenedPool } from './pack'
 import { createRng, randomSeed } from './rng'
 import { getSet, listSets } from './sets'
 import { readHighscores, recordMatchWin } from './highscores'
 import { PokemonCard } from './PokemonCard'
 import { BattleBoard } from './BattleBoard'
+import { CardFocus } from './CardFocus'
+import { focusActions, type CardRef, type FocusAction } from './focus'
 import { PackStack } from '../cardstack/PackStack'
 import { controlStates, reasonKey, type ControlId } from './controls'
 import { HighscoreTable } from '../highscore/HighscoreTable'
@@ -325,6 +327,14 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const changeLocale = onLocaleChange ?? (() => undefined)
 
   const [role, setRole] = useState<Role | null>(null)
+  /**
+   * The seat this browser plays, resolved once at component scope.
+   *
+   * Several render branches re-derived this locally; the focus overlay needs it
+   * inside a `useMemo` that is declared above those branches, so it is defined
+   * once here and the battle view uses this same value.
+   */
+  const viewSeat: PlayerSlot = role === 'guest' ? 'guest' : 'host'
   const [status, setStatus] = useState<PeerStatus>('closed')
   const [settings, setSettings] = useState<LobbySettings>(() => defaultLobbySettings(DEFAULT_SET_ID as SetId))
   const [code, setCode] = useState('')
@@ -373,6 +383,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   /** CP8-B selection state: hand/bench/attack picks for the turn action bar. */
   const [selHand, setSelHand] = useState<number | null>(null)
   const [selBench, setSelBench] = useState<number | null>(null)
+  /** The card opened in the focus overlay, or null when it is closed. */
+  const [focusRef, setFocusRef] = useState<CardRef | null>(null)
   // CP8-B reserved: attacks fire directly per-button (D-1), so this stays
   // unused until a future pass needs an attack pick.
   const [_selAttack, setSelAttack] = useState<number | null>(null)
@@ -506,16 +518,19 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const localStartedRef = useRef(false)
 
   /**
-   * The seeded opening pool, shared by both seats. Same seed + settings +
-   * set data yields the identical card sequence on every peer, so the pools
-   * cannot diverge (and no opened cards ever cross the wire).
+   * This seat's opened cards.
+   *
+   * Each player opens their OWN packs: `seatSeed` folds the seat into the one
+   * shared lobby seed, so the two pools differ while both peers still derive
+   * both streams from the same broadcast `seed` (no new protocol field, and no
+   * card data ever crosses the wire).
    */
   const openedCards = useMemo<OpenedCard[]>(() => {
     if (matchSeed === null) return []
     const entry = getSet(settings.set)
     if (!entry) return []
-    return openPacks(entry.data.cards, entry.pack, settings.packs, createRng(matchSeed))
-  }, [matchSeed, settings.set, settings.packs])
+    return openPacks(entry.data.cards, entry.pack, settings.packs, createRng(seatSeed(matchSeed, viewSeat)))
+  }, [matchSeed, settings.set, settings.packs, viewSeat])
 
   const packSize = useMemo(() => getSet(settings.set)?.pack.size ?? 0, [settings.set])
 
@@ -529,10 +544,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
 
   /**
    * A deck must hold a Basic, so a pool without one makes a legal deck
-   * impossible and the match can never start. Both seats derive the same pool
-   * from the shared seed, so this ends the match for both rather than handing
-   * a win to one side. The builder is replaced by an explicit loss rather than
-   * left on screen with an unfixable `no-basic` error.
+   * impossible and the match can never start. Each seat opens its own packs
+   * (per-seat seeds), so this can now hit ONE player rather than both: that
+   * player simply cannot build, so the builder is replaced by an explicit loss
+   * instead of leaving an unfixable `no-basic` error on screen.
    */
   const poolLost = openedPool.cards.length > 0 && !poolHasBasic(openedPool)
 
@@ -607,21 +622,25 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   }, [])
 
   /**
-   * CP7-F dev harness: start a hot-seat battle without a peer. Both seats get
-   * the same max-pack pool deck from a fresh seed; the match runs entirely on
-   * this client through processAction (never touches the peer session).
+   * CP7-F dev harness: start a hot-seat battle without a peer. Each seat gets
+   * its own per-seat pool deck from the one fresh seed, mirroring the P2P flow;
+   * the match runs entirely on this client through processAction (never touches
+   * the peer session).
    */
   const beginLocalBattle = useCallback(() => {
     const entry = getSet(settingsRef.current.set)
     if (!entry) return
     const seed = randomSeed()
-    const opened = openPacks(entry.data.cards, entry.pack, LOBBY_LIMITS.maxPacks, createRng(seed)).map((item) => item.card)
-    const pool = buildPool(opened.map((card) => ({ card, slotId: 'local' })))
-    const nonEnergy = opened.filter((card) => pool.byId.has(card.id))
     const catalog = basicEnergyCatalog(entry.id)
-    const energyNeeded = Math.max(0, DECK_SIZE - nonEnergy.length)
-    const deck = [...nonEnergy, ...Array.from({ length: energyNeeded }, () => catalog[0])]
-    setBattle(setupBattle(settingsRef.current, deck, deck, seed))
+    // Each seat builds from its own stream, so the harness exercises the same
+    // distinct-pool path a real lobby does.
+    const deckFor = (seat: PlayerSlot): CardDef[] => {
+      const opened = openPacks(entry.data.cards, entry.pack, LOBBY_LIMITS.maxPacks, createRng(seatSeed(seed, seat)))
+      const nonEnergy = opened.map((item) => item.card).filter((card) => !cardIsEnergy(card))
+      const energyNeeded = Math.max(0, DECK_SIZE - nonEnergy.length)
+      return [...nonEnergy, ...Array.from({ length: energyNeeded }, () => catalog[0])]
+    }
+    setBattle(setupBattle(settingsRef.current, deckFor('host'), deckFor('guest'), seed))
     setView('setup')
   }, [])
 
@@ -831,8 +850,16 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     // broadcasts per-seat snapshots so the guest renders from its own view.
     beginBattleRef.current = () => {
       if (matchSeed === null || opponentDeckIdsRef.current === null) return
-      const resolveDeck = (ids: string[]): CardDef[] => {
-        const definitions = new Map(openedPool.cards.map((card) => [card.id, card]))
+      // Each seat's deck is resolved against THAT seat's own pool. The two pools
+      // differ (per-seat seeds), so resolving both against this seat's pool would
+      // silently drop cards the opponent legitimately opened.
+      const resolveDeck = (ids: string[], seat: PlayerSlot): CardDef[] => {
+        const entry = getSet(settingsRef.current.set)
+        if (!entry) return []
+        const pool = buildPool(
+          openPacks(entry.data.cards, entry.pack, settingsRef.current.packs, createRng(seatSeed(matchSeed, seat))),
+        )
+        const definitions = new Map(pool.cards.map((card) => [card.id, card]))
         for (const card of energyCatalog) definitions.set(card.id, card)
         const defs: CardDef[] = []
         for (const id of ids) {
@@ -841,12 +868,14 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         }
         return defs
       }
-      const myDeck = resolveDeck(deckIds)
-      const foeDeck = resolveDeck(opponentDeckIdsRef.current)
+      const hostDeck = resolveDeck(deckIds, 'host')
+      const guestDeck = resolveDeck(opponentDeckIdsRef.current, 'guest')
+      // Swap only when this browser is the guest, since `deckIds` is always the
+      // local seat's own deck.
       const state = setupBattle(
         settingsRef.current,
-        roleRef.current === 'guest' ? foeDeck : myDeck,
-        roleRef.current === 'guest' ? myDeck : foeDeck,
+        roleRef.current === 'guest' ? guestDeck : hostDeck,
+        roleRef.current === 'guest' ? hostDeck : guestDeck,
         matchSeed,
       )
       if (localMode) {
@@ -1214,6 +1243,109 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   /** CP7-F dev harness: delegates to the shared CP8-B action driver. */
   const runLocalAction = (actor: PlayerSlot, action: BattleAction) => {
     runBattleAction(actor, action)
+  }
+
+  /**
+   * The card the focus overlay is showing, and the actions it offers.
+   *
+   * The card is re-read from `battle` on every render rather than captured when
+   * the overlay opened, so a card that leaves the zone (played, discarded,
+   * knocked out) closes the overlay instead of showing a stale face.
+   */
+  const focus = useMemo(() => {
+    if (!battle || !focusRef) return null
+    const side = battle[focusRef.seat]
+    const isOwn = focusRef.seat === viewSeat
+    let card: CardDef | null = null
+    let damage: number | undefined
+    let statuses: string[] | undefined
+    if (focusRef.source === 'hand') {
+      card = side.hand[focusRef.index] ?? null
+    } else if (focusRef.source === 'discard') {
+      card = side.discard[focusRef.index] ?? null
+    } else {
+      const pokemon = focusRef.source === 'active' ? side.active : side.bench[focusRef.index]
+      if (pokemon) {
+        card = pokemon.card
+        damage = pokemon.damage
+        statuses = STATUS_CONDITIONS.filter((status) => pokemon.conditions[status])
+      }
+    }
+    // A hidden zone arrives as HIDDEN_CARD placeholders; never focus one.
+    if (!card || card.id === HIDDEN_CARD.id) return null
+
+    const actions = isOwn ? focusActions(battle, viewSeat, focusRef, { handIndex: selHand, benchIndex: selBench }) : []
+    return {
+      card,
+      damage,
+      statuses,
+      source: focusRef.source,
+      readOnly: !isOwn,
+      actions,
+    }
+  }, [battle, focusRef, viewSeat, selHand, selBench])
+
+  /** Target options for a focused action: this seat's Active plus its Bench. */
+  const focusTargets = useMemo(() => {
+    if (!battle) return []
+    const side = battle[viewSeat]
+    const options = side.active ? [{ key: 'active', label: side.active.card.name }] : []
+    for (const [index, pokemon] of side.bench.entries()) {
+      options.push({ key: String(index), label: pokemon.card.name })
+    }
+    return options.map((option) => ({ ...option, selected: (option.key === 'active' ? selBench === null : selBench === Number(option.key)) }))
+  }, [battle, viewSeat, selBench])
+
+  /** Dispatch one focused action; targets come from the overlay, not the bar. */
+  const runFocusAction = (action: FocusAction) => {
+    if (!battle || !focusRef) return
+    const actor: PlayerSlot = localMode ? battle.activePlayer : viewSeat
+    const handIndex = focusRef.source === 'hand' ? focusRef.index : selHand
+    const target: 'active' | number = selBench !== null ? selBench : 'active'
+    if (action.kind === 'attack') {
+      // An attack is the turn's final action, so it opens the Attack step and
+      // declares in the same click rather than forcing a second press.
+      runBattleAction(actor, { type: 'beginAttack' })
+      setFocusRef(null)
+      return
+    }
+    if (action.kind === 'ability') {
+      if (handIndex === null) return
+      setSelHand(handIndex)
+      runBattleAction(actor, { type: 'useAbility', target, abilityIndex: action.ref as number, targetIndex: target })
+      setFocusRef(null)
+      return
+    }
+    if (handIndex === null) return
+    switch (action.ref) {
+      case 'attachEnergy': runBattleAction(actor, { type: 'attachEnergy', handIndex, target }); break
+      case 'playBasic': runBattleAction(actor, { type: 'playBasic', handIndex }); break
+      case 'playItem':
+      case 'playSupporter':
+      case 'playStadium': runBattleAction(actor, { type: 'playTrainer', handIndex }); break
+      case 'attachTool': runBattleAction(actor, { type: 'attachTool', handIndex, target }); break
+      case 'evolve': runBattleAction(actor, { type: 'evolve', handIndex, target }); break
+      case 'retreat': if (selBench !== null) runBattleAction(actor, { type: 'retreatToBench', benchIndex: selBench }); break
+      default: return
+    }
+    setFocusRef(null)
+  }
+
+  const focusActionLabel = (action: FocusAction): string => {
+    if (action.kind === 'attack') {
+      const attack = battle && focusRef
+        ? (focusRef.source === 'active' ? battle[focusRef.seat].active : battle[focusRef.seat].bench[focusRef.index])?.card.attacks[action.ref as number]
+        : null
+      return attack?.name ?? t('pokemonBnb.actionBeginAttack')
+    }
+    if (action.kind === 'ability') {
+      const pokemon = battle && focusRef
+        ? (focusRef.source === 'active' ? battle[focusRef.seat].active : battle[focusRef.seat].bench[focusRef.index])
+        : null
+      return pokemon?.card.abilities[action.ref as number]?.name ?? t('pokemonBnb.actionUseAbility')
+    }
+    const labelKey = CONTROLS.find((control) => control.id === action.ref)?.labelKey
+    return labelKey ? t(labelKey) : String(action.ref)
   }
 
   // CP10-C: fresh-every-render assignment of the match-over settle logic so
@@ -1936,8 +2068,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
           <div className="bnb-battle-main">
             <div className="bnb-battle-table">
             <BattleBoard
-              self={{ heading: seatName(mySlot), side: battle[mySlot] }}
-              foe={{ heading: seatName(foeSlot), side: battle[foeSlot] }}
+              self={{ heading: seatName(mySlot), side: battle[mySlot], seat: mySlot }}
+              foe={{ heading: seatName(foeSlot), side: battle[foeSlot], seat: foeSlot }}
               stadium={battle.stadium}
               prizeTotal={battle.prizeCards}
               t={t}
@@ -1949,8 +2081,30 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               onSelectBench={setSelBench}
               selectedHand={selHand}
               onSelectHand={setSelHand}
+              onInspect={(seat, source, index) => setFocusRef({ seat, source, index })}
             />
             </div>
+            {focus && (
+              <CardFocus
+                target={{
+                  card: focus.card,
+                  damage: focus.damage,
+                  statuses: focus.statuses,
+                  zone: `${seatName(focusRef?.seat ?? mySlot)} · ${t(focus.source === 'active' ? 'pokemonBnb.zoneActive' : focus.source === 'bench' ? 'pokemonBnb.zoneBench' : focus.source === 'hand' ? 'pokemonBnb.zoneHand' : 'pokemonBnb.zoneDiscard')}`,
+                  targets: focusTargets,
+                  readOnly: focus.readOnly,
+                }}
+                actions={focus.actions}
+                onAction={runFocusAction}
+                onSelectTarget={(key) => setSelBench(key === 'active' ? null : Number(key))}
+                onClose={() => setFocusRef(null)}
+                t={t}
+                rarityLabel={rarityLabel}
+                faceDownLabel={t('pokemonBnb.cardFaceDown')}
+                actionLabel={focusActionLabel}
+                actionReason={(action) => (action.reason ? t(reasonKey(action.reason) as TranslationKey) : null)}
+              />
+            )}
             <ol className="bnb-battle-log" ref={battleLogRef}>
               {battle.log.slice(-24).map((entry, index) => <li key={`${entry.key}-${index}`}>{logCopy(entry)}</li>)}
             </ol>

@@ -1,0 +1,106 @@
+/* Card focus overlay. The face is the card's own component at a scale token, so
+   the artwork is readable without hard-coding a second card size, and the panel
+   is a fixed-width column beside it so the actions never reflow per card type. */
+
+.bnb-focus-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(6 12 14 / .78);
+  /* A click on the backdrop closes, but the dialog must never scroll the page. */
+  overflow: auto;
+}
+
+.bnb-focus {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: clamp(10px, 2vw, 20px);
+  width: min(100%, 960px);
+  max-height: 100%;
+  padding: clamp(12px, 2vw, 20px);
+  border: 1px solid #ffc857;
+  background: #0d1b1f;
+  color: #f5f0e8;
+}
+
+.bnb-focus-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #50676a;
+  background: transparent;
+  color: #f5f0e8;
+  font-size: .9rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bnb-focus-face {
+  /* The card scales off the same token the board uses, so a face opened from
+     the Bench is exactly the card the player clicked, just larger. */
+  --pkm-card-w: clamp(150px, 26vw, 240px);
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+}
+
+.bnb-focus-panel {
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bnb-focus-zone {
+  margin: 0;
+  font-size: .62rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #9fc0c4;
+}
+
+.bnb-focus-name {
+  margin: 0;
+  font-size: 1rem;
+  color: #ffc857;
+}
+
+.bnb-focus-targets { display: flex; flex-direction: column; gap: 4px; }
+
+/* Actions stack instead of wrapping sideways so a long attack list (four
+   attacks plus an Ability) stays readable in a 240px column. */
+.bnb-focus-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.bnb-focus-actions button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+}
+
+.bnb-focus-actions .bnb-control-reason { font-size: .58rem; opacity: .8; }
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .bnb-focus-overlay { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  .bnb-focus { gap: 10px; padding: 10px; }
+  /* Side by side even in landscape: the whole point is reading the face. */
+  .bnb-focus-face { --pkm-card-w: clamp(110px, 20vw, 170px); }
+  .bnb-focus-actions button { padding: 5px 8px; font-size: .62rem; }
+}

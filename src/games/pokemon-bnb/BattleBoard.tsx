@@ -12,6 +12,7 @@
 
 import type { CardDef, CardRarity } from './cards'
 import { HIDDEN_CARD, MAX_BENCH, STATUS_CONDITIONS, type InPlayPokemon, type SideState } from './game-core'
+import type { PlayerSlot } from './net/protocol'
 import { PokemonCard } from './PokemonCard'
 import type { TranslationKey } from '../../assets/languages'
 import './BattleBoard.css'
@@ -24,6 +25,8 @@ function isHiddenCard(card: CardDef): boolean {
 export type BattleSideProps = {
   heading: string
   side: SideState
+  /** Which seat this lane is, so an inspected card knows whose card it is. */
+  seat: PlayerSlot
   prizeTotal: number
   /** True for the opponent: the lane renders mirrored. */
   isFoe: boolean
@@ -37,6 +40,8 @@ export type BattleSideProps = {
   onSelectBench?: (index: number | null) => void
   selectedHand: number | null
   onSelectHand?: (index: number | null) => void
+  /** Open a card in the focus overlay. `seat` is which lane it came from. */
+  onInspect?: (seat: PlayerSlot, source: 'hand' | 'active' | 'bench' | 'discard', index: number) => void
 }
 
 /** Status pips for one in-play Pokemon, in the engine's canonical order. */
@@ -70,8 +75,8 @@ function Attachments({ pokemon, t }: { pokemon: InPlayPokemon; t: (key: Translat
 
 /** One seat's half of the board. Used for BOTH players (see the header note). */
 export function BattleSide({
-  heading, side, prizeTotal, isFoe, t, conditionLabel, rarityLabelFor, faceDownLabel,
-  isSelectableBench, selectedBench, onSelectBench, selectedHand, onSelectHand,
+  heading, side, seat, prizeTotal, isFoe, t, conditionLabel, rarityLabelFor, faceDownLabel,
+  isSelectableBench, selectedBench, onSelectBench, selectedHand, onSelectHand, onInspect,
 }: BattleSideProps) {
   const active = side.active
   const activeStatuses = active ? statusListFor(active) : []
@@ -100,13 +105,20 @@ export function BattleSide({
         <span className="bnb-zone-label">{t('pokemonBnb.zoneActive')}</span>
         {active ? (
           <div className="bnb-active-face">
-            <PokemonCard
-              card={active.card}
-              rarityLabel={rarityLabelFor(active.card.rarity)}
-              faceDownLabel={faceDownLabel}
-              damage={active.damage}
-              statuses={activeStatuses}
-            />
+            <button
+              type="button"
+              className="bnb-inspect"
+              aria-label={`${active.card.name} — ${t('pokemonBnb.focusOpen')}`}
+              onClick={() => onInspect?.(seat, 'active', 0)}
+            >
+              <PokemonCard
+                card={active.card}
+                rarityLabel={rarityLabelFor(active.card.rarity)}
+                faceDownLabel={faceDownLabel}
+                damage={active.damage}
+                statuses={activeStatuses}
+              />
+            </button>
             <Attachments pokemon={active} t={t} />
             {activeConditionLabels.length > 0 && (
               <span className="bnb-side-conditions">{activeConditionLabels.join(' / ')}</span>
@@ -156,6 +168,17 @@ export function BattleSide({
                     {face}
                   </button>
                 ) : face}
+                {/* Inspect is a separate control from "select as target": the foe
+                    lane offers it, so an opponent's card is readable even though
+                    it can never be a target. */}
+                <button
+                  type="button"
+                  className="bnb-inspect bnb-inspect-corner"
+                  aria-label={`${pokemon.card.name} — ${t('pokemonBnb.focusOpen')}`}
+                  onClick={() => onInspect?.(seat, 'bench', slot)}
+                >
+                  <span aria-hidden="true">⤢</span>
+                </button>
               </li>
             )
           })}
@@ -182,11 +205,18 @@ export function BattleSide({
         <div className="bnb-side-zone">
           <span className="bnb-zone-label">{t('pokemonBnb.zoneDiscard')}</span>
           {side.discard.length > 0 ? (
-            <PokemonCard
-              card={side.discard[side.discard.length - 1]}
-              rarityLabel={rarityLabelFor(side.discard[side.discard.length - 1].rarity)}
-              faceDownLabel={faceDownLabel}
-            />
+            <button
+              type="button"
+              className="bnb-inspect"
+              aria-label={`${side.discard[side.discard.length - 1].name} — ${t('pokemonBnb.focusOpen')}`}
+              onClick={() => onInspect?.(seat, 'discard', side.discard.length - 1)}
+            >
+              <PokemonCard
+                card={side.discard[side.discard.length - 1]}
+                rarityLabel={rarityLabelFor(side.discard[side.discard.length - 1].rarity)}
+                faceDownLabel={faceDownLabel}
+              />
+            </button>
           ) : (
             <span className="bnb-side-card">—</span>
           )}
@@ -219,6 +249,18 @@ export function BattleSide({
                       faceDownLabel={faceDownLabel}
                     />
                   </button>
+                  {/* Reading a hand card is separate from arming it with the action
+                      bar, so the face is its own focus target. */}
+                  {onInspect && (
+                    <button
+                      type="button"
+                      className="bnb-inspect bnb-inspect-corner"
+                      aria-label={`${card.name} — ${t('pokemonBnb.focusOpen')}`}
+                      onClick={() => onInspect(seat, 'hand', index)}
+                    >
+                      <span aria-hidden="true">⤢</span>
+                    </button>
+                  )}
                 </li>
               )
             })}
@@ -232,9 +274,9 @@ export function BattleSide({
 }
 
 
-export type BattleBoardProps = Omit<BattleSideProps, 'side' | 'isFoe' | 'heading'> & {
-  self: { heading: string; side: SideState }
-  foe: { heading: string; side: SideState }
+export type BattleBoardProps = Omit<BattleSideProps, 'side' | 'isFoe' | 'heading' | 'seat'> & {
+  self: { heading: string; side: SideState; seat: PlayerSlot }
+  foe: { heading: string; side: SideState; seat: PlayerSlot }
   /** The shared Stadium in play, or null. One zone, visible to both players. */
   stadium: CardDef | null
 }
@@ -245,7 +287,7 @@ export type BattleBoardProps = Omit<BattleSideProps, 'side' | 'isFoe' | 'heading
  */
 export function BattleBoard({
   self, foe, stadium, prizeTotal, t, conditionLabel, rarityLabelFor, faceDownLabel,
-  isSelectableBench, selectedBench, onSelectBench, selectedHand, onSelectHand,
+  isSelectableBench, selectedBench, onSelectBench, selectedHand, onSelectHand, onInspect,
 }: BattleBoardProps) {
   return (
     <div className="bnb-board">
@@ -265,6 +307,7 @@ export function BattleBoard({
         <BattleSide
           heading={foe.heading}
           side={foe.side}
+          seat={foe.seat}
           prizeTotal={prizeTotal}
           isFoe
           t={t}
@@ -274,10 +317,12 @@ export function BattleBoard({
           isSelectableBench={false}
           selectedBench={null}
           selectedHand={null}
+          onInspect={onInspect}
         />
         <BattleSide
           heading={self.heading}
           side={self.side}
+          seat={self.seat}
           prizeTotal={prizeTotal}
           isFoe={false}
           t={t}
@@ -289,6 +334,7 @@ export function BattleBoard({
           onSelectBench={onSelectBench}
           selectedHand={selectedHand}
           onSelectHand={onSelectHand}
+          onInspect={onInspect}
         />
       </div>
     </div>
