@@ -14,8 +14,8 @@
 
 import type { BattleState, SideState } from './game-core'
 import type { PlayerSlot } from './net/protocol'
-import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon } from './cards'
-import { MAX_BENCH, canEvolveOnto, inPlayOf } from './game-core'
+import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type AttackDef } from './cards'
+import { MAX_BENCH, canEvolveOnto, canPayCost, inPlayOf } from './game-core'
 
 export type ControlId =
   | 'attachEnergy'
@@ -27,6 +27,7 @@ export type ControlId =
   | 'evolve'
   | 'retreat'
   | 'beginAttack'
+  | 'useAttack'
   | 'pass'
   | 'promote'
 
@@ -83,7 +84,7 @@ export function controlStates(
     return {
       attachEnergy: waiting, playBasic: waiting, playItem: waiting, playSupporter: waiting,
       playStadium: waiting, attachTool: waiting, evolve: waiting, retreat: waiting,
-      beginAttack: waiting, pass: waiting, promote: promoteFor,
+      beginAttack: waiting, useAttack: waiting, pass: waiting, promote: promoteFor,
     }
   }
 
@@ -169,6 +170,28 @@ export function controlStates(
             ? blocked('no-attack')
             : OK
 
+  // CP2-B: declaring an attack is legal in the Main phase AND in the Attack
+  // step, matching the engine's `checkAttackDeclaration` from CP2-A. Before this
+  // the bar gated every attack button on `beginAttack` (Main only), so pressing
+  // "Attack" entered the step and immediately disabled every way out of it —
+  // a dead end that stranded the player until they passed. The two rules differ
+  // ONLY in phase, so the shared preconditions are computed once and reused.
+  const attackBlocked: ControlState = state.over
+    ? blocked('match-over')
+    : state.activePlayer !== actor
+      ? blocked('not-your-turn')
+      : blocked('not-attack-phase')
+  const attackable = !active
+    ? blocked('no-active')
+    : state.turn === 1 && state.setup.firstPlayer === actor
+      ? blocked('first-turn-attack')
+      : active.conditions.asleep || active.conditions.paralyzed
+        ? blocked('cannot-attack')
+        : active.card.attacks.length === 0
+          ? blocked('no-attack')
+          : OK
+  const useAttack = isMain || isAttack ? attackable : attackBlocked
+
   const promote = state.pendingPromotion === actor
     ? side.bench.length === 0
       ? blocked('no-promotion-pending')
@@ -187,12 +210,33 @@ export function controlStates(
     evolve: isMain ? evolve : notMain,
     retreat: isMain ? retreat : notMain,
     beginAttack,
+    useAttack,
     // Pass ends the turn from the main phase OR the attack step, matching the
     // engine. Gating it on the attack step alone stranded the first player on
     // Turn 1, who cannot attack and so could never reach Pass.
     pass: isAttack || isMain ? OK : notMain,
     promote,
   }
+}
+
+/**
+ * Availability of ONE named attack, on top of the shared `useAttack` rule.
+ *
+ * `useAttack` answers "may I attack at all", which is phase- and Pokemon-wide.
+ * A single attack can still be unpayable because its Energy cost is its own:
+ * the bar renders one button per attack name, and each must report its OWN
+ * `insufficient-energy` reason instead of borrowing another control's.
+ *
+ * The selection is irrelevant here (an attack reads neither the hand nor the
+ * bench), so the shared rule is asked with an empty selection.
+ */
+export function attackControl(state: BattleState, actor: PlayerSlot, attack: AttackDef): ControlState {
+  const shared = controlStates(state, actor, { handIndex: null, benchIndex: null }).useAttack
+  if (!shared.enabled) return shared
+  const active = state[actor].active
+  if (!active) return blocked('no-active')
+  if (!canPayCost(active.attachedEnergy, attack.cost)) return blocked('insufficient-energy')
+  return OK
 }
 
 /** Engine error code -> the `pokemonBnb.error.*` key that explains it. */
