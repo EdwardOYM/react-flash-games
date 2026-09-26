@@ -62,6 +62,15 @@ export type SideState = {
   retreatedThisTurn: boolean
   /** Number of opening-hand Mulligans. The opponent chooses the extra-card penalty. */
   mulliganCount: number
+  /**
+   * Every opening hand this side had to Mulligan away, oldest first.
+   *
+   * Rulebook (Setting Up to Play): "Reveal your hand to your opponent to
+   * prove you have no Basic Pokémon", so these are PUBLIC to both seats — they
+   * are deliberately not hidden like `hand`. The history (rather than just a
+   * count) is kept because the reveal happens on every Mulligan, not once.
+   */
+  mulliganedHands: CardDef[][]
   /** Ability names used this turn by this side, for once-per-name restrictions. */
   abilityUsedNames: Record<string, number>
   /** Face-down setup Active selected from this side's private hand. */
@@ -123,6 +132,8 @@ export type SnapshotSide = {
   bench: InPlayPokemon[]
   hand: CardDef[] | null
   mulliganCount: number
+  /** Public to both seats: the rulebook requires a failed hand to be revealed. */
+  mulliganedHands: CardDef[][]
   setupActiveCount: number
   setupBenchCount: number
   setupPenaltyCards: number

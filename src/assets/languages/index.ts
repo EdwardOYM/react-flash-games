@@ -270,6 +270,8 @@ type PkmBnbTranslationKey =
   | 'setupMulligan'
   | 'setupHandReady'
   | 'setupMulliganAction'
+  | 'setupMulliganHand'
+  | 'setupMulliganReveal'
   | 'setupRevealHint'
   | 'setupCoinWinner'
   | 'setupLocalSeat'

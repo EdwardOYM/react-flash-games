@@ -87,6 +87,11 @@
 .bnb-setup-shell { margin-top: clamp(14px, 3vh, 36px); }
 .bnb-setup-panel { display: grid; gap: 10px; width: min(100%, 960px); }
 .bnb-setup-hand { margin: 0; }
+/* A hand on display, not a picker: faces are not buttons, so no hover/press
+   affordance is implied and the reveal reads as information, not a choice. */
+.bnb-setup-hand-readonly { margin-top: 4px; }
+.bnb-setup-reveal { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #50676a; }
+.bnb-setup-reveal-round { display: flex; flex-direction: column; gap: 4px; }
 .bnb-setup-card { display: flex; flex-direction: column; align-items: center; gap: 5px; width: 100%; padding: 5px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .62rem; cursor: pointer; }
 .bnb-setup-card:hover:not(:disabled) { border-color: #ffc857; color: #ffc857; }
 .bnb-setup-card:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }

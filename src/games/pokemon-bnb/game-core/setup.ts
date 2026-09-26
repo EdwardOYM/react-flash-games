@@ -59,6 +59,7 @@ export function sideEmpty(): SideState {
     stadiumPlayedTurn: -1,
     retreatedThisTurn: false,
     mulliganCount: 0,
+    mulliganedHands: [],
     abilityUsedNames: {},
     setupActive: null,
     setupBench: [],
@@ -77,10 +78,17 @@ export function placeSetupPrizes(side: SideState, count: number): void {
   side.prizeCount = count
 }
 
-/** Replace one opening hand without a Basic, recording the redraw penalty. */
+/**
+ * Replace one opening hand without a Basic, recording the redraw penalty.
+ *
+ * The hand being replaced is copied into `mulliganedHands` before it is
+ * shuffled back, because the rulebook requires the failed hand to be revealed
+ * to the opponent — and it has to survive being shuffled into the deck.
+ */
 function mulliganOnce(side: SideState, rng: Rng): void {
   if (side.deck.length === 0) return
   side.mulliganCount += 1
+  side.mulliganedHands.push([...side.hand])
   side.deck.push(...side.hand.splice(0))
   shuffleCards(side.deck, rng)
   drawCards(side, OPENING_HAND_SIZE)

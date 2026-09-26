@@ -128,6 +128,71 @@ const CONTROLS: { id: ControlId; labelKey: TranslationKey }[] = [
   { id: 'pass', labelKey: 'pokemonBnb.actionPass' },
 ]
 
+type SetupMulliganPanelProps = {
+  battle: BattleState
+  mySlot: PlayerSlot
+  seatName: (slot: PlayerSlot) => string
+  rarityLabel: (rarity: CardRarity) => string
+  onMulligan: () => void
+  t: (key: TranslationKey) => string
+}
+
+/** A hand shown as information rather than as a picker. */
+function SetupHand({ cards, rarityLabel, faceDownLabel }: { cards: readonly CardDef[]; rarityLabel: (rarity: CardRarity) => string; faceDownLabel: string }) {
+  return (
+    <ol className="bnb-card-grid bnb-setup-hand bnb-setup-hand-readonly">
+      {cards.map((card, index) => (
+        <li key={`${card.id}-${index}`}>
+          <PokemonCard card={card} rarityLabel={rarityLabel(card.rarity)} faceDownLabel={faceDownLabel} />
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+/**
+ * The opening-hand step: show the 7 drawn cards so the player can see what
+ * they are choosing to keep or throw away, then let them Mulligan.
+ *
+ * The rulebook also requires a failed hand to be "revealed to your opponent to
+ * prove you have no Basic Pokémon", so every Mulliganed hand from BOTH seats is
+ * listed publicly underneath — once per Mulligan, not just the first.
+ */
+export function SetupMulliganPanel({ battle, mySlot, seatName, rarityLabel, onMulligan, t }: SetupMulliganPanelProps) {
+  const mySide = battle[mySlot]
+  const faceDownLabel = t('pokemonBnb.cardFaceDown')
+  const seats: PlayerSlot[] = ['host', 'guest']
+  // Tolerate a snapshot from before the reveal existed rather than crashing.
+  const history = seats.flatMap((slot) => (battle[slot].mulliganedHands ?? []).map((hand, round) => ({ slot, hand, round })))
+
+  return (
+    <div className="bnb-setup-panel">
+      <p>{t('pokemonBnb.setupMulligan')}</p>
+      <p className="bnb-field-label">
+        {substituteParams(t('pokemonBnb.setupMulliganHand'), { count: String(mySide.hand.length) })}
+      </p>
+      <SetupHand cards={mySide.hand} rarityLabel={rarityLabel} faceDownLabel={faceDownLabel} />
+      {battle.setup.mulliganDone[mySlot]
+        ? <p className="bnb-notice" role="status">{t('pokemonBnb.setupHandReady')}</p>
+        : <button className="bnb-primary" type="button" onClick={onMulligan}>{t('pokemonBnb.setupMulliganAction')}</button>}
+      {!battle.setup.mulliganDone.host || !battle.setup.mulliganDone.guest ? <p className="bnb-waiting">{t('pokemonBnb.setupWaitingOpponent')}</p> : null}
+      {history.length > 0 && (
+        <div className="bnb-setup-reveal">
+          <p className="bnb-field-label">{t('pokemonBnb.setupMulliganReveal')}</p>
+          {history.map(({ slot, hand, round }) => (
+            <div key={`${slot}-${round}`} className="bnb-setup-reveal-round">
+              <p className="bnb-hint">
+                {substituteParams(t('pokemonBnb.log.mulligan'), { player: seatName(slot), count: String(round + 1) })}
+              </p>
+              <SetupHand cards={hand} rarityLabel={rarityLabel} faceDownLabel={faceDownLabel} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** The local seat, from the peer role (defaults to host before a session). */
 function mySlotOfRole(role: Role | null): PlayerSlot {
   return role === 'guest' ? 'guest' : 'host'
@@ -1531,13 +1596,14 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
             </div>
           )}
           {battle.setup.phase === 'mulligan' && (
-            <div className="bnb-setup-panel">
-              <p>{t('pokemonBnb.setupMulligan')}</p>
-              {battle.setup.mulliganDone[mySlot]
-                ? <p className="bnb-notice" role="status">{t('pokemonBnb.setupHandReady')}</p>
-                : <button className="bnb-primary" type="button" onClick={() => runBattleAction(mySlot, { type: 'mulliganSetup' })}>{t('pokemonBnb.setupMulliganAction')}</button>}
-              {!battle.setup.mulliganDone.host || !battle.setup.mulliganDone.guest ? <p className="bnb-waiting">{t('pokemonBnb.setupWaitingOpponent')}</p> : null}
-            </div>
+            <SetupMulliganPanel
+              battle={battle}
+              mySlot={mySlot}
+              seatName={seatName}
+              rarityLabel={rarityLabel}
+              onMulligan={() => runBattleAction(mySlot, { type: 'mulliganSetup' })}
+              t={t}
+            />
           )}
           {battle.setup.phase === 'placement' && !mySide.setupReady && (
             <div className="bnb-setup-panel">

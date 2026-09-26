@@ -54,6 +54,9 @@ function snapshotSide(side: SideState, isViewer: boolean): SnapshotSide {
     bench: side.bench.map(cloneInPlay),
     hand: isViewer ? [...side.hand] : null,
     mulliganCount: side.mulliganCount,
+    // Public to both seats: the rulebook requires a Mulliganed hand to be shown
+    // to the opponent, so this is never a hidden zone.
+    mulliganedHands: side.mulliganedHands.map((hand) => [...hand]),
     setupActiveCount: side.setupActive ? 1 : 0,
     setupBenchCount: side.setupBench.length,
     setupPenaltyCards: side.setupPenaltyCards,
@@ -106,6 +109,7 @@ function snapshotSideToState(snapshot: SnapshotSide): SideState {
     stadiumPlayedTurn: -1,
     retreatedThisTurn: false,
     mulliganCount: snapshot.mulliganCount,
+    mulliganedHands: (snapshot.mulliganedHands ?? []).map((hand) => [...hand]),
     abilityUsedNames: {},
     setupActive: snapshot.setupActiveCount > 0 ? HIDDEN_CARD as unknown as SideState['setupActive'] : null,
     setupBench: fillHidden(snapshot.setupBenchCount) as SideState['setupBench'],

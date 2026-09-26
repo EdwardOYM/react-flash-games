@@ -263,6 +263,8 @@
     "setupMulligan": "Check your private opening hand for a Basic Pokemon.",
     "setupHandReady": "Your opening hand is ready.",
     "setupMulliganAction": "Mulligan opening hand",
+    "setupMulliganHand": "Your opening hand ({count} cards)",
+    "setupMulliganReveal": "Mulliganed hands, revealed to both players",
     "setupRevealHint": "Both players reveal their setup at the same time.",
     "setupCoinWinner": "{player} won the opening coin flip.",
     "setupLocalSeat": "Local setup seat",

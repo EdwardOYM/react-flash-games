@@ -263,6 +263,8 @@
     "setupMulligan": "Semak tangan permulaan peribadi anda untuk Pokemon Asas.",
     "setupHandReady": "Tangan permulaan anda sudah sedia.",
     "setupMulliganAction": "Mulligan tangan permulaan",
+    "setupMulliganHand": "Tangan permulaan anda ({count} kad)",
+    "setupMulliganReveal": "Tangan selepas Mulligan, didedahkan kepada kedua-dua pemain",
     "setupRevealHint": "Kedua-dua pemain mendedahkan persediaan serentak.",
     "setupCoinWinner": "{player} menang syiling permulaan.",
     "setupLocalSeat": "Kursi persediaan tempatan",
