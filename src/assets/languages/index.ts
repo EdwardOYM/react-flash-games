@@ -300,6 +300,7 @@ type PkmBnbTranslationKey =
   | 'zoneStadium'
   | 'zoneAttachments'
   | 'revealNextCard'
+  | 'revealCardLabel'
   | 'revealAllCards'
   | 'revealProgress'
   | 'revealWaiting'

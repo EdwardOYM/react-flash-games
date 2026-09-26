@@ -1,4 +1,4 @@
-/* Pokemon Pack Rips — RIP page + unlocked collection page (960x540 embed-conformant). */
+﻿/* Pokemon Pack Rips — RIP page + unlocked collection page (960x540 embed-conformant). */
 .ppb-rip-page { height: 100dvh; min-height: 0; padding: clamp(22px, 4vw, 40px) clamp(20px, 6vw, 72px) 48px; color: #f5f0e8; background: radial-gradient(circle at 72% 16%, #2c3a4d 0, #101820 46%), #101820; overflow-x: hidden; overflow-y: auto; --pkm-card-w: clamp(120px, 18vw, 170px); }
 .ppb-rip-topbar { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; width: min(100%, 960px); margin: 0 auto 22px; }
 .ppb-rip-topbar h1 { font-size: clamp(1.6rem, 5vw, 3rem); margin: 0; }

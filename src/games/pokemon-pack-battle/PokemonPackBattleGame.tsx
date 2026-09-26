@@ -1,4 +1,4 @@
-// 04-pokemon-pack-battle — CP2 shell + CP3 lobby flow (mirrors 03 pokemon-bnb).
+﻿// 04-pokemon-pack-battle — CP2 shell + CP3 lobby flow (mirrors 03 pokemon-bnb).
 // Flow: start (server field + create/join) -> host `lobby` (code row + copy,
 // name, packs stepper, start battle) / guest `lobbyJoin` (name + code + server)
 // that steps into the shared lobby when the host's `hello-ack` lands. The host
@@ -39,7 +39,7 @@ import {
 import { randomPackBattleSeed } from './rng'
 import { listSets } from './sets'
 import { LobbyFields } from './LobbyFields'
-import { PackStack } from './PackStack'
+import { PackStack } from '../cardstack/PackStack'
 import './PokemonPackBattleGame.css'
 import { PokemonPackRip } from './PokemonPackRip'
 
@@ -1010,7 +1010,7 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
                 </div>
               )}
               <PackStack
-                cards={focusedCards}
+                cards={focusedCards.map((opened) => opened.card)}
                 revealed={focusedState.revealed}
                 expanded={focusedState.expanded}
                 stackLabel={substituteParams(translate('packBattle.focusedPack'), { current: String(focusedPosition), total: String(seatPackIndexes.length) })}
@@ -1022,9 +1022,9 @@ export function PokemonPackBattleGame({ locale, onLocaleChange, onExit, t }: Pok
                 })}
                 rarityLabel={rarityLabel}
                 onReveal={canReveal ? () => revealNext(focusedPack) : undefined}
-                cardClassName={(opened, _index, revealed) => revealed ? `ppb-tier-${tierForCard(opened.card)}` : ''}
-                renderCardOverlay={(opened, _index, revealed) => {
-                  const points = pointsForCard(opened.card)
+                cardClassName={(card, _index, revealed) => revealed ? `ppb-tier-${tierForCard(card)}` : ''}
+                renderCardOverlay={(card, _index, revealed) => {
+                  const points = pointsForCard(card)
                   if (!revealed || points <= 0) return null
                   return (
                     <span className="ppb-stack-points" aria-label={substituteParams(translate('packBattle.cardPoints'), { points: String(points) })}>

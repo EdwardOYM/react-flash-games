@@ -293,6 +293,7 @@
     "zoneStadium": "Stadium",
     "zoneAttachments": "Attached cards",
     "revealNextCard": "Reveal next card",
+    "revealCardLabel": "Reveal card {index} of {total} from the pack",
     "revealAllCards": "Reveal all cards",
     "revealProgress": "Revealed {current} of {total}",
     "revealWaiting": "Waiting for the reveal...",

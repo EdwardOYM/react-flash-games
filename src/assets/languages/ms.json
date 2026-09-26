@@ -293,6 +293,7 @@
     "zoneStadium": "Stadium",
     "zoneAttachments": "Kad dilampirkan",
     "revealNextCard": "Dedahkan kad seterusnya",
+    "revealCardLabel": "Dedahkan kad {index} daripada {total} daripada pek",
     "revealAllCards": "Dedahkan semua kad",
     "revealProgress": "{current} daripada {total} didedahkan",
     "revealWaiting": "Menunggu dedahan...",

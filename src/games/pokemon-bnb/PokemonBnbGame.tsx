@@ -18,6 +18,7 @@ import { getSet, listSets } from './sets'
 import { readHighscores, recordMatchWin } from './highscores'
 import { PokemonCard } from './PokemonCard'
 import { BattleBoard } from './BattleBoard'
+import { PackStack } from '../cardstack/PackStack'
 import { controlStates, reasonKey, type ControlId } from './controls'
 import { HighscoreTable } from '../highscore/HighscoreTable'
 import './PokemonBnbGame.css'
@@ -269,6 +270,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const [copied, setCopied] = useState(false)
   /** Cards revealed so far in the pack-opening ceremony. Reset on reseeding. */
   const [revealedCount, setRevealedCount] = useState(0)
+  /** CP8: Reveal All lays the whole stack out for review (session-only). */
+  const [openingExpanded, setOpeningExpanded] = useState(false)
   const [openingReady, setOpeningReady] = useState(false)
   const [opponentReady, setOpponentReady] = useState(false)
   const opponentReadyRef = useRef(false)
@@ -816,6 +819,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     }
     resetMatchStateRef.current = () => {
       setRevealedCount(0)
+      setOpeningExpanded(false)
       setOpeningReady(false)
       openingReadyRef.current = false
       setOpponentReady(false)
@@ -997,7 +1001,11 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
 
   /** Reveal the next card, or everything at once. */
   const revealNext = () => setRevealedCount((count) => Math.min(count + 1, openedCards.length))
-  const revealAll = () => setRevealedCount(openedCards.length)
+  /** CP8: Reveal All also expands the stack for side-by-side review. */
+  const revealAll = () => {
+    setRevealedCount(openedCards.length)
+    setOpeningExpanded(true)
+  }
 
   /** Mark ourselves ready; with both ready, both seats advance to deck building. */
   const markOpeningReady = () => {
@@ -1333,6 +1341,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     const revealed = Math.min(revealedCount, total)
     const fullyRevealed = total > 0 && revealed >= total
     const packIndex = packSize > 0 ? Math.min(settings.packs, Math.floor(revealed / packSize) + 1) : settings.packs
+    // CP8: the reveal is a deterministic prefix of the shared seeded pool, so
+    // both seats always expose the same card at the same index. The stack owns
+    // only the presentation; the flags and the ready handshake stay here.
+    const stackRevealed = openedCards.map((_card, index) => index < revealed)
     return (
       <main className="bnb-page">
         <header className="bnb-topbar">
@@ -1345,6 +1357,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
         <div className="bnb-shell bnb-shell-lobby">
           <p className="eyebrow">{displayName}</p>
           <h1>{t('pokemonBnb.openingTitle')}</h1>
+          {/* CP8: mirrored progress — one live region both seats read the same,
+              because the revealed prefix is derived from the shared seed. */}
           <p className="bnb-status" aria-live="polite">
             {total > 0
               ? substituteParams(t('pokemonBnb.openingProgress'), { current: String(Math.max(revealed, 1)), total: String(total) })
@@ -1353,22 +1367,27 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
           {packSize > 0 && total > 0 && (
             <p className="bnb-hint">{substituteParams(t('pokemonBnb.openingPackLabel'), { current: String(fullyRevealed ? settings.packs : packIndex), total: String(settings.packs) })}</p>
           )}
-          <ol className="bnb-card-grid">
-            {openedCards.map((opened, index) => {
-              const faceDown = index >= revealed
-              const card: CardDef = opened.card
-              return (
-                <li key={`${card.id}-${index}`}>
-                  <PokemonCard card={card} faceDown={faceDown} rarityLabel={rarityLabel(card.rarity)} faceDownLabel={t('pokemonBnb.cardFaceDown')} />
-                </li>
-              )
-            })}
-          </ol>
+          {total > 0 && (
+            <PackStack
+              cards={openedCards.map((opened) => opened.card)}
+              revealed={stackRevealed}
+              expanded={openingExpanded}
+              stackLabel={t('pokemonBnb.openingTitle')}
+              faceDownLabel={t('pokemonBnb.cardFaceDown')}
+              actionLabel={substituteParams(t('pokemonBnb.revealCardLabel'), {
+                index: String(revealed + 1),
+                total: String(total),
+              })}
+              rarityLabel={rarityLabel}
+              onReveal={fullyRevealed || openingExpanded ? undefined : revealNext}
+            />
+          )}
           {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
           {opponentReady && <p className="bnb-notice" role="status">{substituteParams(t('pokemonBnb.opponentReady'), { name: opponentName || t('pokemonBnb.defaultName') })}</p>}
           {errorKey && <p className="bnb-error" role="alert">{t(errorKey)}</p>}
+          {/* CP8: no auto-advance. A finished stack simply stays focused until
+              this player readies up; Reveal All expands it in place instead. */}
           <div className="bnb-actions">
-            {!fullyRevealed && <button className="bnb-primary" type="button" onClick={revealNext}>{t('pokemonBnb.revealNext')}</button>}
             {!fullyRevealed && <button type="button" onClick={revealAll}>{t('pokemonBnb.skipAll')}</button>}
             {fullyRevealed && !openingReady && <button className="bnb-primary" type="button" onClick={markOpeningReady}>{t('pokemonBnb.openingReady')}</button>}
             {fullyRevealed && openingReady && !opponentReady && <span className="bnb-waiting" aria-live="polite">{t('pokemonBnb.startWaiting')}</span>}

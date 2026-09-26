@@ -1,4 +1,4 @@
-// Pokemon Pack Rips â€” solo pack rip page + unlocked collection page (04.3).
+﻿// Pokemon Pack Rips â€” solo pack rip page + unlocked collection page (04.3).
 // Reuses the shared 30C pack definition and card pool so a solo rip draws from the
 // same rarity distribution as the ceremony without any new weights or slots.
 import { useMemo, useState } from 'react'
@@ -7,7 +7,7 @@ import { readConfig } from '../../config'
 import { PokemonCard } from '../pokemon-bnb/PokemonCard'
 import { listPlayers, readOpenedCards, recordOpenedCards } from './collection'
 import { PACK_BATTLE_30C, battleSetCards, openBattlePacks, type BattleOpenedCard } from './battlePack'
-import { PackStack } from './PackStack'
+import { PackStack } from '../cardstack/PackStack'
 import { createPackBattleRng, randomPackBattleSeed } from './rng'
 import { listSets } from './sets'
 import './PokemonPackBattleGame.css'
@@ -261,7 +261,7 @@ export function PokemonPackRip({
               )}
             </div>
             <PackStack
-              cards={soloOpened}
+              cards={soloOpened.map((opened) => opened.card)}
               revealed={soloRevealed}
               expanded={soloExpanded}
               stackLabel={translate('packBattle.ceremonyRevealHint')}
