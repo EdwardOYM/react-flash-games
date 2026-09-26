@@ -252,10 +252,36 @@ export function retreatToBench(state: BattleState, actor: PlayerSlot, benchIndex
 // -- Sub-phase: declare an attack --
 
 /**
+ * Preconditions for declaring an attack, accepting BOTH entry points.
+ *
+ * CP2-A: the rulebook's "Attack step" and the UI's one-click attack button are
+ * the same decision, so an attack may be declared from the Main phase (one
+ * click, one P2P intent) as well as from the Attack step that `beginAttack`
+ * opens. `checkAttackPhase` stays STRICT on purpose: it still describes "you
+ * are in the attack step", which is what `pass` needs to tell apart, so the two
+ * guards cannot be silently conflated.
+ *
+ * Every other rule (your turn, not Asleep/Paralyzed, one attack per turn, the
+ * Energy cost) is checked once, in `declareAttack`, so this only decides
+ * *which phase* may declare.
+ */
+function checkAttackDeclaration(state: BattleState, actor: PlayerSlot): string | null {
+  if (state.setup.phase !== 'complete') return 'setup-incomplete'
+  if (state.over) return 'match-over'
+  if (state.activePlayer !== actor) return 'not-your-turn'
+  if (state.phase !== 'main' && state.phase !== 'attack') return 'not-attack-phase'
+  return null
+}
+
+/**
  * Declare an attack. This sub-phase owns the action-level rules: it must be
- * your main phase, the Active Pokemon cannot be Asleep or Paralyzed, only one
- * attack per turn, and the attack's Energy cost must be payable. Attacking
- * ends your turn (rulebook), so the turn closes here.
+ * your turn in the Main phase or the Attack step, the Active Pokemon cannot be
+ * Asleep or Paralyzed, only one attack per turn, and the attack's Energy cost
+ * must be payable. Attacking ends your turn (rulebook), so the turn closes here.
+ *
+ * CP2-A: declaring from the Main phase enters the Attack step first, so the
+ * phase header and the log report the step the attack was actually taken from
+ * rather than jumping straight from Main to Between-Turns.
  *
  * Damage, Weakness/Resistance, card-text effects, KO, prizes and victory are
  * resolved at the marked CP7-C seam below, before the turn is closed.
@@ -269,9 +295,13 @@ export function beginAttack(state: BattleState, actor: PlayerSlot): ActionResult
 }
 
 export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex: number): ActionResult {
-  const blocked = checkAttackPhase(state, actor)
+  const blocked = checkAttackDeclaration(state, actor)
   if (blocked) return failure(state, blocked)
   const next = cloneBattleState(state)
+  // Enter the Attack step before anything is resolved. Every rejection below
+  // returns `failure(state, ...)`, i.e. the ORIGINAL state, so a refused attack
+  // can never leave the phase advanced.
+  next.phase = 'attack'
   const side = sideOf(next, actor)
   const active = side.active
   if (!active) return failure(state, 'no-active')
