@@ -379,6 +379,8 @@ type PkmBnbTranslationKey =
   | 'deckSubmit'
   | 'deckWaiting'
   | 'deckEmpty'
+  | 'deckNoBasicPool'
+  | 'deckNoBasicPoolHint'
   | 'openingWip'
   | 'seedShared'
   | 'next'

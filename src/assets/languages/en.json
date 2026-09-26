@@ -372,6 +372,8 @@
     "deckSubmit": "Ready - start the battle",
     "deckWaiting": "Deck sent. Waiting for the other player...",
     "deckEmpty": "No cards to build from - the set data may be missing.",
+    "deckNoBasicPool": "No Basic Pokemon was found in your packs, so a legal 40-card deck is impossible.",
+    "deckNoBasicPoolHint": "Automatic loss. Ask the host to start a new match to open fresh packs.",
     "openingWip": "Pack opening arrives in the next checkpoint - the settings below are locked in and shared with both players.",
     "seedShared": "Shared pack seed: {seed}",
     "next": "Next",

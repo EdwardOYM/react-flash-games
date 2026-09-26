@@ -8,7 +8,7 @@ import { getPreferredLocale, type Locale, type TranslationKey, useTranslations }
 import { readConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import { isBasicPokemon, type CardDef, type CardRarity, type SetId } from './cards'
-import { DECK_SIZE, buildPoolIsValid, serializeDeck, type DeckLegalityReason, type EnergySelection } from './deck'
+import { DECK_SIZE, buildPoolIsValid, poolHasBasic, serializeDeck, type DeckLegalityReason, type EnergySelection } from './deck'
 import { applySnapshot, applyTimeout, classifyAbility, processAction, setupBattle, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
@@ -526,6 +526,15 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     [openedPool],
   )
   const energyCatalog = useMemo(() => basicEnergyCatalog(settings.set), [settings.set])
+
+  /**
+   * A deck must hold a Basic, so a pool without one makes a legal deck
+   * impossible and the match can never start. Both seats derive the same pool
+   * from the shared seed, so this ends the match for both rather than handing
+   * a win to one side. The builder is replaced by an explicit loss rather than
+   * left on screen with an unfixable `no-basic` error.
+   */
+  const poolLost = openedPool.cards.length > 0 && !poolHasBasic(openedPool)
 
   /** Opened non-Energy ids: one entry per included copy, in pool order. */
   const nonEnergyIds = useMemo<string[]>(() => {
@@ -1119,7 +1128,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
 
   /** Mark our 40-card deck ready and send the id list (one entry per copy). */
   const markDeckReady = () => {
-    if (!deckCheck.ok || deckIds.length !== DECK_SIZE || deckReady) return
+    if (!deckCheck.ok || deckIds.length !== DECK_SIZE || deckReady || poolLost) return
     setDeckReady(true)
     deckReadyRef.current = true
     sessionRef.current?.send({ kind: 'deck-ready', deckIds })
@@ -1496,6 +1505,15 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
             <div><dt>{t('pokemonBnb.prizeCardsLabel')}</dt><dd>{settings.prizeCards}</dd></div>
           </dl>
           {openedPool.cards.length === 0 && <p className="bnb-error" role="alert">{t('pokemonBnb.deckEmpty')}</p>}
+          {/* A deck must contain a Basic Pokemon. A pool with none makes a legal
+              40-card deck impossible, so the match is an automatic loss rather
+              than a builder the player can never satisfy. */}
+          {poolLost && (
+            <div className="bnb-error" role="alert">
+              <p>{t('pokemonBnb.deckNoBasicPool')}</p>
+              <p className="bnb-hint">{t('pokemonBnb.deckNoBasicPoolHint')}</p>
+            </div>
+          )}
           <h2 className="bnb-field-label">{t('pokemonBnb.energyPoolLabel')}</h2>
           <p className="bnb-hint">{t('pokemonBnb.energyPoolHint')}</p>
           <ul className="bnb-energy-grid">
@@ -1558,7 +1576,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
           {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
           {errorKey && <p className="bnb-error" role="alert">{t(errorKey)}</p>}
           <div className="bnb-actions">
-            {!deckReady && <button className="bnb-primary" type="button" disabled={!deckCheck.ok || deckIds.length !== DECK_SIZE} onClick={markDeckReady}>{t('pokemonBnb.deckSubmit')}</button>}
+            {!deckReady && <button className="bnb-primary" type="button" disabled={!deckCheck.ok || deckIds.length !== DECK_SIZE || poolLost} onClick={markDeckReady}>{t('pokemonBnb.deckSubmit')}</button>}
             {deckReady && !opponentDeckReady && <span className="bnb-waiting" aria-live="polite">{t('pokemonBnb.deckWaiting')}</span>}
           </div>
         </div>

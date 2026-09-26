@@ -63,6 +63,19 @@ export function serializeDeck(nonEnergyIds: string[], energyCounts: EnergySelect
   return ids
 }
 
+/**
+ * Does the opened pool contain at least one Basic Pokemon at all?
+ *
+ * A deck must include a Basic (see `buildPoolIsValid`'s `no-basic`), and a
+ * Basic-less pool therefore makes a legal 40-card deck impossible: the player
+ * can never satisfy the opening hand and the match can never start. Both seats
+ * derive the same pool from the shared seed, so this condition is symmetric —
+ * the match is void for both rather than a loss for one.
+ */
+export function poolHasBasic(pool: OpenedPool): boolean {
+  return pool.cards.some((card) => isBasicPokemon(card))
+}
+
 export function buildPoolIsValid(
   deckIds: string[],
   pool: OpenedPool,

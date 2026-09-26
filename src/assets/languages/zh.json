@@ -372,6 +372,8 @@
     "deckSubmit": "准备好——开始对战",
     "deckWaiting": "卡组已发送。等待另一位玩家...",
     "deckEmpty": "没有可构筑的卡牌——卡组数据可能缺失。",
+    "deckNoBasicPool": "你的卡包中没有基础宝可梦，因此无法构筑合法的 40 张卡组。",
+    "deckNoBasicPoolHint": "自动判负。请让房主开始新的一局以开启新的卡包。",
     "openingWip": "开包功能将在下一个检查点完成 - 下方设置已锁定并与双方玩家同步。",
     "seedShared": "共享卡包种子：{seed}",
     "next": "下一步",

@@ -372,6 +372,8 @@
     "deckSubmit": "Sedia - mula pertempuran",
     "deckWaiting": "Dek dihantar. Menunggu pemain lain...",
     "deckEmpty": "Tiada kad untuk dibina - data set mungkin tiada.",
+    "deckNoBasicPool": "Tiada Pokemon Asas ditemui dalam pek anda, jadi kad 40 yang sah tidak mungkin dibina.",
+    "deckNoBasicPoolHint": "Kalah automatik. Minta hos bermula perlawanan baharu untuk membuka pek baharu.",
     "openingWip": "Pembukaan pek tiba pada checkpoint seterusnya - tetapan di bawah sudah dikunci dan dikongsi dengan kedua-dua pemain.",
     "seedShared": "Benih pek dikongsi: {seed}",
     "next": "Seterusnya",
