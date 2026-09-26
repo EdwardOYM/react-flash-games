@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getPreferredLocale, type Locale, type TranslationKey, useTranslations } from '../../assets/languages'
 import { readConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
-import type { CardDef, CardRarity, SetId } from './cards'
+import { isBasicPokemon, type CardDef, type CardRarity, type SetId } from './cards'
 import { DECK_SIZE, buildPoolIsValid, serializeDeck, type DeckLegalityReason, type EnergySelection } from './deck'
 import { applySnapshot, applyTimeout, classifyAbility, processAction, setupBattle, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
@@ -133,6 +133,9 @@ type SetupMulliganPanelProps = {
   mySlot: PlayerSlot
   seatName: (slot: PlayerSlot) => string
   rarityLabel: (rarity: CardRarity) => string
+  /** Confirm a hand that already holds a Basic Pokemon. */
+  onKeep: () => void
+  /** Redraw a hand with no Basic Pokemon. */
   onMulligan: () => void
   t: (key: TranslationKey) => string
 }
@@ -152,29 +155,38 @@ function SetupHand({ cards, rarityLabel, faceDownLabel }: { cards: readonly Card
 
 /**
  * The opening-hand step: show the 7 drawn cards so the player can see what
- * they are choosing to keep or throw away, then let them Mulligan.
+ * they are choosing to keep or throw away.
+ *
+ * The single button always says what it will do: a hand that already holds a
+ * Basic is KEPT, and only a hand without one offers the Mulligan. The rulebook
+ * only permits a Mulligan in the second case.
  *
  * The rulebook also requires a failed hand to be "revealed to your opponent to
  * prove you have no Basic Pokémon", so every Mulliganed hand from BOTH seats is
  * listed publicly underneath — once per Mulligan, not just the first.
  */
-export function SetupMulliganPanel({ battle, mySlot, seatName, rarityLabel, onMulligan, t }: SetupMulliganPanelProps) {
+export function SetupMulliganPanel({ battle, mySlot, seatName, rarityLabel, onKeep, onMulligan, t }: SetupMulliganPanelProps) {
   const mySide = battle[mySlot]
   const faceDownLabel = t('pokemonBnb.cardFaceDown')
   const seats: PlayerSlot[] = ['host', 'guest']
   // Tolerate a snapshot from before the reveal existed rather than crashing.
   const history = seats.flatMap((slot) => (battle[slot].mulliganedHands ?? []).map((hand, round) => ({ slot, hand, round })))
+  // A hand is legal to keep the moment it holds a Basic Pokemon.
+  const hasBasic = mySide.hand.some((card) => isBasicPokemon(card))
+  const done = battle.setup.mulliganDone[mySlot]
 
   return (
     <div className="bnb-setup-panel">
-      <p>{t('pokemonBnb.setupMulligan')}</p>
+      <p>{hasBasic ? t('pokemonBnb.setupKeepHand') : t('pokemonBnb.setupMulligan')}</p>
       <p className="bnb-field-label">
         {substituteParams(t('pokemonBnb.setupMulliganHand'), { count: String(mySide.hand.length) })}
       </p>
       <SetupHand cards={mySide.hand} rarityLabel={rarityLabel} faceDownLabel={faceDownLabel} />
-      {battle.setup.mulliganDone[mySlot]
+      {done
         ? <p className="bnb-notice" role="status">{t('pokemonBnb.setupHandReady')}</p>
-        : <button className="bnb-primary" type="button" onClick={onMulligan}>{t('pokemonBnb.setupMulliganAction')}</button>}
+        : hasBasic
+          ? <button className="bnb-primary" type="button" onClick={onKeep}>{t('pokemonBnb.setupKeepHandAction')}</button>
+          : <button className="bnb-primary" type="button" onClick={onMulligan}>{t('pokemonBnb.setupMulliganAction')}</button>}
       {!battle.setup.mulliganDone.host || !battle.setup.mulliganDone.guest ? <p className="bnb-waiting">{t('pokemonBnb.setupWaitingOpponent')}</p> : null}
       {history.length > 0 && (
         <div className="bnb-setup-reveal">
@@ -1601,6 +1613,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               mySlot={mySlot}
               seatName={seatName}
               rarityLabel={rarityLabel}
+              onKeep={() => runBattleAction(mySlot, { type: 'keepSetupHand' })}
               onMulligan={() => runBattleAction(mySlot, { type: 'mulliganSetup' })}
               t={t}
             />

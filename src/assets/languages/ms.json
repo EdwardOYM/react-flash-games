@@ -263,6 +263,8 @@
     "setupMulligan": "Semak tangan permulaan peribadi anda untuk Pokemon Asas.",
     "setupHandReady": "Tangan permulaan anda sudah sedia.",
     "setupMulliganAction": "Mulligan tangan permulaan",
+    "setupKeepHand": "Anda mempunyai Pokemon Asas — simpan tangan ini.",
+    "setupKeepHandAction": "Simpan tangan ini",
     "setupMulliganHand": "Tangan permulaan anda ({count} kad)",
     "setupMulliganReveal": "Tangan selepas Mulligan, didedahkan kepada kedua-dua pemain",
     "setupRevealHint": "Kedua-dua pemain mendedahkan persediaan serentak.",
@@ -526,7 +528,9 @@
       "setupActiveInvalid": "Pilih Pokemon Asas daripada tangan anda sebagai Aktif.",
       "setupBenchInvalid": "Pilih sehingga lima Pokemon Asas berbeza untuk Bangku.",
       "setupPenaltyInvalid": "Pilih kad tambahan tidak melebihi bilangan mulligan lawan.",
-      "setupAlreadyRevealed": "Kedua-dua zon persediaan telah didedahkan."
+      "setupAlreadyRevealed": "Kedua-dua zon persediaan telah didedahkan.",
+      "setupKeepHand": "Anda sudah mempunyai Pokemon Asas, jadi tangan ini dikekalkan.",
+      "setupNeedMulligan": "Tangan ini tiada Pokemon Asas, jadi anda perlu Mulligan."
     }
   },
   "packBattle": {

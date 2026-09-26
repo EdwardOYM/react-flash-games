@@ -161,6 +161,7 @@ export type Snapshot = {
 
 export type BattleAction =
   | { type: 'chooseTurnOrder'; firstPlayer: PlayerSlot }
+  | { type: 'keepSetupHand' }
   | { type: 'mulliganSetup' }
   | { type: 'chooseSetupPokemon'; activeHandIndex: number; benchHandIndexes: number[]; penaltyCards: number }
   | { type: 'confirmSetupReveal' }

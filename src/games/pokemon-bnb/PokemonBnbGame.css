@@ -100,7 +100,12 @@
 @keyframes bnb-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
 
 /* Battle: 16:9 tabletop stage capped at the 960x540 embed width. */
-.bnb-battle { display: flex; flex-direction: column; gap: 10px; width: min(100%, 960px); aspect-ratio: 16 / 9; margin: clamp(12px, 3vh, 32px) auto 0; padding: clamp(10px, 2vw, 18px); border: 1px solid #33454a; background: #121c24; --pkm-card-w: clamp(56px, 9vh, 76px); }
+/* A full tabletop (two lanes x Active + a five-slot Bench + Prize/Deck/Discard)
+   plus a real-card hand is taller than the 16:9 stage at the reference embed.
+   The stage therefore scrolls VERTICALLY (overflow-y: auto) and never
+   horizontally, so content is reachable instead of overlapping the log and
+   action bar. Horizontal scrolling stays forbidden. */
+.bnb-battle { display: flex; flex-direction: column; gap: 10px; width: min(100%, 960px); aspect-ratio: 16 / 9; margin: clamp(12px, 3vh, 32px) auto 0; padding: clamp(10px, 2vw, 18px); border: 1px solid #33454a; background: #121c24; --pkm-card-w: clamp(56px, 9vh, 76px); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 .bnb-battle-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
 .bnb-battle-turn { margin: 0; color: #ffc857; font-family: 'DM Mono', monospace; font-size: clamp(.8rem, 2vh, 1rem); letter-spacing: .04em; }
 .bnb-battle-phase { margin-left: 8px; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .7rem; text-transform: uppercase; }

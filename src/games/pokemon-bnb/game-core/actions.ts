@@ -10,7 +10,7 @@ import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN } from './constants'
 import { canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, failure, inPlayOf, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState } from './types'
 import { applyAbilityEffect, classifyAbility, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, resolveAttack } from './effects'
-import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, mulliganSetup } from './setup'
+import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
 import { applyEndTurn, applyStartOfTurn, checkVictory, performKo } from './turns'
 
 // -- CP7-B: turn sub-phases + action dispatcher --
@@ -311,9 +311,20 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
 
 // -- Sub-phase: end the turn --
 
-/** Pass ends the turn without an attack. */
+/**
+ * Pass ends the turn without an attack.
+ *
+ * Pass is legal from BOTH the Main Turn and the Attack step. The rulebook puts
+ * "Attack or Pass" at the end of the turn, and only declares the *attack* final
+ * — a player who is told they cannot attack (the first player on Turn 1, or
+ * any turn with no Energy) must still be able to end their turn. Gating Pass
+ * behind the Attack step alone deadlocked the opening turn outright: the first
+ * player could not attack, so could not reach Pass, so the match never advanced.
+ */
 export function pass(state: BattleState, actor: PlayerSlot): ActionResult {
-  const blocked = checkAttackPhase(state, actor)
+  // checkAttackPhase always returns a code, so test the phase explicitly: Pass is
+  // legal in the main phase as well as the attack step.
+  const blocked = state.phase === 'main' ? checkTurn(state, actor) : checkAttackPhase(state, actor)
   if (blocked) return failure(state, blocked)
   const next = cloneBattleState(state)
   const logStart = next.log.length
@@ -338,6 +349,8 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
     switch (action.type) {
       case 'chooseTurnOrder':
         return chooseTurnOrder(state, actor, action.firstPlayer)
+      case 'keepSetupHand':
+        return keepSetupHand(state, actor)
       case 'mulliganSetup':
         return mulliganSetup(state, actor)
       case 'chooseSetupPokemon':
@@ -358,6 +371,7 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
   switch (action.type) {
     case 'confirmSetupReveal':
     case 'chooseTurnOrder':
+    case 'keepSetupHand':
     case 'mulliganSetup':
     case 'chooseSetupPokemon':
       return failure(state, 'setup-wrong-phase')

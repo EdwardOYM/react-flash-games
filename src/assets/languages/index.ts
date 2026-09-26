@@ -270,6 +270,8 @@ type PkmBnbTranslationKey =
   | 'setupMulligan'
   | 'setupHandReady'
   | 'setupMulliganAction'
+  | 'setupKeepHand'
+  | 'setupKeepHandAction'
   | 'setupMulliganHand'
   | 'setupMulliganReveal'
   | 'setupRevealHint'
@@ -535,6 +537,8 @@ type PkmBnbErrorTranslationKey =
   | 'setupBenchInvalid'
   | 'setupPenaltyInvalid'
   | 'setupAlreadyRevealed'
+  | 'setupKeepHand'
+  | 'setupNeedMulligan'
 
 type PackBattleTranslationKey =
   | 'title'

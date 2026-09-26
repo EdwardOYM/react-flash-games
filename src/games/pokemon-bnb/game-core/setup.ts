@@ -125,17 +125,36 @@ export function chooseTurnOrder(state: BattleState, actor: PlayerSlot, firstPlay
   return { state: next, log: tailLog(next, logStart) }
 }
 
-/** A private side may repeat its opening hand until it contains a Basic. */
+/**
+ * Keep the current opening hand because it already contains a Basic Pokemon.
+ *
+ * Kept separate from `mulliganSetup` so the action a player takes always says
+ * what it does. The rulebook only allows a Mulligan when the hand has NO Basic
+ * ("If you don't have one: You have a Mulligan"), so a hand that is already
+ * legal is confirmed, never redrawn.
+ */
+export function keepSetupHand(state: BattleState, actor: PlayerSlot): ActionResult {
+  if (state.setup.phase !== 'mulligan') return setupFailure(state, 'setup-wrong-phase')
+  const side = state[actor]
+  if (side.setupReady) return setupFailure(state, 'setup-already-ready')
+  if (basicsIn(side.hand).length === 0) return setupFailure(state, 'setup-need-mulligan')
+  const next = structuredClone(state)
+  next.setup.mulliganDone[actor] = true
+  if (next.setup.mulliganDone.host && next.setup.mulliganDone.guest) next.setup.phase = 'placement'
+  return { state: next, log: [] }
+}
+
+/**
+ * Redraw an opening hand that holds no Basic Pokemon, recording the penalty.
+ *
+ * Refused once a Basic is in hand: that hand is already legal, so it is kept
+ * via `keepSetupHand` instead of being thrown away.
+ */
 export function mulliganSetup(state: BattleState, actor: PlayerSlot): ActionResult {
   if (state.setup.phase !== 'mulligan') return setupFailure(state, 'setup-wrong-phase')
   const side = state[actor]
   if (side.setupReady) return setupFailure(state, 'setup-already-ready')
-  if (basicsIn(side.hand).length > 0) {
-    const next = structuredClone(state)
-    next.setup.mulliganDone[actor] = true
-    if (next.setup.mulliganDone.host && next.setup.mulliganDone.guest) next.setup.phase = 'placement'
-    return { state: next, log: [] }
-  }
+  if (basicsIn(side.hand).length > 0) return setupFailure(state, 'setup-keep-hand')
   const next = structuredClone(state)
   const logStart = next.log.length
   const { rng, commit } = setupRng(next)

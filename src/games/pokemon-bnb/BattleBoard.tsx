@@ -11,7 +11,7 @@
 // instead of a face, so the board can never leak a card the snapshot hid.
 
 import type { CardDef, CardRarity } from './cards'
-import { HIDDEN_CARD, STATUS_CONDITIONS, type InPlayPokemon, type SideState } from './game-core'
+import { HIDDEN_CARD, MAX_BENCH, STATUS_CONDITIONS, type InPlayPokemon, type SideState } from './game-core'
 import { PokemonCard } from './PokemonCard'
 import type { TranslationKey } from '../../assets/languages'
 import './BattleBoard.css'
@@ -118,45 +118,48 @@ export function BattleSide({
       </div>
 
 
+      {/* Bench: the rulebook board always shows all five slots, so empty space is
+          visible as space. Rendering only the occupied Pokemon left the player
+          with no indication of where a Basic could legally go. */}
       <div className="bnb-side-bench">
         <span className="bnb-zone-label">{t('pokemonBnb.zoneBench')}</span>
-        {side.bench.length > 0 ? (
-          <ol className="bnb-bench-list">
-            {side.bench.map((pokemon, index) => {
-              const selected = isSelectableBench && selectedBench === index
-              const targetHint = t('pokemonBnb.selectTarget').replace('{index}', String(index + 1))
-              const face = (
-                <span className="bnb-bench-face">
-                  <PokemonCard
-                    card={pokemon.card}
-                    rarityLabel={rarityLabelFor(pokemon.card.rarity)}
-                    faceDownLabel={faceDownLabel}
-                    damage={pokemon.damage}
-                    statuses={statusListFor(pokemon)}
-                  />
-                  <Attachments pokemon={pokemon} t={t} />
-                </span>
-              )
-              return (
-                <li key={pokemon.uid}>
-                  {isSelectableBench ? (
-                    <button
-                      type="button"
-                      className="bnb-bench-pick"
-                      aria-pressed={selected}
-                      aria-label={`${pokemon.card.name} — ${targetHint}`}
-                      onClick={() => onSelectBench?.(selected ? null : index)}
-                    >
-                      {face}
-                    </button>
-                  ) : face}
-                </li>
-              )
-            })}
-          </ol>
-        ) : (
-          <span className="bnb-side-card">—</span>
-        )}
+        <ol className="bnb-bench-list">
+          {Array.from({ length: MAX_BENCH }, (_, slot) => {
+            const pokemon = side.bench[slot]
+            if (!pokemon) {
+              return <li key={`empty-${slot}`} className="bnb-bench-slot bnb-bench-slot-empty" aria-hidden="true" />
+            }
+            const selected = isSelectableBench && selectedBench === slot
+            const targetHint = t('pokemonBnb.selectTarget').replace('{index}', String(slot + 1))
+            const face = (
+              <span className="bnb-bench-face">
+                <PokemonCard
+                  card={pokemon.card}
+                  rarityLabel={rarityLabelFor(pokemon.card.rarity)}
+                  faceDownLabel={faceDownLabel}
+                  damage={pokemon.damage}
+                  statuses={statusListFor(pokemon)}
+                />
+                <Attachments pokemon={pokemon} t={t} />
+              </span>
+            )
+            return (
+              <li key={pokemon.uid} className="bnb-bench-slot">
+                {isSelectableBench ? (
+                  <button
+                    type="button"
+                    className="bnb-bench-pick"
+                    aria-pressed={selected}
+                    aria-label={`${pokemon.card.name} — ${targetHint}`}
+                    onClick={() => onSelectBench?.(selected ? null : slot)}
+                  >
+                    {face}
+                  </button>
+                ) : face}
+              </li>
+            )
+          })}
+        </ol>
       </div>
 
 
@@ -190,9 +193,10 @@ export function BattleSide({
         </div>
       </div>
 
-      {/* Hand: the viewer's own cards are named and selectable; the opponent's is
-          a count only. `onSelectHand` is absent on the foe lane, so that gate —
-          not a hidden-card check — is what keeps the opponent read-only. */}
+      {/* Hand: the viewer's own cards are shown as real card faces and are
+          selectable; the opponent's is a count only. `onSelectHand` is absent on
+          the foe lane, so that gate — not a hidden-card check — is what keeps the
+          opponent read-only. */}
       <div className="bnb-side-hand">
         <span className="bnb-zone-label">{t('pokemonBnb.zoneHand')}</span>
         {onSelectHand && !side.hand.every(isHiddenCard) ? (
@@ -201,7 +205,7 @@ export function BattleSide({
               if (isHiddenCard(card)) return null
               const selected = selectedHand === index
               return (
-                <li key={`${card.id}-${index}`}>
+                <li key={`${card.id}-${index}`} className="bnb-hand-slot">
                   <button
                     type="button"
                     className="bnb-hand-pick"
@@ -209,7 +213,11 @@ export function BattleSide({
                     aria-label={`${t('pokemonBnb.selectHandCard')} — ${card.name}`}
                     onClick={() => onSelectHand?.(selected ? null : index)}
                   >
-                    <span className="bnb-hand-chip">{card.name}</span>
+                    <PokemonCard
+                      card={card}
+                      rarityLabel={rarityLabelFor(card.rarity)}
+                      faceDownLabel={faceDownLabel}
+                    />
                   </button>
                 </li>
               )
@@ -286,4 +294,3 @@ export function BattleBoard({
     </div>
   )
 }
-

@@ -263,6 +263,8 @@
     "setupMulligan": "Check your private opening hand for a Basic Pokemon.",
     "setupHandReady": "Your opening hand is ready.",
     "setupMulliganAction": "Mulligan opening hand",
+    "setupKeepHand": "You have a Basic Pokemon — keep this hand.",
+    "setupKeepHandAction": "Keep this hand",
     "setupMulliganHand": "Your opening hand ({count} cards)",
     "setupMulliganReveal": "Mulliganed hands, revealed to both players",
     "setupRevealHint": "Both players reveal their setup at the same time.",
@@ -526,7 +528,9 @@
       "setupActiveInvalid": "Choose a Basic Pokemon from your hand as Active.",
       "setupBenchInvalid": "Choose up to five different Basic Pokemon for the Bench.",
       "setupPenaltyInvalid": "Choose no more extra cards than the opponent's Mulligans.",
-      "setupAlreadyRevealed": "Both setup zones have already been revealed."
+      "setupAlreadyRevealed": "Both setup zones have already been revealed.",
+      "setupKeepHand": "You already have a Basic Pokemon, so this hand is kept.",
+      "setupNeedMulligan": "This hand has no Basic Pokemon, so you must Mulligan."
     }
   },
   "packBattle": {

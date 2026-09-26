@@ -187,7 +187,10 @@ export function controlStates(
     evolve: isMain ? evolve : notMain,
     retreat: isMain ? retreat : notMain,
     beginAttack,
-    pass: isAttack ? OK : notMain,
+    // Pass ends the turn from the main phase OR the attack step, matching the
+    // engine. Gating it on the attack step alone stranded the first player on
+    // Turn 1, who cannot attack and so could never reach Pass.
+    pass: isAttack || isMain ? OK : notMain,
     promote,
   }
 }

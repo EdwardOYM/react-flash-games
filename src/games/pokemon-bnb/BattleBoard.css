@@ -9,6 +9,10 @@
   gap: 6px;
   width: min(100%, 960px);
   min-width: 0;
+  /* Natural height: the 16:9 stage caps height, and letting flex shrink a
+     full five-slot Bench plus a real-card hand made zones and hand spill
+     outside the stage. Lanes scroll internally instead of overlapping. */
+  flex: 0 0 auto;
   min-height: 0;
 }
 
@@ -25,7 +29,7 @@
 
 .bnb-board-lanes {
   display: flex;
-  flex: 1;
+  flex: 0 0 auto;
   flex-direction: column;
   gap: 6px;
   min-width: 0;
@@ -36,11 +40,13 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 0;
   min-height: 0;
   padding: 8px 10px;
   border: 1px solid #33454a;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: #16222a;
 }
 
@@ -84,13 +90,23 @@
   gap: 8px;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 /* Bench grid: minmax(0, 1fr) tracks so a full five-Pokemon Bench can never
    push the lane wider than the 960px embed. */
 .bnb-bench-list, .bnb-hand-list { list-style: none; margin: 0; padding: 0; }
+/* Empty bench space is drawn as a real slot, so the player can see where a
+   Basic may legally go instead of inferring it from an absent card. */
+/* Sized off the same token as a real card (width x the 8/11 card ratio) so an
+   empty slot occupies exactly the space a Pokemon would, at any scale. */
+.bnb-bench-slot-empty {
+  width: 100%;
+  max-width: var(--pkm-card-w, 168px);
+  aspect-ratio: 8 / 11;
+  border: 1px dashed #3b4f55;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .02);
+}
 .bnb-bench-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(var(--pkm-card-w, 168px), 1fr));
@@ -105,12 +121,14 @@
 .bnb-bench-pick[aria-pressed='true'] { border-color: #ffc857; box-shadow: 0 0 0 1px #ffc857; }
 .bnb-bench-face { display: block; }
 
-.bnb-hand-list { display: flex; flex-wrap: wrap; gap: 5px; }
-.bnb-hand-pick { padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; }
-.bnb-hand-chip { padding: 3px 7px; border: 1px solid #33454a; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .62rem; }
-.bnb-hand-pick:hover .bnb-hand-chip { border-color: #ffc857; color: #ffc857; }
+/* Hand cards render as real faces, sized down from the board card so a full
+   hand still fits the 16:9 stage without scrolling. */
+.bnb-hand-list { display: flex; flex-wrap: wrap; gap: 5px; align-items: flex-start; }
+.bnb-hand-slot { --pkm-card-w: 62px; }
+.bnb-hand-pick { display: block; padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; }
+.bnb-hand-pick:hover { border-color: #ffc857; }
 .bnb-hand-pick:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
-.bnb-hand-pick[aria-pressed='true'] .bnb-hand-chip { border-color: #ffc857; color: #101820; background: #ffc857; }
+.bnb-hand-pick[aria-pressed='true'] { border-color: #ffc857; box-shadow: 0 0 0 1px #ffc857; }
 
 .bnb-side-bench .bnb-bench-list { flex: 1; min-width: 0; margin-top: 0; }
 
