@@ -1,4 +1,4 @@
-// Pokemon TCG B&B mini — peer-to-peer Build & Battle limited format.
+﻿// Pokemon TCG B&B mini — peer-to-peer Build & Battle limited format.
 // CP7-E-c: the deck-ready handshake (deckIds, one entry per copy) feeds
 // beginBattle(), which runs setupBattle from the shared seed with both decks
 // resolved against the identical opened pool; the loading view holds for a
@@ -18,6 +18,7 @@ import { getSet, listSets } from './sets'
 import { readHighscores, recordMatchWin } from './highscores'
 import { PokemonCard } from './PokemonCard'
 import { BattleBoard } from './BattleBoard'
+import { controlStates, reasonKey, type ControlId } from './controls'
 import { HighscoreTable } from '../highscore/HighscoreTable'
 import './PokemonBnbGame.css'
 
@@ -106,6 +107,29 @@ const WIN_REASON_KEYS: Record<string, TranslationKey> = {
 function abilityTarget(text: string, selectedBench: number | null): { targetIndex?: 'active' | number } {
   if (classifyAbility(text).id !== 'healChosen') return {}
   return { targetIndex: selectedBench !== null ? selectedBench : 'active' }
+}
+
+/**
+ * CP7: the action bar is data-driven. `controlStates` (pure, in controls.ts)
+ * decides enabled/reason for each id, and this list is only the order and the
+ * label — so adding a control cannot drift from the rule that gates it.
+ */
+const CONTROLS: { id: ControlId; labelKey: TranslationKey }[] = [
+  { id: 'attachEnergy', labelKey: 'pokemonBnb.actionAttach' },
+  { id: 'playBasic', labelKey: 'pokemonBnb.actionPlayBasic' },
+  { id: 'playItem', labelKey: 'pokemonBnb.actionPlayItem' },
+  { id: 'playSupporter', labelKey: 'pokemonBnb.actionPlaySupporter' },
+  { id: 'playStadium', labelKey: 'pokemonBnb.actionPlayStadium' },
+  { id: 'attachTool', labelKey: 'pokemonBnb.actionPlayTool' },
+  { id: 'evolve', labelKey: 'pokemonBnb.actionEvolve' },
+  { id: 'retreat', labelKey: 'pokemonBnb.actionRetreat' },
+  { id: 'beginAttack', labelKey: 'pokemonBnb.actionBeginAttack' },
+  { id: 'pass', labelKey: 'pokemonBnb.actionPass' },
+]
+
+/** The local seat, from the peer role (defaults to host before a session). */
+function mySlotOfRole(role: Role | null): PlayerSlot {
+  return role === 'guest' ? 'guest' : 'host'
 }
 
 type LocalSeatControlsProps = {
@@ -1554,6 +1578,15 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   // host-authoritative snapshots of CP9 replace this with toSnapshot views.
   // CP8-D: the paused view renders the same tabletop under the pause overlay
   // (CP9 adds the wall-clock pause there; the battle itself is untouched).
+  // CP7: who may promote right now, and why not. Derived from the same pure
+  // table the action bar renders, so the gate and the buttons always agree.
+  const promoteSeat: PlayerSlot = battle?.pendingPromotion ?? mySlotOfRole(role)
+  const promoteControl = battle ? controlStates(battle, promoteSeat, { handIndex: null, benchIndex: selBench }) : null
+  const promoteEnabled = promoteControl?.promote.enabled ?? false
+  const promoteReason = promoteControl?.promote.reason
+    ? t(reasonKey(promoteControl.promote.reason) as TranslationKey)
+    : null
+
   if ((view === 'playing' || view === 'paused') && battle) {
     const mySlot: PlayerSlot = role === 'guest' ? 'guest' : 'host'
     const foeSlot: PlayerSlot = mySlot === 'host' ? 'guest' : 'host'
@@ -1638,34 +1671,73 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               <p className="bnb-notice">{battleErrorCopy('must-promote')}</p>
             )}
           </header>
-          {battle.pendingPromotion === mySlot && !battle.over
-            ? (
-              <div className="bnb-promote-gate" role="dialog" aria-modal="false" aria-label={t('pokemonBnb.promoteTitle')}>
-                <p className="bnb-promote-title">{t('pokemonBnb.promoteTitle')}</p>
-                <p className="bnb-hint">{t('pokemonBnb.selectTarget').replace('{index}', String((selBench ?? 0) + 1))}</p>
-                <div className="bnb-actions">
-                  <button
-                    className="bnb-primary"
-                    type="button"
-                    disabled={selBench === null}
-                    onClick={() => selBench !== null && runBattleAction(mySlot, { type: 'promoteActive', benchIndex: selBench })}
-                  >
-                    {t('pokemonBnb.actionPromote').replace('{name}', selBench !== null ? (battle[mySlot].bench[selBench]?.card.name ?? '') : '')}
-                  </button>
-                </div>
+          {/*
+           * CP7 promotion gate. It follows `pendingPromotion`, not the local
+           * seat: after a simultaneous KO the engine queues the next player
+           * first, and in the hot-seat harness the second seat's KO would
+           * otherwise have no way to promote at all. `controls.promote` is the
+           * same table the action bar uses, so the gate and the bar can never
+           * disagree about whether promoting is legal.
+           */}
+          {battle.pendingPromotion !== null && !battle.over && (
+            <div className="bnb-promote-gate" role="dialog" aria-modal="false" aria-label={t('pokemonBnb.promoteTitle')}>
+              <p className="bnb-promote-title">{t('pokemonBnb.promoteTitle')}</p>
+              {battle.promotionQueue.length > 1 && (
+                <p className="bnb-hint">
+                  {battle.promotionQueue.map((slot) => seatName(slot)).join(' → ')}
+                </p>
+              )}
+              <p className="bnb-hint">{t('pokemonBnb.selectTarget').replace('{index}', String((selBench ?? 0) + 1))}</p>
+              <div className="bnb-actions">
+                <button
+                  className="bnb-primary"
+                  type="button"
+                  disabled={!promoteEnabled}
+                  title={promoteReason ?? undefined}
+                  onClick={() => selBench !== null && runBattleAction(promoteSeat, { type: 'promoteActive', benchIndex: selBench })}
+                >
+                  {t('pokemonBnb.actionPromote').replace('{name}', selBench !== null ? (battle[promoteSeat].bench[selBench]?.card.name ?? '') : '')}
+                </button>
               </div>
-            )
-            : localMode && battle.pendingPromotion !== null
-              ? null
-              : (() => {
+            </div>
+          )}
+          {battle.pendingPromotion === null && (() => {
+                // CP7: in the hot-seat harness the acting seat follows the turn,
+                // but a pending Knock Out must be promoted by the seat that owns
+                // it — otherwise a simultaneous KO leaves the harness stuck.
+                const pendingSeat = battle.pendingPromotion
+                const actor: PlayerSlot = localMode
+                  ? (pendingSeat ?? battle.activePlayer)
+                  : mySlot
                 const mySide = battle[mySlot]
+                const selfSide = battle[actor]
                 const myHandCard = selHand !== null ? mySide.hand[selHand] ?? null : null
                 const benchTarget = selBench !== null ? mySide.bench[selBench] ?? null : null
                 const isMyTurn = !battle.over && battle.pendingPromotion === null && battle.activePlayer === (localMode ? battle.activePlayer : mySlot)
-                const inMain = isMyTurn && battle.phase === 'main'
-                const inAttack = isMyTurn && battle.phase === 'attack'
-                const actor: PlayerSlot = localMode ? battle.activePlayer : mySlot
-                const attacks = mySide.active?.card.attacks ?? []
+                const controls = controlStates(battle, actor, { handIndex: selHand, benchIndex: selBench })
+                const attacks = selfSide.active?.card.attacks ?? []
+                /** The single most useful reason to show: the pick the player owes. */
+                const blockedReason = !controls.playBasic.enabled && controls.playBasic.reason
+                  ? t(reasonKey(controls.playBasic.reason) as TranslationKey)
+                  : null
+                /** Translate one control id into the intent it dispatches. */
+                const onControl = (id: ControlId) => {
+                  if (selHand === null && id !== 'retreat' && id !== 'beginAttack' && id !== 'pass') return
+                  const target: 'active' | number = selBench !== null ? selBench : 'active'
+                  switch (id) {
+                    case 'attachEnergy': return runBattleAction(actor, { type: 'attachEnergy', handIndex: selHand!, target })
+                    case 'playBasic': return runBattleAction(actor, { type: 'playBasic', handIndex: selHand! })
+                    case 'playItem':
+                    case 'playSupporter':
+                    case 'playStadium': return runBattleAction(actor, { type: 'playTrainer', handIndex: selHand! })
+                    case 'attachTool': return runBattleAction(actor, { type: 'attachTool', handIndex: selHand!, target })
+                    case 'evolve': return runBattleAction(actor, { type: 'evolve', handIndex: selHand!, target })
+                    case 'retreat': return selBench !== null && runBattleAction(actor, { type: 'retreatToBench', benchIndex: selBench })
+                    case 'beginAttack': return runBattleAction(actor, { type: 'beginAttack' })
+                    case 'pass': return runBattleAction(actor, { type: 'pass' })
+                    default: return
+                  }
+                }
                 return (
                   <div className="bnb-action-bar" role="toolbar" aria-label={t('pokemonBnb.battleActions')}>
                     {!isMyTurn && !battle.over && (
@@ -1675,47 +1747,40 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                     )}
                     {isMyTurn && <span className="bnb-hint">{t(battle.phase === 'main' ? 'pokemonBnb.phaseMain' : battle.phase === 'attack' ? 'pokemonBnb.phaseAttack' : battle.phase === 'between' ? 'pokemonBnb.phaseBetweenTurns' : 'pokemonBnb.phaseDraw')}</span>}
                     <div className="bnb-actions">
-                      <button
-                        type="button"
-                        disabled={!inMain || selHand === null}
-                        onClick={() => {
-                          if (selHand === null) return
-                          const target: 'active' | number = selBench !== null ? selBench : 'active'
-                          runBattleAction(actor, { type: 'attachEnergy', handIndex: selHand, target })
-                        }}
-                      >
-                        {t('pokemonBnb.actionAttach')}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!inMain || selHand === null}
-                        onClick={() => selHand !== null && runBattleAction(actor, { type: 'playBasic', handIndex: selHand })}
-                      >
-                        {t('pokemonBnb.actionPlayBasic')}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!inMain || selHand === null}
-                        onClick={() => selHand !== null && runBattleAction(actor, { type: 'playTrainer', handIndex: selHand })}
-                      >
-                        {t('pokemonBnb.actionPlayTrainer')}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!inMain || selHand === null}
-                        onClick={() => {
-                          if (selHand === null) return
-                          const target: 'active' | number = selBench !== null ? selBench : 'active'
-                          runBattleAction(actor, { type: 'attachTool', handIndex: selHand, target })
-                        }}
-                      >
-                        {t('pokemonBnb.actionPlayTool')}
-                      </button>
-                      {mySide.active?.card.abilities.map((ability, abilityIndex) => (
+                      {CONTROLS.map(({ id, labelKey }) => {
+                        const control = controls[id]
+                        const reason = control.reason ? t(reasonKey(control.reason) as TranslationKey) : null
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            disabled={!control.enabled}
+                            title={reason ?? undefined}
+                            aria-describedby={!control.enabled && reason ? 'bnb-control-reason' : undefined}
+                            onClick={() => onControl(id)}
+                          >
+                            {t(labelKey)}
+                          </button>
+                        )
+                      })}
+                      {attacks.map((attack, index) => (
+                        <button
+                          key={`${attack.name}-${index}`}
+                          type="button"
+                          disabled={!controls.beginAttack.enabled}
+                          title={blockedReason ?? undefined}
+                          aria-label={`${t('pokemonBnb.actionAttack')} — ${attack.name}`}
+                          onClick={() => runBattleAction(actor, { type: 'useAttack', attackIndex: index })}
+                        >
+                          {attack.name}
+                        </button>
+                      ))}
+                      {selfSide.active?.card.abilities.map((ability, abilityIndex) => (
                         <button
                           key={`active-${ability.name}-${abilityIndex}`}
                           type="button"
-                          disabled={!inMain}
+                          disabled={!controls.playBasic.enabled}
+                          title={blockedReason ?? undefined}
                           aria-label={`${t('pokemonBnb.actionUseAbility')} — ${ability.name}`}
                           onClick={() => runBattleAction(actor, { type: 'useAbility', target: 'active', abilityIndex, ...abilityTarget(ability.text, selBench) })}
                         >
@@ -1726,57 +1791,16 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                         <button
                           key={`bench-${ability.name}-${abilityIndex}`}
                           type="button"
-                          disabled={!inMain || selBench === null}
+                          disabled={selBench === null}
+                          title={blockedReason ?? undefined}
                           aria-label={`${t('pokemonBnb.actionUseAbility')} — ${ability.name}`}
                           onClick={() => selBench !== null && runBattleAction(actor, { type: 'useAbility', target: selBench, abilityIndex, ...abilityTarget(ability.text, selBench) })}
                         >
                           {ability.name}
                         </button>
                       ))}
-                      <button
-                        type="button"
-                        disabled={!inMain || selHand === null}
-                        onClick={() => {
-                          if (selHand === null) return
-                          const target: 'active' | number = selBench !== null ? selBench : 'active'
-                          runBattleAction(actor, { type: 'evolve', handIndex: selHand, target })
-                        }}
-                      >
-                        {t('pokemonBnb.actionEvolve')}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!inMain || selBench === null}
-                        onClick={() => selBench !== null && runBattleAction(actor, { type: 'retreatToBench', benchIndex: selBench })}
-                      >
-                        {t('pokemonBnb.actionRetreat')}
-                      </button>
-                      {attacks.map((attack, index) => (
-                        <button
-                          key={attack.name}
-                          type="button"
-                          disabled={!inAttack}
-                          aria-label={`${t('pokemonBnb.actionAttack')} — ${attack.name}`}
-                          onClick={() => runBattleAction(actor, { type: 'useAttack', attackIndex: index })}
-                        >
-                          {attack.name}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        disabled={!inMain}
-                        onClick={() => runBattleAction(actor, { type: 'beginAttack' })}
-                      >
-                        {t('pokemonBnb.actionBeginAttack')}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!inAttack}
-                        onClick={() => runBattleAction(actor, { type: 'pass' })}
-                      >
-                        {t('pokemonBnb.actionPass')}
-                      </button>
                     </div>
+                    {blockedReason && <p className="bnb-hint" id="bnb-control-reason">{blockedReason}</p>}
                     {isMyTurn && selHand === null && <p className="bnb-hint">{t('pokemonBnb.selectHandCard')}</p>}
                     {isMyTurn && myHandCard && benchTarget && <p className="bnb-hint">{myHandCard.name} → {benchTarget.card.name}</p>}
                     {isMyTurn && myHandCard && selBench === null && <p className="bnb-hint">{myHandCard.name} → {t('pokemonBnb.zoneActive')}</p>}
