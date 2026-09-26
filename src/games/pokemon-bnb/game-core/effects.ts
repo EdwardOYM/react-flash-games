@@ -9,10 +9,10 @@
 // Part of the game-core module split (CP7-E-a); see ./index.ts for the full
 // engine header and the re-export barrel.
 
-import type { AttackDef } from '../cards'
+import { cardIsEnergy, cardIsPokemon, type AttackDef, type CardDef, type EnergyCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
-import { drawCards, foeOf, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
+import { drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
 import type { BattleLogEntry, BattleState, InPlayPokemon, StatusCondition } from './types'
 import { applyDeckOutLoss, performKo, prizesTaken } from './turns'
 
@@ -92,9 +92,114 @@ export function effectTiming(kind: ParsedEffect['kind']): EffectTiming {
   return 'afterDamage'
 }
 
-/** Strip card-text markup (and collapses whitespace) so patterns match prose. */
+/**
+ * Strip card-text markup and fold diacritics so patterns can be written in
+ * plain ASCII. 30C card data spells "Pokémon" with an accent, so an un-folded
+ * match against "pokemon" would silently miss every such clause.
+ */
 export function plainCardText(text: string): string {
-  return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// -- CP5: Ability registry --
+
+/**
+ * Player-triggered Ability effects, as data.
+ *
+ * 30C ships 16 distinct printed Ability texts across 23 cards. Only the ones
+ * beginning "Once during your turn" are player-triggered (rulebook), and the
+ * other 9 are passive/static clauses (damage prevention, HP bonuses, Bench
+ * cost reduction, Knock Out reactions) that the engine does not simulate: the
+ * `abilityIneligible` gate rejects them before any effect lookup, and
+ * `abilityCoverageReport()` lists them so the gap stays visible rather than
+ * being guessed at.
+ */
+export type AbilityEffect =
+  /** Reveal the topmost matching deck card into hand. */
+  | { id: 'searchToHand'; filter: 'pokemon' | 'basicEnergy' | 'energy'; energyType?: string; coin: boolean }
+  /** Attach matching basic Energy from hand onto the Ability's own Pokemon. */
+  | { id: 'attachFromHand'; energyType: string; count: number; requiresInPlay: string[] }
+  /** Search the deck for basic Energy and attach it to the Ability's Pokemon. */
+  | { id: 'searchEnergyToAttach'; energyType: string; count: number; benchOnly: boolean }
+  /** Heal the chosen Pokemon of the controller. */
+  | { id: 'healChosen'; amount: number }
+  | { id: 'unsupported'; text: string }
+
+const ABILITY_EFFECTS: { match: RegExp; build: (plain: string) => AbilityEffect }[] = [
+  {
+    match: /^once during your turn, you may use this ability\. flip a coin\. if heads, search your deck for a pokemon/i,
+    build: () => ({ id: 'searchToHand', filter: 'pokemon', coin: true }),
+  },
+  {
+    match: /^once during your turn, if you have (.+) and (.+) in play, you may use this ability\. attach a basic (fire|water|lightning) energy card from your hand to this pokemon/i,
+    build: (plain) => {
+      const match = plain.match(/if you have (.+?) and (.+?) in play/i)
+      // Card text capitalises the type ("Basic Fire Energy"); energy data uses
+      // lowercase ids, so fold it here or the match silently fails.
+      const energyType = plain.match(/basic (fire|water|lightning) energy/i)?.[1]?.toLowerCase() ?? 'fire'
+      return {
+        id: 'attachFromHand',
+        energyType,
+        count: 1,
+        requiresInPlay: (match ? [match[1], match[2]] : []).map((name) => name.trim().toLowerCase()),
+      }
+    },
+  },
+  {
+    match: /^once during your turn, if this pokemon is on your bench, you may use this ability\. search your deck for up to 2 basic (.+) energy cards and attach them to this pokemon/i,
+    build: (plain) => ({
+      id: 'searchEnergyToAttach',
+      energyType: plain.match(/basic (\w+) energy cards/i)?.[1]?.toLowerCase() ?? 'metal',
+      count: 2,
+      benchOnly: true,
+    }),
+  },
+  {
+    match: /^once during your turn, you may use this ability\. heal (\d+) damage from 1 of your pokemon/i,
+    build: (plain) => ({ id: 'healChosen', amount: Number(plain.match(/heal (\d+)/i)?.[1] ?? 0) }),
+  },
+]
+
+/**
+ * Classify one printed Ability into a supported effect, or report it as
+ * unsupported so a wrong effect is never silently applied.
+ */
+export function classifyAbility(text: string): AbilityEffect {
+  const plain = plainCardText(text)
+  for (const entry of ABILITY_EFFECTS) {
+    if (entry.match.test(plain)) return entry.build(plain)
+  }
+  return { id: 'unsupported', text: plain }
+}
+
+/** True when the printed text permits the player to trigger the Ability. */
+export function isPlayerTriggeredAbility(text: string): boolean {
+  return /^once during your turn/i.test(plainCardText(text))
+}
+
+export type AbilityCoverage = { supported: string[]; passive: string[]; unsupported: string[] }
+
+/**
+ * Coverage report over the whole set: which printed Ability texts resolve,
+ * which are passive (never player-triggered), and which are player-triggered
+ * but still unimplemented.
+ */
+export function abilityCoverageReport(abilities: { name: string; text: string }[]): AbilityCoverage {
+  const coverage: AbilityCoverage = { supported: [], passive: [], unsupported: [] }
+  const seen = new Set<string>()
+  for (const ability of abilities) {
+    if (seen.has(ability.text)) continue
+    seen.add(ability.text)
+    if (!isPlayerTriggeredAbility(ability.text)) coverage.passive.push(ability.text)
+    else if (classifyAbility(ability.text).id === 'unsupported') coverage.unsupported.push(ability.text)
+    else coverage.supported.push(ability.text)
+  }
+  return coverage
 }
 
 const STATUS_WORDS: Record<string, StatusCondition> = {
@@ -180,6 +285,107 @@ export type EffectContext = {
   attacker: InPlayPokemon
   defender: InPlayPokemon | null
   attackName: string
+}
+
+// -- CP5: Ability resolution --
+
+/** Everything an Ability effect needs: who used it, on which Pokemon, and any
+ * player-chosen Pokemon for "1 of your Pokemon" clauses. */
+export type AbilityContext = {
+  actor: PlayerSlot
+  /** The Pokemon carrying the Ability. */
+  user: InPlayPokemon
+  /** Player-chosen Pokemon of the controller, when the text demands one. */
+  chosen: InPlayPokemon | null
+}
+
+/** Move the first deck card matching `filter` into hand (rulebook "search"). */
+function searchToHand(
+  state: BattleState,
+  actor: PlayerSlot,
+  filter: 'pokemon' | 'basicEnergy' | 'energy',
+  energyType?: string,
+): CardDef | null {
+  const side = sideOf(state, actor)
+  const index = side.deck.findIndex((card) => {
+    if (filter === 'pokemon') return cardIsPokemon(card)
+    if (!cardIsEnergy(card)) return false
+    return !energyType || (card as EnergyCardDef).provides === energyType
+  })
+  if (index === -1) return null
+  const [found] = side.deck.splice(index, 1)
+  side.hand.push(found)
+  return found
+}
+
+/**
+ * Apply one player-triggered Ability effect. Returns an error code when the
+ * effect cannot resolve (missing requirement or no matching card), so the
+ * caller can reject the action without mutating the passed state.
+ *
+ * Coin gates use the shared seeded flip, so both peers derive the same result
+ * from the shared seed and draw counter.
+ */
+export function applyAbilityEffect(
+  state: BattleState,
+  effect: AbilityEffect,
+  context: AbilityContext,
+): string | null {
+  const side = sideOf(state, context.actor)
+  switch (effect.id) {
+    case 'searchToHand': {
+      if (effect.coin && !flipCoin(state)) {
+        logEvent(state, 'pokemonBnb.log.coinTails', { player: context.actor })
+        return null
+      }
+      const found = searchToHand(state, context.actor, effect.filter, effect.energyType)
+      if (!found) return 'ability-no-match'
+      logEvent(state, 'pokemonBnb.log.abilitySearch', { player: context.actor, card: found.name, pokemon: context.user.card.name })
+      return null
+    }
+    case 'attachFromHand': {
+      for (const name of effect.requiresInPlay) {
+        const present = inPlayList(side).some((pokemon) => pokemon.card.name.trim().toLowerCase() === name)
+        if (!present) return 'ability-requirement-unmet'
+      }
+      let attached = 0
+      for (let index = side.hand.length - 1; index >= 0 && attached < effect.count; index--) {
+        const card = side.hand[index]
+        if (!cardIsEnergy(card) || card.provides !== effect.energyType) continue
+        side.hand.splice(index, 1)
+        context.user.attachedEnergy.push(card)
+        attached += 1
+      }
+      if (attached === 0) return 'ability-no-match'
+      logEvent(state, 'pokemonBnb.log.abilityAttachEnergy', { player: context.actor, pokemon: context.user.card.name, count: attached })
+      return null
+    }
+    case 'searchEnergyToAttach': {
+      if (effect.benchOnly && side.active === context.user) return 'ability-requirement-unmet'
+      let attached = 0
+      for (let index = 0; index < effect.count; index++) {
+        const found = searchToHand(state, context.actor, 'energy', effect.energyType)
+        if (!found) break
+        context.user.attachedEnergy.push(found as EnergyCardDef)
+        attached += 1
+      }
+      if (attached === 0) return 'ability-no-match'
+      logEvent(state, 'pokemonBnb.log.abilityAttachEnergy', { player: context.actor, pokemon: context.user.card.name, count: attached })
+      return null
+    }
+    case 'healChosen': {
+      const target = context.chosen
+      if (!target) return 'ability-need-target'
+      const healed = Math.min(effect.amount, target.damage)
+      if (healed === 0) return 'ability-no-match'
+      target.damage -= healed
+      logEvent(state, 'pokemonBnb.log.abilityHeal', { player: context.actor, target: target.card.name, amount: healed })
+      return null
+    }
+    case 'unsupported':
+      logEvent(state, 'pokemonBnb.log.abilityUnsupported', { text: effect.text })
+      return null
+  }
 }
 
 /**

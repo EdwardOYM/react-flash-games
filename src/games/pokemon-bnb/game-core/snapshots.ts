@@ -106,6 +106,7 @@ function snapshotSideToState(snapshot: SnapshotSide): SideState {
     stadiumPlayedTurn: -1,
     retreatedThisTurn: false,
     mulliganCount: snapshot.mulliganCount,
+    abilityUsedNames: {},
     setupActive: snapshot.setupActiveCount > 0 ? HIDDEN_CARD as unknown as SideState['setupActive'] : null,
     setupBench: fillHidden(snapshot.setupBenchCount) as SideState['setupBench'],
     setupPenaltyCards: snapshot.setupPenaltyCards,

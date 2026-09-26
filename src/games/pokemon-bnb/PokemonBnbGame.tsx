@@ -9,7 +9,7 @@ import { readConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import type { CardDef, CardRarity, SetId } from './cards'
 import { DECK_SIZE, buildPoolIsValid, serializeDeck, type DeckLegalityReason, type EnergySelection } from './deck'
-import { STATUS_CONDITIONS, applySnapshot, applyTimeout, processAction, setupBattle, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
+import { STATUS_CONDITIONS, applySnapshot, applyTimeout, classifyAbility, processAction, setupBattle, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
 import { basicEnergyCatalog, openPacks, buildPool, type OpenedCard, type OpenedPool } from './pack'
@@ -95,6 +95,16 @@ const WIN_REASON_KEYS: Record<string, TranslationKey> = {
   prizes: 'pokemonBnb.winReasonPrizes',
   'deck-out': 'pokemonBnb.winReasonDeckOut',
   'no-pokemon': 'pokemonBnb.winReasonNoPokemon',
+}
+
+/**
+ * CP5: an Ability that heals "1 of your Pokemon" needs a chosen target. The
+ * current Bench pick is reused (defaulting to the Active spot), so the player
+ * can pick the target with the same selection they use for every other action.
+ */
+function abilityTarget(text: string, selectedBench: number | null): { targetIndex?: 'active' | number } {
+  if (classifyAbility(text).id !== 'healChosen') return {}
+  return { targetIndex: selectedBench !== null ? selectedBench : 'active' }
 }
 
 type BattlePanelProps = {
@@ -1839,13 +1849,13 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                       >
                         {t('pokemonBnb.actionPlayTool')}
                       </button>
-                      {(mySide.active?.card.abilities ?? []).map((ability, abilityIndex) => (
+                      {mySide.active?.card.abilities.map((ability, abilityIndex) => (
                         <button
                           key={`active-${ability.name}-${abilityIndex}`}
                           type="button"
                           disabled={!inMain}
                           aria-label={`${t('pokemonBnb.actionUseAbility')} — ${ability.name}`}
-                          onClick={() => runBattleAction(actor, { type: 'useAbility', target: 'active', abilityIndex })}
+                          onClick={() => runBattleAction(actor, { type: 'useAbility', target: 'active', abilityIndex, ...abilityTarget(ability.text, selBench) })}
                         >
                           {ability.name}
                         </button>
@@ -1856,7 +1866,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                           type="button"
                           disabled={!inMain || selBench === null}
                           aria-label={`${t('pokemonBnb.actionUseAbility')} — ${ability.name}`}
-                          onClick={() => selBench !== null && runBattleAction(actor, { type: 'useAbility', target: selBench, abilityIndex })}
+                          onClick={() => selBench !== null && runBattleAction(actor, { type: 'useAbility', target: selBench, abilityIndex, ...abilityTarget(ability.text, selBench) })}
                         >
                           {ability.name}
                         </button>

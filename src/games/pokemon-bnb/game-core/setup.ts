@@ -59,6 +59,7 @@ export function sideEmpty(): SideState {
     stadiumPlayedTurn: -1,
     retreatedThisTurn: false,
     mulliganCount: 0,
+    abilityUsedNames: {},
     setupActive: null,
     setupBench: [],
     setupPenaltyCards: 0,

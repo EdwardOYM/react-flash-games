@@ -37,6 +37,7 @@ export type InPlayPokemon = {
   evolvedTurn: number
   energyAttachedTurn: number
   retreatedTurn: number
+  /** Turn number this copy last used its Ability. */
   abilityUsedTurn: number
 }
 
@@ -61,6 +62,8 @@ export type SideState = {
   retreatedThisTurn: boolean
   /** Number of opening-hand Mulligans. The opponent chooses the extra-card penalty. */
   mulliganCount: number
+  /** Ability names used this turn by this side, for once-per-name restrictions. */
+  abilityUsedNames: Record<string, number>
   /** Face-down setup Active selected from this side's private hand. */
   setupActive: PokemonCardDef | null
   /** Face-down setup Bench selected from this side's private hand. */
@@ -154,7 +157,7 @@ export type BattleAction =
   | { type: 'playBasic'; handIndex: number }
   | { type: 'playTrainer'; handIndex: number }
   | { type: 'attachTool'; handIndex: number; target: 'active' | number }
-  | { type: 'useAbility'; target: 'active' | number; abilityIndex: number }
+  | { type: 'useAbility'; target: 'active' | number; abilityIndex: number; targetIndex?: 'active' | number }
   | { type: 'evolve'; handIndex: number; target: 'active' | number }
   | { type: 'retreatToBench'; benchIndex: number }
   | { type: 'beginAttack' }

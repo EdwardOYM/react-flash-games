@@ -9,7 +9,7 @@ import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN } from './constants'
 import { canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, failure, inPlayOf, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState } from './types'
-import { flipCoin, parseAttackEffects, resolveAttack } from './effects'
+import { applyAbilityEffect, classifyAbility, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, mulliganSetup } from './setup'
 import { applyEndTurn, applyStartOfTurn, checkVictory, performKo } from './turns'
 
@@ -114,8 +114,25 @@ export function playBasic(state: BattleState, actor: PlayerSlot, handIndex: numb
   return { state: next, log: tailLog(next, logStart) }
 }
 
-/** Activate an eligible once-during-turn Ability; CP5 resolves its effect. */
-export function activateAbility(state: BattleState, actor: PlayerSlot, target: 'active' | number, abilityIndex: number): ActionResult {
+/**
+ * Activate a player-triggered Ability (rulebook: "Once during your turn").
+ *
+ * Abilities are not attacks, cost no Energy, and work from the Active spot or
+ * the Bench, so no phase or position gate applies beyond the once-per-turn
+ * limit. Asleep/Confused/Paralyzed do not block them (rulebook), but a
+ * condition may apply an effect the Ability itself needs, e.g. healing.
+ *
+ * The effect is resolved on a clone first, so a requirement that cannot be met
+ * (missing partner in play, no matching card, no chosen target) rejects the
+ * action and leaves the real state untouched.
+ */
+export function activateAbility(
+  state: BattleState,
+  actor: PlayerSlot,
+  target: 'active' | number,
+  abilityIndex: number,
+  targetIndex?: 'active' | number,
+): ActionResult {
   const blocked = checkTurn(state, actor)
   if (blocked) return failure(state, blocked)
   const next = cloneBattleState(state)
@@ -123,10 +140,22 @@ export function activateAbility(state: BattleState, actor: PlayerSlot, target: '
   if (!pokemon) return failure(state, 'no-target')
   const ability = pokemon.card.abilities[abilityIndex]
   if (!ability) return failure(state, 'no-ability')
-  if (!/once during your turn/i.test(ability.text)) return failure(state, 'ability-ineligible')
+  if (!isPlayerTriggeredAbility(ability.text)) return failure(state, 'ability-ineligible')
   if (pokemon.abilityUsedTurn === next.turn) return failure(state, 'ability-limit')
+  // "You can only use 1 [Ability] per turn" style clauses are enforced per
+  // side per name; the rulebook allows each copy otherwise.
+  const side = sideOf(next, actor)
+  if (side.abilityUsedNames[ability.name] === next.turn) return failure(state, 'ability-limit')
+
+  const chosen = targetIndex === undefined ? null : inPlayOf(sideOf(next, actor), targetIndex)
+  if (targetIndex !== undefined && !chosen) return failure(state, 'no-target')
+  // Capture before resolving so the effect's own log entries are reported.
   const logStart = next.log.length
+  const error = applyAbilityEffect(next, classifyAbility(ability.text), { actor, user: pokemon, chosen })
+  if (error) return failure(state, error)
+
   pokemon.abilityUsedTurn = next.turn
+  side.abilityUsedNames = { ...side.abilityUsedNames, [ability.name]: next.turn }
   logEvent(next, 'pokemonBnb.log.useAbility', { player: actor, pokemon: pokemon.card.name, ability: ability.name })
   return { state: next, log: tailLog(next, logStart) }
 }
@@ -341,7 +370,7 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
     case 'attachTool':
       return attachTool(state, actor, action.handIndex, action.target)
     case 'useAbility':
-      return activateAbility(state, actor, action.target, action.abilityIndex)
+      return activateAbility(state, actor, action.target, action.abilityIndex, action.targetIndex)
     case 'evolve':
       return evolve(state, actor, action.handIndex, action.target)
     case 'retreatToBench':

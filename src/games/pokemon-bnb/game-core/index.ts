@@ -13,8 +13,15 @@
 // - Evolutions in 30C carry no `evolvesFrom` links (verified: 0 occurrences in
 //   cards.json), so CP7-B matches by stage progression + a shared type, and
 //   falls back to name matching when a future set does supply `evolvesFrom`.
-// - Shared Stadium and one attached Tool are explicit turn/snapshot state; the
-//   deterministic ability-effect registry lands in CP5.
+// - Shared Stadium and one attached Tool are explicit turn/snapshot state.
+// - CP5 ships the deterministic Ability registry: `classifyAbility` maps a
+//   printed Ability text to a supported effect, `applyAbilityEffect` resolves it
+//   against the seeded rng, and `abilityCoverageReport` lists what is supported
+//   vs passive vs still unimplemented. 30C has 16 distinct Ability texts
+//   (23 cards): 6 are player-triggered ("Once during your turn") and are
+//   resolved; the rest are passive/static clauses (HP bonuses, damage
+//   prevention, Bench cost reduction, Knock Out reactions) that the engine
+//   does not simulate and reports as unsupported rather than guessing.
 // - `state.log` holds structured `{ key, params }` entries, never English copy:
 //   the log strip is player-facing status text, so templates are translated in
 //   the UI while card names stay verbatim data.
@@ -27,9 +34,8 @@
 //   stay visible rather than silently wrong.
 // - A Knock Out blocks every other action until the KO'd side promotes a
 //   benched Pokemon via `promoteActive`; an empty bench loses the match.
-// - Not yet implemented: abilities (23 cards declare them, but no action can
-//   trigger one), self-Knock-Out sources, and turn-locked / damage-prevention
-//   clauses (they are logged as unsupported).
+// - Not yet implemented: self-Knock-Out sources and turn-locked /
+//   damage-prevention clauses (they are logged as unsupported).
 //
 // Rulebook sources: Pokemon TCG Rulebook (pokemon.com), Bulbapedia "Rulings",
 // "Pokemon Checkup", and "Setting Up to Play" articles.
