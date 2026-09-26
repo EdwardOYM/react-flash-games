@@ -16,6 +16,15 @@ export const MAX_BENCH = 5
 export const ENERGY_PER_TURN = 1
 /** One retreat per Pokemon per turn. */
 export const RETREATS_PER_TURN = 1
+/**
+ * Rulebook: damage is tracked in *damage counters*, and one counter is worth
+ * 10 damage. The engine keeps the authoritative figure in raw damage points
+ * (the numbers a card's attack prints, so Weakness/Resistance and the log stay
+ * exact); this constant is the single conversion for turning that raw damage
+ * into the counter unit the board displays (see `damageCounters`/`hpCounters`
+ * in helpers.ts). Changing it does not change any match result.
+ */
+export const DAMAGE_PER_COUNTER = 10
 /** Poison damage at Between-Turns (one counter). */
 export const POISON_DAMAGE = 10
 /** Burn damage at Between-Turns. */

@@ -7,6 +7,7 @@
 
 import type { CardDef, CardType, EnergyCardDef, PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
+import { DAMAGE_PER_COUNTER } from './constants'
 import type { ActionResult, BattleLogEntry, BattleState, InPlayPokemon, SideState } from './types'
 
 // -- Pure helpers --
@@ -60,6 +61,44 @@ export function effectiveHp(pokemon: InPlayPokemon): number {
 
 export function isKnockedOut(pokemon: InPlayPokemon): boolean {
   return pokemon.damage >= effectiveHp(pokemon)
+}
+
+// -- Damage counters (display unit; the engine stays in raw damage points) --
+//
+// The rulebook measures damage in counters, and one counter is 10 damage. The
+// match is still decided by `isKnockedOut` above, which compares RAW damage to
+// RAW hp and is deliberately left untouched: these three helpers are pure
+// presentation, so no display change can ever alter a result. The rounding
+// below is chosen so the counter readout and the KO test can never disagree
+// (CP1: `damage < hp`  =>  at least 1 counter remaining).
+
+/**
+ * Damage counters banked on a Pokemon. `floor`, so the counter that first
+ * reaches the Pokemon's full health is exactly the counter that knocks it out
+ * (a KO at raw `damage >= hp` always reports at least `hpCounters(hp)`
+ * counters), and a partial counter never rounds up into a false KO. Negative
+ * damage is clamped to 0 so a display can never show "-1 counters".
+ */
+export function damageCounters(damage: number): number {
+  return Math.floor(Math.max(0, damage) / DAMAGE_PER_COUNTER)
+}
+
+/**
+ * A Pokemon's health expressed in damage counters. `ceil`, so a hypothetical
+ * future card whose hp is not a multiple of 10 can never report positive
+ * remaining health while it is already knocked out.
+ */
+export function hpCounters(hp: number): number {
+  return Math.ceil(Math.max(0, hp) / DAMAGE_PER_COUNTER)
+}
+
+/**
+ * Damage counters still to be placed before this Pokemon is knocked out.
+ * Clamped at 0 so extra damage on an already-KO'd Pokemon cannot read as
+ * negative health.
+ */
+export function remainingCounters(pokemon: InPlayPokemon): number {
+  return Math.max(0, hpCounters(effectiveHp(pokemon)) - damageCounters(pokemon.damage))
 }
 
 /** Draw up to `count` from the top of the deck into hand. */
