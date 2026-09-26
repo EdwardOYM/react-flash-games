@@ -1,0 +1,190 @@
+/* CP6 BattleBoard — co-located styles for the shared two-lane tabletop.
+   The board caps at the 960x540 reference embed and never scrolls sideways.
+   One side component serves both seats; `.bnb-side-foe` mirrors the lane with
+   `column-reverse` (flex order only, so text stays upright and readable). */
+
+.bnb-board {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(100%, 960px);
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Shared Stadium lane: one card, centred, between the two seats. */
+.bnb-board-stadium {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid #33454a;
+  background: #16222a;
+}
+
+.bnb-board-lanes {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bnb-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 1px solid #33454a;
+  background: #16222a;
+}
+
+.bnb-side-foe { border-color: #50676a; }
+
+/* CP6: the opponent's lane is "facing you". Flex order only — a transform would
+   flip every translated label and card name upside down. */
+.bnb-side-foe { flex-direction: column-reverse; }
+
+.bnb-zone-label {
+  flex: none;
+  color: #ffc857;
+  font-family: 'DM Mono', monospace;
+  font-size: .62rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.bnb-side-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
+.bnb-side-zones { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .64rem; }
+.bnb-side-card { color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .95rem; }
+.bnb-side-conditions { color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .64rem; }
+
+.bnb-side-active {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bnb-active-face {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bnb-side-bench {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Bench grid: minmax(0, 1fr) tracks so a full five-Pokemon Bench can never
+   push the lane wider than the 960px embed. */
+.bnb-bench-list, .bnb-hand-list { list-style: none; margin: 0; padding: 0; }
+.bnb-bench-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--pkm-card-w, 168px), 1fr));
+  gap: 8px;
+  align-items: start;
+  justify-items: center;
+}
+.bnb-bench-list li, .bnb-hand-list li { margin: 0; padding: 0; min-width: 0; }
+.bnb-bench-pick { display: block; width: 100%; padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; text-align: inherit; }
+.bnb-bench-pick:hover { border-color: #50676a; }
+.bnb-bench-pick:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.bnb-bench-pick[aria-pressed='true'] { border-color: #ffc857; box-shadow: 0 0 0 1px #ffc857; }
+.bnb-bench-face { display: block; }
+
+.bnb-hand-list { display: flex; flex-wrap: wrap; gap: 5px; }
+.bnb-hand-pick { padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; }
+.bnb-hand-chip { padding: 3px 7px; border: 1px solid #33454a; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .62rem; }
+.bnb-hand-pick:hover .bnb-hand-chip { border-color: #ffc857; color: #ffc857; }
+.bnb-hand-pick:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
+.bnb-hand-pick[aria-pressed='true'] .bnb-hand-chip { border-color: #ffc857; color: #101820; background: #ffc857; }
+
+.bnb-side-bench .bnb-bench-list { flex: 1; min-width: 0; margin-top: 0; }
+
+/* CP6: Prize / Deck / Discard row. minmax(0, 1fr) keeps the three tracks from
+   forcing the lane wider than the embed. */
+.bnb-side-zones-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.bnb-side-zone {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid #33454a;
+}
+
+/* CP6: attached Energy + Tool chips. Deliberately text-scale, never full card
+   faces, so a heavily charged Pokemon cannot overflow the 16:9 stage. */
+.bnb-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bnb-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  padding: 1px 5px;
+  border: 1px solid #50676a;
+  color: #f5f0e8;
+  font-family: 'DM Mono', monospace;
+  font-size: .58rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bnb-attachment-energy { border-color: #ffc857; color: #ffc857; }
+.bnb-attachment-tool { border-style: dashed; }
+
+.bnb-side-hand {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bnb-side-hand .bnb-hand-list { flex: 1; min-width: 0; }
+
+/* Mobile landscape: the board is the only tall element, so it shrinks with the
+   stage rather than scrolling. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .bnb-board { gap: 4px; }
+  .bnb-board-stadium { padding: 2px 6px; }
+  .bnb-side { padding: 5px 7px; gap: 4px; }
+  .bnb-side-zones-row { gap: 4px; }
+  .bnb-attachment { padding: 1px 4px; font-size: .52rem; }
+}
+
+/* Narrow portrait: the zone row keeps three narrow tracks rather than wrapping
+   the stage wider than the viewport. */
+@media (max-width: 520px) {
+  .bnb-side-zones-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+  .bnb-side-zone { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .bnb-side-active, .bnb-side-bench, .bnb-side-hand { flex-wrap: wrap; }
+}

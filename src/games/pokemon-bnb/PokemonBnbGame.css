@@ -106,21 +106,8 @@
 .bnb-results .bnb-actions { margin-top: 2px; }
 .bnb-battle-main { display: grid; flex: 1; min-height: 0; gap: 10px; grid-template-columns: minmax(0, 1fr) clamp(150px, 24%, 240px); }
 .bnb-battle-table { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
-.bnb-side { display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; padding: 10px 12px; border: 1px solid #33454a; background: #16222a; }
-.bnb-side-foe { border-color: #50676a; }
-.bnb-side-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; }
+/* CP6: the seat lanes, zone labels and attachment chips live in BattleBoard.css. */
 .bnb-side-name { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; text-transform: uppercase; }
-.bnb-side-zones { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .64rem; }
-.bnb-side-active { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
-.bnb-side-card { color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .95rem; }
-.bnb-side-hp { color: #7ee0a7; font-family: 'DM Mono', monospace; font-size: .76rem; }
-.bnb-side-dmg { color: #ff8a7a; font-family: 'DM Mono', monospace; font-size: .76rem; }
-.bnb-side-energy { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .76rem; }
-.bnb-side-conditions { color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .64rem; }
-.bnb-side-bench { margin: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .7rem; line-height: 1.45; }
-.bnb-side-bench-label { margin-right: 6px; color: #ffc857; font-size: .64rem; text-transform: uppercase; }
-.bnb-side-hand { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 4px; }
-.bnb-hand-chip { padding: 3px 7px; border: 1px solid #33454a; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .62rem; }
 .bnb-battle-log { list-style: none; margin: 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #33454a; background: #16222a; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .62rem; line-height: 1.4; }
 .bnb-battle-log li:last-child { color: #f5f0e8; }
 
@@ -129,24 +116,8 @@
 .bnb-action-bar .bnb-actions button[aria-pressed='true'] { border-color: #ffc857; color: #ffc857; }
 .bnb-action-bar button:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
 
-/* CP8-E: selectable card zones — bench grid + hand list with gold selected state. */
-.bnb-bench-list, .bnb-hand-list { list-style: none; margin: 0; padding: 0; }
-.bnb-bench-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--pkm-card-w, 168px), 1fr)); gap: 8px; margin-top: 6px; align-items: start; justify-items: center; }
-.bnb-bench-list li { margin: 0; padding: 0; min-width: 0; }
-.bnb-bench-pick { display: block; width: 100%; padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; text-align: inherit; }
-.bnb-bench-pick:hover { border-color: #50676a; }
-.bnb-bench-pick:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
-.bnb-bench-pick[aria-pressed='true'] { border-color: #ffc857; box-shadow: 0 0 0 1px #ffc857; }
-.bnb-bench-pick:disabled { cursor: not-allowed; }
-.bnb-bench-face { display: block; }
-/* No per-zone card overrides: a bench `min-height: 0` here is what used to let
- * the track crush bench faces while the active face stayed full size. */
-.bnb-hand-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 4px; }
-.bnb-hand-list li { margin: 0; padding: 0; }
-.bnb-hand-pick { padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; }
-.bnb-hand-pick:hover .bnb-hand-chip { border-color: #ffc857; color: #ffc857; }
-.bnb-hand-pick:focus-visible { outline: 2px solid #f5f0e8; outline-offset: 2px; }
-.bnb-hand-pick[aria-pressed='true'] .bnb-hand-chip { border-color: #ffc857; color: #101820; background: #ffc857; }
+/* CP6: bench/hand selection styles now live in BattleBoard.css, co-located with
+   the component that renders them. Only the shared seat-name primitive stays. */
 
 /* CP8-E: overlays — fixed dim layer + capped card; promote gate docks dashed-gold. */
 .bnb-overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); background: rgba(16, 24, 32, .72); }
