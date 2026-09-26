@@ -62,7 +62,23 @@
 .bnb-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 0 0 18px; }
 .bnb-summary dt { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; }
 .bnb-summary dd { margin: 4px 0 0; color: #f5f0e8; font-family: 'DM Mono', monospace; font-size: .9rem; }
-/* CP2 deck construction: eight uniform Energy faces with independent unlimited counters. */
+/* CP10: the disabled reason a control is described by must be real, per-control
+ * text that a screen reader announces and a sighted player can still read.
+ * Visually hidden, not `display:none`, so it stays in the accessibility tree. */
+.bnb-control-reason {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* CP7 deck construction: eight uniform Energy faces with independent unlimited counters. */
 .bnb-deck-counts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .bnb-energy-grid { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0 20px; padding: 0; }
 .bnb-energy-grid > li { min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }

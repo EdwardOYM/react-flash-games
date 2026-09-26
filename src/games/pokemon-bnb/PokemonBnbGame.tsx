@@ -156,10 +156,10 @@ function LocalSeatControls({ actor, side, promotionPending, onAction, t }: Local
     <fieldset className="bnb-harness-seat">
       <legend className="bnb-side-name">{actor}</legend>
       <div className="bnb-harness-row">
-        <select className="bnb-harness-select" value={safeIndex} onChange={(event) => setHandIndex(Number(event.target.value))}>
+        <select className="bnb-harness-select" aria-label={t('pokemonBnb.harnessHandSelect')} value={safeIndex} onChange={(event) => setHandIndex(Number(event.target.value))}>
           {side.hand.map((card, index) => <option key={`${card.id}-${index}`} value={index}>{card.name}</option>)}
         </select>
-        <select className="bnb-harness-select" value={String(target)} onChange={(event) => setTarget(event.target.value === 'active' ? 'active' : Number(event.target.value))}>
+        <select className="bnb-harness-select" aria-label={t('pokemonBnb.harnessTargetSelect')} value={String(target)} onChange={(event) => setTarget(event.target.value === 'active' ? 'active' : Number(event.target.value))}>
           <option value="active">{t('pokemonBnb.zoneActive')}</option>
           {side.bench.map((_, index) => <option key={index} value={index}>{t('pokemonBnb.zoneBench')} {index + 1}</option>)}
         </select>
@@ -1735,10 +1735,6 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                 const isMyTurn = !battle.over && battle.pendingPromotion === null && battle.activePlayer === (localMode ? battle.activePlayer : mySlot)
                 const controls = controlStates(battle, actor, { handIndex: selHand, benchIndex: selBench })
                 const attacks = selfSide.active?.card.attacks ?? []
-                /** The single most useful reason to show: the pick the player owes. */
-                const blockedReason = !controls.playBasic.enabled && controls.playBasic.reason
-                  ? t(reasonKey(controls.playBasic.reason) as TranslationKey)
-                  : null
                 /** Translate one control id into the intent it dispatches. */
                 const onControl = (id: ControlId) => {
                   if (selHand === null && id !== 'retreat' && id !== 'beginAttack' && id !== 'pass') return
@@ -1769,37 +1765,52 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                       {CONTROLS.map(({ id, labelKey }) => {
                         const control = controls[id]
                         const reason = control.reason ? t(reasonKey(control.reason) as TranslationKey) : null
+                        const reasonId = `bnb-reason-${id}`
                         return (
                           <button
                             key={id}
                             type="button"
                             disabled={!control.enabled}
                             title={reason ?? undefined}
-                            aria-describedby={!control.enabled && reason ? 'bnb-control-reason' : undefined}
+                            aria-describedby={!control.enabled && reason ? reasonId : undefined}
                             onClick={() => onControl(id)}
                           >
                             {t(labelKey)}
+                            {/* CP10: every control gets its OWN reason. One shared
+                                node made ten of twelve controls announce a reason
+                                that belonged to a different action. */}
+                            {!control.enabled && reason && <span className="bnb-control-reason" id={reasonId}>{reason}</span>}
                           </button>
                         )
                       })}
-                      {attacks.map((attack, index) => (
-                        <button
-                          key={`${attack.name}-${index}`}
-                          type="button"
-                          disabled={!controls.beginAttack.enabled}
-                          title={blockedReason ?? undefined}
-                          aria-label={`${t('pokemonBnb.actionAttack')} — ${attack.name}`}
-                          onClick={() => runBattleAction(actor, { type: 'useAttack', attackIndex: index })}
-                        >
-                          {attack.name}
-                        </button>
-                      ))}
+                      {attacks.map((attack, index) => {
+                        // An attack button is gated by the same `beginAttack` rule, so
+                        // it must carry that rule's own reason, not another control's.
+                        const attackReason = controls.beginAttack.reason
+                          ? t(reasonKey(controls.beginAttack.reason) as TranslationKey)
+                          : null
+                        const attackReasonId = `bnb-reason-attack-${index}`
+                        return (
+                          <button
+                            key={`${attack.name}-${index}`}
+                            type="button"
+                            disabled={!controls.beginAttack.enabled}
+                            title={attackReason ?? undefined}
+                            aria-describedby={!controls.beginAttack.enabled && attackReason ? attackReasonId : undefined}
+                            onClick={() => runBattleAction(actor, { type: 'useAttack', attackIndex: index })}
+                          >
+                            {attack.name}
+                            {!controls.beginAttack.enabled && attackReason && (
+                              <span className="bnb-control-reason" id={attackReasonId}>{attackReason}</span>
+                            )}
+                          </button>
+                        )
+                      })}
                       {selfSide.active?.card.abilities.map((ability, abilityIndex) => (
                         <button
                           key={`active-${ability.name}-${abilityIndex}`}
                           type="button"
                           disabled={!controls.playBasic.enabled}
-                          title={blockedReason ?? undefined}
                           aria-label={`${t('pokemonBnb.actionUseAbility')} — ${ability.name}`}
                           onClick={() => runBattleAction(actor, { type: 'useAbility', target: 'active', abilityIndex, ...abilityTarget(ability.text, selBench) })}
                         >
@@ -1811,7 +1822,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                           key={`bench-${ability.name}-${abilityIndex}`}
                           type="button"
                           disabled={selBench === null}
-                          title={blockedReason ?? undefined}
+                          title={selBench === null ? t('pokemonBnb.error.selectBenchTarget' as TranslationKey) : undefined}
                           aria-label={`${t('pokemonBnb.actionUseAbility')} — ${ability.name}`}
                           onClick={() => selBench !== null && runBattleAction(actor, { type: 'useAbility', target: selBench, abilityIndex, ...abilityTarget(ability.text, selBench) })}
                         >
@@ -1819,7 +1830,6 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                         </button>
                       ))}
                     </div>
-                    {blockedReason && <p className="bnb-hint" id="bnb-control-reason">{blockedReason}</p>}
                     {isMyTurn && selHand === null && <p className="bnb-hint">{t('pokemonBnb.selectHandCard')}</p>}
                     {isMyTurn && myHandCard && benchTarget && <p className="bnb-hint">{myHandCard.name} → {benchTarget.card.name}</p>}
                     {isMyTurn && myHandCard && selBench === null && <p className="bnb-hint">{myHandCard.name} → {t('pokemonBnb.zoneActive')}</p>}

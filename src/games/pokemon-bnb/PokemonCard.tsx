@@ -65,7 +65,12 @@ export function PokemonCard({ card, faceDown, rarityLabel, faceDownLabel, damage
   const showTextFace = cardFaceShowsText(artUrl, failedUrl)
 
   return (
-    <article
+    // A card is presented as a single image, so `role="img"` is right — but only
+    // on a generic element. On an `<article>` the role overrode the sectioning
+    // role and the accessibility tree fell back to the decorative mark, so the
+    // card's name was lost. A plain `div` with `role="img"` is the canonical
+    // "present this as one image" pattern and keeps the `aria-label` name.
+    <div
       className={`pkm-card ${faceDown ? 'pkm-card-face-down' : 'pkm-card-flipped'} pkm-card-${card.supertype} pkm-card-rarity-${card.rarity} ${tintClass(card)}`}
       role="img"
       aria-label={faceDown ? (faceDownLabel ?? 'Face-down card') : (showTextFace && rarityLabel ? `${card.name} — ${rarityLabel}` : card.name)}
@@ -119,6 +124,6 @@ export function PokemonCard({ card, faceDown, rarityLabel, faceDownLabel, damage
           )}
         </span>
       </div>
-    </article>
+    </div>
   )
 }

@@ -55,15 +55,17 @@ flowchart TD
     end
 
     subgraph POKEMON["Pokemon TCG B&B mini runtime"]
-        pokemonBnb -->|"hello / lobby-update / lobby-start with shared seed / opening-ready / deck-ready ids / leave"| peer["pokemon-bnb/net: peer.ts createHost / joinHost (PeerJS Cloud default or self-hosted server) + protocol.ts message envelope and LobbySettings"]
+        pokemonBnb -->|"hello / lobby-update / lobby-start with shared seed / opening-ready / deck-ready ids / leave"| peer["pokemon-bnb/net: peer.ts createHost / joinHost (PeerJS Cloud default or self-hosted server) + protocol.ts message envelope and LobbySettings. PROTOCOL_VERSION 2 (03.2 CP1): a version-1 peer is refused because it cannot safely share the revised rules. LobbySettings.prizeCards is exactly 4 or 6 (default 4); deck-ready accepts exactly 40 ids"]
         peer -->|"onMessage handler (single stable closure via refs)"| pokemonBnb
-        pokemonBnb -->|"openPacks(cards, pack, seed) — deterministic, identical pool on both seats"| data["pokemon-bnb data: sets.ts / cards.ts / rng.ts seeded xorshift32 / pack.ts / deck.ts legality"]
+        pokemonBnb -->|"openPacks(cards, pack, seed) — deterministic, identical pool on both seats"| data["pokemon-bnb data: sets.ts / cards.ts / rng.ts seeded xorshift32 / pack.ts / deck.ts legality. 03.2 CP2: a deck is exactly 40 cards including Energy; non-Energy cards are copy-limited by the opened pool while Energy comes from an unlimited 8-type basic catalog serialized in fixed order. 03.2 CP1: Prize cards are NOT part of the 40 — setup takes 4 or 6 from that same deck"]
         pokemonBnb -->|"PokemonCard faces: cardImage.ts cardImageUrl(card) builds the TCGdex asset URL per card number (CP11); the hosted artwork IS the card face, at one uniform 8 by 11 size — when art paints the face no cards.json text is ever rendered and no card ever changes size. A face with no reachable art (synthetic basic energies; any failed, blocked or offline load) takes the text face (CP9): the same data-free type tint in the same 8 by 11 frame printing the card name plus the caller's translated rarity (CP11-E); every face-down card instead paints the bundled card back (CP10)"| cardArt["pokemon-bnb/cardImage.ts — hotlinks assets.tcgdex.net/en/me/30th/&lt;number&gt;/low.png at runtime; nothing downloaded or stored (set id to TCGdex path registry); synthetic basic energies have no art, so they always take the text face; the face-down back is the one bundled raster asset: cardImage.ts exports cardBackUrl plus the pure cardBackShowsArt rule, and PokemonCard.tsx paints it full-bleed over the gradient back, which stays the loading and failed-load face"]
-        pokemonBnb -->|"deck-ready ids resolved against the shared pool -> setupBattle(settings, hostDeck, guestDeck, seed)"| engine["game-core/ module folder — index barrel re-exports<br/>constants / types / helpers / setup / actions / effects / turns / snapshots (pure, no React / DOM / network)"]
+        pokemonBnb -->|"deck-ready ids resolved against the shared pool -> setupBattle(settings, hostDeck, guestDeck, seed)"| engine["game-core/ module folder — index barrel re-exports<br/>constants / types / helpers / setup / actions / effects / turns / snapshots (pure, no React / DOM / network)<br/>03.2: explicit setup (seeded coin flip, private 7-card hand, Mulligan + opponent penalty, Active/Bench, simultaneous reveal); turn phases draw -> main -> attack/pass -> between; 03.2 CP5 deterministic Ability registry (classifyAbility / applyAbilityEffect / abilityCoverageReport — unsupported Ability text is reported, never guessed)"]
         engine -->|"BattleState -> tabletop render: turn header, side panels, translated log strip"| pokemonBnb
+        pokemonBnb -->|"BattleBoard.tsx (03.2 CP6): ONE BattleSide component renders both seats; the opponent lane is mirrored with flex column-reverse (never a transform, which would invert the translated labels). Shared Stadium + Active + Bench (5) + Prize + Deck + Discard + Hand; Energy/Tool attachments as chips; a hidden zone arrives as HIDDEN_CARD and only ever prints its count"| render["03.2 CP7 controls.ts: controlStates() is the single source of truth for enabled + reason, so a disabled control always says why. CP8: the opening view uses the shared src/games/cardstack/PackStack (extracted from Pack Battle, generalized to plain CardDef[]) — one transparent action target, latest revealed card exposed, Reveal All expands, no auto-advance"]
         pokemonBnb -->|"battle-action intent (guest) -> host processAction -> battle-snapshot per seat -> applySnapshot (CP9-B)"| sync["Host-authoritative sync: battleRef = live engine state (host), battle = render snapshot; the guest is view-only"]
         sync -->|"turn timer: derived secondsLeft per turn key, host applyTimeout on expiry + broadcast (CP9-C)"| engine
         pokemonBnb -->|"disconnect: joinHost redial + re-hello -> host replays per-seat snapshots (CP9-D); rematch offer -> host startPackOpening() fresh seed (CP9-E)"| peer
+        engine -->|"Between-Turns: Poison -> Burn -> Asleep -> Paralysis, then an ordered simultaneous-KO promotion queue with the next player promoting first (03.2 CP4); a pending KO blocks every unrelated action (CP7)"| engine
     end
 
     subgraph PACKBATTLE["Pokemon Pack Battle runtime"]
@@ -71,7 +73,7 @@ flowchart TD
         packPeer -->|"onMessage handler (single stable closure via refs; same-seed re-hello merges ceremony-sync)"| packBattle
         packBattle -->|"shared seed -> identical deterministic 6-card battle packs (energy, common, common, pikachu-ir, common-or-better, uncommon-or-better)"| packData["battlePack.ts PACK_BATTLE_30C + scoring.ts tier/points + shared 30c set data"]
         packBattle -->|"per-pack session state: opened, six revealed flags, expanded; host/guest focus independently by owned pack; totals derive from revealed flags"| packCeremony["ceremonyState.ts — pure v3 transitions, ownership checks, fixed-order reveal, union merge, totals, completion, focused-pack and key resolvers"]
-        packBattle -->|"two simultaneous seat lanes: one focused PackStack each; normal mode exposes one action target and leaves the latest revealed card on top; pack-reveal-all expands all six for review; completed stack waits for explicit next owned pack"| packStack["PackStack.tsx / PackStack.css — shared stack and PokemonCard flip presentation"]
+        packBattle -->|"two simultaneous seat lanes: one focused PackStack each; normal mode exposes one action target and leaves the latest revealed card on top; pack-reveal-all expands all six for review; completed stack waits for explicit next owned pack"| packStack["src/games/cardstack/PackStack.tsx / PackStack.css — SHARED stack and PokemonCard flip presentation (03.2 CP8 extracted it here and generalized it to plain CardDef[] so pokemon-bnb renders the same reveal; classes renamed ppb-pack-stack* -> pkcs-stack*)"]
         packBattle -->|"pointsForCard per revealed slot by card identity; Pikachu IR scores 0; tier-0..5 flair; packs-left and card-N-of-6 progress"| packData
         packBattle -->|"solo rip (04.3): openBattlePacks(battleSetCards(), PACK_BATTLE_30C, count, fresh session-only seed) — the same 6-slot distribution, no wire; PackStack renders the fixed seeded reveal and expanded review"| packData
     end
@@ -206,13 +208,15 @@ flowchart LR
     PSTART -->|"join by code"| PJOIN["lobbyJoin"]
     PJOIN -->|"data channel opens"| PLOBBY
     PLOBBY -->|"leaveLobby()"| PSTART
-    PLOBBY -->|"host startMatch() broadcasts lobby-start (seed + settings)"| POPENING["opening"]
-    POPENING -->|"opening-ready handshake: both ready"| PDECK["deck"]
-    PDECK -->|"deck-ready handshake: both ready -> beginBattle() runs setupBattle from the shared seed"| PLOADING["loading (500ms)"]
+    PLOBBY -->|"host startMatch() broadcasts lobby-start (seed + settings)"| POPENING["opening — one shared PackStack: deterministic fixed-order reveal, one action target, Reveal All expands (03.2 CP8); opening-ready handshake: both ready"]
+    POPENING -->|"opening-ready handshake: both ready"| PDECK["deck — exactly 40 cards including Energy from the unlimited 8-type catalog (03.2 CP2)"]
+    PDECK -->|"deck-ready handshake: both ready -> beginBattle() runs setupBattle from the shared seed"| PSETUP["setup (03.2 CP3) — seeded coin flip, private 7-card hand, Mulligan + opponent penalty, face-down Active/Bench, simultaneous reveal"]
+    PSETUP -->|"reveal: both seats place their Active/Bench and take 4 or 6 Prize cards"| PLOADING["loading (500ms)"]
     PLOADING -->|"battle built"| PPLAYING["playing (battle tabletop)"]
     PPAUSED["paused"] -->|"resume"| PPLAYING
     PPLAYING -->|"pause"| PPAUSED
     PPLAYING -->|"turn timer expiry: host applyTimeout() + broadcast (CP9-C)"| PPLAYING
+    PPLAYING -->|"simultaneous KO: ordered promotion queue, next player promotes first; a pending KO blocks every other action (03.2 CP4/CP7)"| PPLAYING
     PPLAYING -->|"mid-battle disconnect -> joinHost redial -> re-hello -> host replays snapshots (CP9-D)"| PRECONN["connection lost banner (battle state kept)"]
     PRECONN -->|"battle-snapshot received"| PPLAYING
     PPLAYING -->|"rematch accepted: host rolls a fresh seed via lobby-start (CP9-E)"| POPENING

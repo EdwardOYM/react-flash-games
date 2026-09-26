@@ -293,6 +293,8 @@
     "zoneStadium": "Stadium",
     "zoneAttachments": "Kad dilampirkan",
     "revealNextCard": "Dedahkan kad seterusnya",
+    "harnessHandSelect": "Alat uji: kad tangan",
+    "harnessTargetSelect": "Alat uji: sasaran di medan",
     "revealCardLabel": "Dedahkan kad {index} daripada {total} daripada pek",
     "revealAllCards": "Dedahkan semua kad",
     "revealProgress": "{current} daripada {total} didedahkan",

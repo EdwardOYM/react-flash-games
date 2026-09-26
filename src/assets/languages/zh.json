@@ -293,6 +293,8 @@
     "zoneStadium": "竞技场",
     "zoneAttachments": "已附着的卡牌",
     "revealNextCard": "翻开下一张卡牌",
+    "harnessHandSelect": "测试工具：手牌",
+    "harnessTargetSelect": "测试工具：场上目标",
     "revealCardLabel": "从补充包中翻开第 {index} / {total} 张卡牌",
     "revealAllCards": "翻开全部卡牌",
     "revealProgress": "已翻开 {current} / {total}",

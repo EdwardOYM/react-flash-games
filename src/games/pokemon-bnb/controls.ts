@@ -87,7 +87,11 @@ export function controlStates(
     }
   }
 
-  const notMain: ControlState = blocked(state.over ? 'match-over' : isAttack ? 'not-main-phase' : 'not-your-turn')
+  // `not-main-phase` must not claim it is somebody else's turn when it is
+  // actually this player's turn in the wrong phase (e.g. Main, where Pass is
+  // illegal) — that reason is only true for a genuine ownership failure.
+  const notYours = state.over ? 'match-over' : state.activePlayer !== actor ? 'not-your-turn' : 'not-main-phase'
+  const notMain: ControlState = blocked(notYours)
   const targetOrActive: InPlayLike | null = benchIndex === null ? side.active : target
 
   const energy = picked && cardIsEnergy(picked)

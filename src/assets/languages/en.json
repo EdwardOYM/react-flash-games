@@ -293,6 +293,8 @@
     "zoneStadium": "Stadium",
     "zoneAttachments": "Attached cards",
     "revealNextCard": "Reveal next card",
+    "harnessHandSelect": "Harness: hand card",
+    "harnessTargetSelect": "Harness: target in play",
     "revealCardLabel": "Reveal card {index} of {total} from the pack",
     "revealAllCards": "Reveal all cards",
     "revealProgress": "Revealed {current} of {total}",
