@@ -12,9 +12,11 @@
 
 import type { CardDef, CardRarity } from './cards'
 import { HIDDEN_CARD, MAX_BENCH, STATUS_CONDITIONS, type InPlayPokemon, type SideState } from './game-core'
+import { BASIC_ENERGY_TYPES, type BasicEnergyType } from './pack'
 import type { PlayerSlot } from './net/protocol'
 import { PokemonCard } from './PokemonCard'
 import { PokemonVitals } from './PokemonVitals'
+import { substituteParams } from './format'
 import type { TranslationKey } from '../../assets/languages'
 import './BattleBoard.css'
 
@@ -55,18 +57,88 @@ function statusListFor(pokemon: InPlayPokemon): string[] {
 }
 
 /**
+ * Attached Energy, grouped by the TYPE it provides, each with its own count.
+ *
+ * The rulebook costs attacks in Energy TYPES, so a single `⚡3` cannot answer
+ * "can I pay for this attack" — the player has to know they hold 2 Fire and 1
+ * Lightning. The per-type chips carry that; the total chip stays too, so nothing
+ * the old readout showed is lost.
+ *
+ * `provides` is undefined for special Energy, which is grouped as `special`
+ * rather than dropped or mislabelled as a basic type. Order follows
+ * `BASIC_ENERGY_TYPES` (the canonical ruleset order) with anything unrecognised
+ * last, so the row is stable instead of hand-ordered.
+ */
+function energyGroups(pokemon: InPlayPokemon): { type: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const card of pokemon.attachedEnergy) {
+    const key = card.provides ?? 'special'
+    counts.set(key, (counts.get(key) ?? 0) + 1)
+  }
+  const order = [...BASIC_ENERGY_TYPES, 'special']
+  const rank = (type: string) => {
+    const index = order.indexOf(type as BasicEnergyType)
+    return index === -1 ? order.length : index
+  }
+  return [...counts.entries()]
+    .map(([type, count]) => ({ type, count }))
+    .sort((a, b) => rank(a.type) - rank(b.type))
+}
+
+/** Technical Energy type id -> its translated name. Never an English literal. */
+const ENERGY_TYPE_KEYS: Record<string, TranslationKey> = {
+  grass: 'pokemonBnb.energyTypeGrass',
+  fire: 'pokemonBnb.energyTypeFire',
+  water: 'pokemonBnb.energyTypeWater',
+  lightning: 'pokemonBnb.energyTypeLightning',
+  psychic: 'pokemonBnb.energyTypePsychic',
+  fighting: 'pokemonBnb.energyTypeFighting',
+  darkness: 'pokemonBnb.energyTypeDarkness',
+  metal: 'pokemonBnb.energyTypeMetal',
+  special: 'pokemonBnb.energyTypeSpecial',
+}
+
+function energyTypeName(type: string, t: (key: TranslationKey) => string): string {
+  const key = ENERGY_TYPE_KEYS[type]
+  return key ? t(key) : type
+}
+
+/**
  * Energy + Tool attached to one Pokemon, as chips rather than full faces: a
  * Pokemon can hold a dozen Energy and full faces would blow the 16:9 stage.
  * The count and the Tool's name are all the rules need.
  */
 function Attachments({ pokemon, t }: { pokemon: InPlayPokemon; t: (key: TranslationKey) => string }) {
   if (pokemon.attachedEnergy.length === 0 && !pokemon.attachedTool) return null
+  const groups = energyGroups(pokemon)
   return (
     <ul className="bnb-attachments" aria-label={t('pokemonBnb.zoneAttachments')}>
+      {groups.map((group) => (
+        // The swatch and the number are both decorative: the chip's accessible
+        // name carries the whole meaning, so a screen reader hears "2 Fire
+        // Energy attached" rather than a bare digit next to a colour.
+        <li
+          key={group.type}
+          className="bnb-attachment bnb-attachment-energy-type"
+          data-energy-type={group.type}
+          aria-label={substituteParams(t('pokemonBnb.energyAttached'), {
+            count: String(group.count),
+            type: energyTypeName(group.type, t),
+          })}
+        >
+          <span className={`bnb-energy-swatch bnb-energy-swatch-${group.type}`} aria-hidden="true" />
+          <span aria-hidden="true">{group.count}</span>
+        </li>
+      ))}
       {pokemon.attachedEnergy.length > 0 && (
-        <li className="bnb-attachment bnb-attachment-energy">
+        <li
+          className="bnb-attachment bnb-attachment-energy"
+          aria-label={substituteParams(t('pokemonBnb.energyTotalAttached'), {
+            count: String(pokemon.attachedEnergy.length),
+          })}
+        >
           <span aria-hidden="true">⚡</span>
-          <span>{pokemon.attachedEnergy.length}</span>
+          <span aria-hidden="true">{pokemon.attachedEnergy.length}</span>
         </li>
       )}
       {pokemon.attachedTool && <li className="bnb-attachment bnb-attachment-tool">{pokemon.attachedTool.name}</li>}

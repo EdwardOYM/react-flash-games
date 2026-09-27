@@ -218,6 +218,36 @@
 .bnb-attachment-energy { border-color: #ffc857; color: #ffc857; }
 .bnb-attachment-tool { border-style: dashed; }
 
+/* CP4: one chip per attached Energy TYPE, carrying that type's count. Attacks
+   are costed in Energy types, so `⚡3` alone could not answer "can I pay for
+   this" — the player needs to see 2 Fire and 1 Lightning separately. The swatch
+   is decorative (the chip's aria-label carries the meaning), so these colours
+   are identity, not information. They are deliberately flat dots rather than the
+   gradient tints, which are `.pkm-card` internals and are not reused here. */
+.bnb-attachment-energy-type { border-color: #3d5a60; color: #d8e6e9; }
+
+.bnb-energy-swatch {
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border: 1px solid rgba(0, 0, 0, .45);
+  border-radius: 50%;
+  background: #909090;
+}
+
+.bnb-energy-swatch-grass { background: #5cbf5c; }
+.bnb-energy-swatch-fire { background: #f08030; }
+.bnb-energy-swatch-water { background: #6890f0; }
+.bnb-energy-swatch-lightning { background: #f8d030; }
+.bnb-energy-swatch-psychic { background: #f85888; }
+.bnb-energy-swatch-fighting { background: #c03028; }
+.bnb-energy-swatch-darkness { background: #7a5c46; }
+.bnb-energy-swatch-metal { background: #b8b8d0; }
+/* Special Energy provides no type, so it gets the neutral default swatch and
+   its own chip rather than borrowing a basic type's colour. */
+.bnb-energy-swatch-special { background: #909090; }
+
 .bnb-side-hand {
   display: flex;
   align-items: flex-start;
