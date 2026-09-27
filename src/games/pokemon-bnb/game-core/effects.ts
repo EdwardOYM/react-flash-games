@@ -9,11 +9,12 @@
 // Part of the game-core module split (CP7-E-a); see ./index.ts for the full
 // engine header and the re-export barrel.
 
+import { DAMAGE_PER_COUNTER } from './constants'
 import { cardIsEnergy, cardIsPokemon, type AttackDef, type CardDef, type EnergyCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
 import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
-import type { BattleLogEntry, BattleState, ChoiceTarget, InPlayPokemon, StatusCondition } from './types'
+import type { BattleLogEntry, BattleState, InPlayPokemon, StatusCondition } from './types'
 import { applyDeckOutLoss, performBenchKo, performKo, prizesTaken, takePrizeCard } from './turns'
 
 // -- CP7-C: damage, effects, KO, prizes, victory --
@@ -100,12 +101,21 @@ export type ParsedEffect =
   // "Flip 3 coins. This attack does 50 damage for each heads." — a bounded,
   // seeded flip against the single defender, so it stays ordinary damage maths.
   | { kind: 'coinFlipDamage'; amount: number; flips: number }
-  // -- 04.8 CP2-B: the first clause that hands the TARGET to the player. It is
-  // never applied directly: `resolveAttack` parks a `PendingChoice` instead, and
-  // `resolveChoice` applies it once the player picks. Anchored end-to-end, so the
-  // three "for each damage counter" / "to 1 of your opponent's Benched" shapes
-  // cannot fall into it and be silently mis-read.
-  | { kind: 'damageChosenTarget'; amount: number }
+  // -- 04.8 CP2-B/C: the clauses that hand the TARGET to the player. None is ever
+  // applied directly: `resolveAttack` parks a `PendingChoice` instead, and
+  // `resolveChoice` applies it once the player picks. All anchored end-to-end, so
+  // a neighbouring shape cannot fall in and be silently mis-read.
+  // (a) "This attack does 20 damage to 1 of your opponent's Pokemon." / "This
+  //     attack also does 20 damage to 1 of your opponent's BENCHED Pokemon." The
+  //     latter is printed alongside a normal base damage, so the Active still
+  //     takes that and only the Bench is offered — that is what `benchedOnly` buys.
+  | { kind: 'damageChosenTarget'; amount: number; benchedOnly: boolean }
+  | { kind: 'damageChosenPerCounter'; amountPerCounter: number }
+  // (b) "Place 13 damage counters on 1 of your opponent's Pokemon." Converted to
+  //     damage at parse time with 04.5's unit, so no second code path exists for
+  //     a counter-denominated amount.
+  // (c) "…for each damage counter on that Pokemon." The amount depends on the
+  //     TARGET, so it cannot be a flat number and is resolved at pick time.
   // 04.7: NOT damage maths — it pays out at Knock Out time, so it is applied
   // after damage like the other post-damage clauses.
   | { kind: 'extraPrizeOnKo'; amount: number }
@@ -315,13 +325,46 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.8 CP2-C (b): "Place 13 damage counters on 1 of your opponent's Pokemon."
+    // Converted with 04.5's unit, so the whole set of counter-denominated
+    // amounts ends up on the one `damage` path rather than a parallel one.
+    const placeCounters = sentence.match(/^place (\d+) damage counters on 1 of your opponent's pokemon\.$/i)
+    if (placeCounters) {
+      effects.push({
+        kind: 'damageChosenTarget',
+        amount: Number(placeCounters[1]) * DAMAGE_PER_COUNTER,
+        benchedOnly: false,
+      })
+      pendingCoin = false
+      continue
+    }
+    // 04.8 CP2-C (c): "This attack does 30 damage to 1 of your opponent's Pokemon
+    // for each damage counter on that Pokemon." Checked BEFORE the flat form,
+    // which it would otherwise be a prefix of.
+    const perCounterOnTarget = sentence.match(
+      /^this attack does (\d+) damage to 1 of your opponent's pokemon for each damage counter on that pokemon\.$/i,
+    )
+    if (perCounterOnTarget) {
+      effects.push({ kind: 'damageChosenPerCounter', amountPerCounter: Number(perCounterOnTarget[1]) })
+      pendingCoin = false
+      continue
+    }
+    // 04.8 CP2-C (a): the "also … Benched" variant, printed alongside a normal
+    // base damage. The Active still takes that base; only the Bench is offered.
+    const chosenBenched = sentence.match(
+      /^this attack also does (\d+) damage to 1 of your opponent's benched pokemon\.$/i,
+    )
+    if (chosenBenched) {
+      effects.push({ kind: 'damageChosenTarget', amount: Number(chosenBenched[1]), benchedOnly: true })
+      pendingCoin = false
+      continue
+    }
     // 04.8 CP2-B: "This attack does 20 damage to 1 of your opponent's Pokemon."
     // The trailing `\.` is load-bearing — without it this would also swallow
-    // Greninja ex's "…to 1 of your opponent's Pokemon for each damage counter on
-    // that Pokemon." and apply a flat amount where a per-counter count belongs.
+    // the per-counter form above and apply a flat amount where a count belongs.
     const chosenTarget = sentence.match(/^this attack does (\d+) damage to 1 of your opponent's pokemon\.$/i)
     if (chosenTarget) {
-      effects.push({ kind: 'damageChosenTarget', amount: Number(chosenTarget[1]) })
+      effects.push({ kind: 'damageChosenTarget', amount: Number(chosenTarget[1]), benchedOnly: false })
       pendingCoin = false
       continue
     }
@@ -505,7 +548,8 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       (effect) =>
         effect.kind !== 'spreadDamage' &&
         effect.kind !== 'coinFlipDamage' &&
-        effect.kind !== 'damageChosenTarget',
+        effect.kind !== 'damageChosenTarget' &&
+        effect.kind !== 'damageChosenPerCounter',
     )
     if (filtered.length !== effects.length) return filtered
   }
@@ -727,6 +771,7 @@ export function applyEffect(
     // then applies it. Reaching here means a mis-classified phase, where doing
     // nothing is the safe answer.
     case 'damageChosenTarget':
+    case 'damageChosenPerCounter':
       break
     default:
       break // before-damage clauses are consumed by resolveAttack
@@ -963,26 +1008,39 @@ export function resolveAttack(
     }
   }
 
-  // 5. 04.8 CP2-B: a clause that hands the target to the player parks a choice
+  // 5. 04.8 CP2-B/C: a clause that hands the target to the player parks a choice
   // rather than applying anything. Built AFTER the Knock Out on purpose, so the
   // offered list is the board as it actually stands now. `declareAttack` then
   // holds the turn open until `resolveChoice` runs.
-  const chosen = effects.find((effect) => effect.kind === 'damageChosenTarget')
-  if (chosen) {
+  const flat = effects.find(
+    (effect) => effect.kind === 'damageChosenTarget' || effect.kind === 'damageChosenPerCounter',
+  )
+  if (flat) {
+    const benchedOnly = flat.kind === 'damageChosenTarget' ? flat.benchedOnly : false
     const foeSlot = foeOf(actor)
     const foeSide = sideOf(state, foeSlot)
-    const targets: ChoiceTarget[] = [
-      ...(foeSide.active ? [{ side: foeSlot, zone: 'active' as const }] : []),
-      ...foeSide.bench.map((_, index) => ({ side: foeSlot, zone: index })),
-    ]
-    if (targets.length > 0) {
+    const bench = benchedOnly
+      ? foeSide.bench.map((pokemon, index) => ({ side: foeSlot, zone: index, uid: pokemon.uid }))
+      : [
+          ...(foeSide.active ? [{ side: foeSlot, zone: 'active' as const, uid: foeSide.active.uid }] : []),
+          ...foeSide.bench.map((pokemon, index) => ({ side: foeSlot, zone: index, uid: pokemon.uid })),
+        ]
+    // "…to 1 of your opponent's BENCHED Pokemon" with an empty Bench has no legal
+    // target at all. The attack's own printed damage still stands; only the clause
+    // is dropped, and it is logged rather than swallowed.
+    if (bench.length > 0) {
       state.pendingChoice = {
         actor,
-        targets,
-        effect: { kind: 'damage', amount: chosen.amount },
+        targets: bench,
+        effect:
+          flat.kind === 'damageChosenTarget'
+            ? { kind: 'damage', amount: flat.amount }
+            : { kind: 'damagePerCounter', amountPerCounter: flat.amountPerCounter },
         attackName: context.attackName,
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
+      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: bench.length })
+    } else {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no legal target' })
     }
   }
 }

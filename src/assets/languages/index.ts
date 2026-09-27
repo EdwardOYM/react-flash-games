@@ -433,6 +433,7 @@ type PkmBnbTranslationKey =
   | 'promoteTitle'
   | 'chooseTargetTitle'
   | 'chooseTargetAction'
+  | 'chooseTargetPerCounterAction'
   | 'waitingTurn'
   | 'yourTurn'
   | 'helpTitle'

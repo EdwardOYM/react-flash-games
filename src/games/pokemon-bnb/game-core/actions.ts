@@ -7,7 +7,7 @@
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN } from './constants'
-import { canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, failure, inPlayOf, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
+import { canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, failure, inPlayList, inPlayOf, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
@@ -471,15 +471,25 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   const next = cloneBattleState(state)
   const logStart = next.log.length
   const targetSide = sideOf(next, target.side)
-  const victim = target.zone === 'active' ? targetSide.active : targetSide.bench[target.zone]
+  // Looked up by `uid` across the whole side, NOT by the stored `zone` index. A KO
+  // outranks a choice, so the player can promote BETWEEN the choice being offered
+  // and it being resolved — and promoting splices the Bench, which both shifts the
+  // later indices and can leave the stored index pointing past the end. The uid
+  // is the only thing that survives that, so it is the sole authority here; the
+  // stored `zone` is informational (the picker label) only.
+  const victim = inPlayList(targetSide).find((pokemon) => pokemon.uid === target.uid)
   if (!victim) return failure(state, 'no-target')
+  // Whether the KO settles on the Active or the Bench path is decided from the
+  // board as it stands, not from the stale stored zone.
+  const hitsActive = victim === targetSide.active
   const attacker = sideOf(next, actor).active
 
-  const amount = choice.effect.kind === 'damage'
-    ? (target.zone === 'active' && attacker
+  const amount = choice.effect.kind === 'damagePerCounter'
+    // 04.5's counter unit, read off the target's damage at pick time.
+    ? choice.effect.amountPerCounter * damageCounters(victim.damage)
+    : (hitsActive && attacker
         ? computeAttackDamage(next, attacker, victim, choice.effect.amount).damage
         : choice.effect.amount)
-    : 0
   if (amount > 0) {
     victim.damage += amount
     logEvent(next, 'pokemonBnb.log.damageDealt', {
@@ -492,7 +502,7 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   next.pendingChoice = null
 
   if (isKnockedOut(victim)) {
-    if (target.zone === 'active') performKo(next, target.side)
+    if (hitsActive) performKo(next, target.side)
     else performBenchKo(next, target.side, victim)
   }
   const closed = next.over ? next : applyEndTurn(next, actor)

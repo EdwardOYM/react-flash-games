@@ -426,6 +426,7 @@
     "promoteTitle": "Pilih Pokemon Aktif anda yang seterusnya",
     "chooseTargetTitle": "Pilih sasaran",
     "chooseTargetAction": "Berikan kerosakan {amount} kepada {name}",
+    "chooseTargetPerCounterAction": "Berikan {amount} kerosakan bagi setiap penanda kerosakan kepada {name}",
     "waitingTurn": "Menunggu {player}...",
     "yourTurn": "Giliran anda - pilih satu tindakan",
     "helpTitle": "Bantuan pertempuran",

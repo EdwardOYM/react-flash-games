@@ -27,8 +27,15 @@ export type SpecialConditionState = Record<StatusCondition, boolean>
 /**
  * One legal target of a pending choice. `zone` reuses the `'active' | number`
  * convention the existing `target` actions already use for Active-vs-Bench.
+ *
+ * `uid` is the authority, NOT the index. 04.8 CP2-C found why: an attack can
+ * Knock Out the Active AND park a choice, and `performKo` gates the promotion
+ * AHEAD of the choice. Promoting splices a Pokémon out of the Bench, shifting
+ * every later index — so a stored index would silently come to mean a different
+ * Pokémon by the time the pick is made. Resolving by `uid` is immune to that,
+ * and costs one opaque string on the wire.
  */
-export type ChoiceTarget = { side: PlayerSlot; zone: 'active' | number }
+export type ChoiceTarget = { side: PlayerSlot; zone: 'active' | number; uid: string }
 
 /**
  * 04.8 CP2: an effect that the printed text hands to the player to resolve.
@@ -46,7 +53,11 @@ export type PendingChoice = {
    *  player saw cannot drift from the list the engine validates against. */
   targets: ChoiceTarget[]
   /** What happens to the chosen target. */
-  effect: { kind: 'damage'; amount: number }
+  effect:
+    | { kind: 'damage'; amount: number }
+    // 04.8 CP2-C: "…for each damage counter on that Pokémon" — the amount is not
+    // known until the target is picked, so it cannot be a flat number.
+    | { kind: 'damagePerCounter'; amountPerCounter: number }
   /** Printed attack that asked for the choice, for the log line. */
   attackName: string
 }

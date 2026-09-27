@@ -426,6 +426,7 @@
     "promoteTitle": "选择你的下一只出战宝可梦",
     "chooseTargetTitle": "选择目标",
     "chooseTargetAction": "对 {name} 造成 {amount} 点伤害",
+    "chooseTargetPerCounterAction": "对 {name} 的每个伤害指示器造成 {amount} 点伤害",
     "waitingTurn": "等待 {player} 行动...",
     "yourTurn": "轮到你了——请选择行动",
     "helpTitle": "对战帮助",

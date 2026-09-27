@@ -1977,10 +1977,22 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                       type="button"
                       onClick={() => runBattleAction(battle.pendingChoice!.actor, { type: 'chooseTarget', targetIndex: index })}
                     >
-                      {substituteParams(t('pokemonBnb.chooseTargetAction'), {
-                        amount: String(battle.pendingChoice!.effect.kind === 'damage' ? battle.pendingChoice!.effect.amount : 0),
-                        name: victim.card.name,
-                      })}
+                      {substituteParams(
+                        // 04.8 CP2-C: a per-counter clause has no flat amount, so it
+                        // gets its own template and {amount} stays a bare number —
+                        // never an English unit glued into JSX.
+                        battle.pendingChoice!.effect.kind === 'damage'
+                          ? t('pokemonBnb.chooseTargetAction')
+                          : t('pokemonBnb.chooseTargetPerCounterAction'),
+                        {
+                          amount: String(
+                            battle.pendingChoice!.effect.kind === 'damage'
+                              ? battle.pendingChoice!.effect.amount
+                              : battle.pendingChoice!.effect.amountPerCounter,
+                          ),
+                          name: victim.card.name,
+                        },
+                      )}
                     </button>
                   )
                 })}
