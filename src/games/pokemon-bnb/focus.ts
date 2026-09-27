@@ -10,7 +10,7 @@
 // engine action.
 
 import { cardIsEnergy, cardIsTrainer, isBasicPokemon, type CardDef } from './cards'
-import { controlStates, type ControlId, type ControlState, type Selection } from './controls'
+import { attackControl, controlStates, type ControlId, type ControlState, type Selection } from './controls'
 import type { BattleState, InPlayPokemon, SideState } from './game-core'
 import type { PlayerSlot } from './net/protocol'
 
@@ -107,18 +107,22 @@ export function focusActions(
 
   // Only the Active Pokemon can attack, and only while it is the actor's.
   if (own && ref.source === 'active') {
-    // `beginAttack` already carries every attack precondition (your turn, an
-    // Active, not Asleep/Paralyzed, not the first player's Turn 1), so it is
-    // the single source of truth for "may I attack". Choosing an attack from
-    // the Main phase opens the Attack step and declares in one go.
-    const attackable = controls.beginAttack
-    pokemon.card.attacks.forEach((_attack, index) => {
+    // `attackControl` (CP2-C) is the single source of truth here: the shared
+    // `useAttack` rule — your turn in the Main phase OR the Attack step, an
+    // Active, not Asleep/Paralyzed, not the first player's Turn 1 — plus THIS
+    // attack's own Energy cost, so two attacks on one card can differ. Gating
+    // on `beginAttack` instead (the pre-CP2 behaviour) both disabled the whole
+    // step and hid a per-attack `insufficient-energy`, and the handler that
+    // consumed these entries only ever dispatched `beginAttack`, so no attack
+    // could ever be declared from the focus panel at all.
+    pokemon.card.attacks.forEach((attack, index) => {
+      const control = attackControl(state, actor, attack)
       actions.push({
         id: `attack-${index}`,
         kind: 'attack',
         ref: index,
-        enabled: attackable.enabled,
-        reason: attackable.reason,
+        enabled: control.enabled,
+        reason: control.reason,
         needsTarget: false,
       })
     })

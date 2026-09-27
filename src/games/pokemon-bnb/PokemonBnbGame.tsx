@@ -21,7 +21,7 @@ import { BattleBoard } from './BattleBoard'
 import { CardFocus } from './CardFocus'
 import { focusActions, type CardRef, type FocusAction } from './focus'
 import { PackStack } from '../cardstack/PackStack'
-import { controlStates, reasonKey, type ControlId } from './controls'
+import { attackControl, controlStates, reasonKey, type ControlId } from './controls'
 import { HighscoreTable } from '../highscore/HighscoreTable'
 import './PokemonBnbGame.css'
 
@@ -1303,9 +1303,13 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     const handIndex = focusRef.source === 'hand' ? focusRef.index : selHand
     const target: 'active' | number = selBench !== null ? selBench : 'active'
     if (action.kind === 'attack') {
-      // An attack is the turn's final action, so it opens the Attack step and
-      // declares in the same click rather than forcing a second press.
-      runBattleAction(actor, { type: 'beginAttack' })
+      // CP2-C: one `useAttack` declares AND resolves. This used to dispatch
+      // `beginAttack` only, which merely opened the Attack step and dealt no
+      // damage — its own comment claimed a single click did both, and the code
+      // did not. Declaring from the Main phase is legal since CP2-A, and
+      // the panel's buttons carry this attack's own cost, so one intent on the
+      // wire is both sufficient and correct.
+      runBattleAction(actor, { type: 'useAttack', attackIndex: action.ref as number })
       setFocusRef(null)
       return
     }
@@ -2013,23 +2017,29 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                         )
                       })}
                       {attacks.map((attack, index) => {
-                        // An attack button is gated by the same `beginAttack` rule, so
-                        // it must carry that rule's own reason, not another control's.
-                        const attackReason = controls.beginAttack.reason
-                          ? t(reasonKey(controls.beginAttack.reason) as TranslationKey)
+                        // CP2-C: `attackControl` is the shared `useAttack` rule
+                        // (Main OR Attack step) plus THIS attack's Energy cost,
+                        // so two attacks on one card can differ. The bar used to
+                        // gate every attack button on `beginAttack`, which is
+                        // Main-only — so pressing "Attack" entered the step and
+                        // disabled every attack here, and every click taken from
+                        // Main was refused by the engine as `not-attack-phase`.
+                        const attackState = attackControl(battle, actor, attack)
+                        const attackReason = attackState.reason
+                          ? t(reasonKey(attackState.reason) as TranslationKey)
                           : null
                         const attackReasonId = `bnb-reason-attack-${index}`
                         return (
                           <button
                             key={`${attack.name}-${index}`}
                             type="button"
-                            disabled={!controls.beginAttack.enabled}
+                            disabled={!attackState.enabled}
                             title={attackReason ?? undefined}
-                            aria-describedby={!controls.beginAttack.enabled && attackReason ? attackReasonId : undefined}
+                            aria-describedby={!attackState.enabled && attackReason ? attackReasonId : undefined}
                             onClick={() => runBattleAction(actor, { type: 'useAttack', attackIndex: index })}
                           >
                             {attack.name}
-                            {!controls.beginAttack.enabled && attackReason && (
+                            {!attackState.enabled && attackReason && (
                               <span className="bnb-control-reason" id={attackReasonId}>{attackReason}</span>
                             )}
                           </button>
