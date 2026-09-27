@@ -481,6 +481,7 @@ type PkmBnbLogTranslationKey =
   | 'mustPromote'
   | 'takePrize'
   | 'ruleBoxPrizes'
+  | 'ruleBoxPrizesOne'
   | 'deckOut'
   | 'damageDealt'
   | 'noDamage'

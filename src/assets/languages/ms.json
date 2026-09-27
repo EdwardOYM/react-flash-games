@@ -473,6 +473,7 @@
       "mustPromote": "{player} perlu pilih Pokemon Aktif baharu.",
       "takePrize": "{player} ambil satu kad ganjaran - {remaining} lagi.",
       "ruleBoxPrizes": "{card} mempunyai kotak peraturan EX - {player} mengambil {count} kad ganjaran.",
+      "ruleBoxPrizesOne": "{card} mempunyai kotak peraturan EX - {player} mengambil {count} kad ganjaran.",
       "deckOut": "{player} kehabisan kad untuk diambil.",
       "damageDealt": "{attack} milik {player} menyebabkan {amount} kerosakan pada {target}.",
       "noDamage": "{attack} milik {player} tidak menyebabkan kerosakan pada {target}.",

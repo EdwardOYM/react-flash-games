@@ -140,10 +140,28 @@ export function performKo(state: BattleState, koSlot: PlayerSlot): void {
   // mid-loop ends the match — hence the `state.over` return, which also keeps
   // the promotion gate below from firing after a win.
   const prizesOwed = prizesForKnockOut(knockedOut.card)
+  let prizesTaken = 0
   for (let taken = 0; taken < prizesOwed; taken += 1) {
     if (sideOf(state, beneficiary).prizeCount === 0) break
     takePrizeCard(state, beneficiary)
-    if (state.over) return
+    prizesTaken += 1
+    // `break`, not `return`: the take is finished either way, and returning
+    // here would swallow the rule-box log line for the knockout that ENDS the
+    // match — the most interesting case of all. The `state.over` return below
+    // still gates the promotion exactly as before, so the take logic itself is
+    // unchanged.
+    if (state.over) break
+  }
+  // One line per multi-prize knockout, and only then: a plain 1-prize knockout
+  // is already fully explained by the generic `takePrize` line. The count is
+  // what was ACTUALLY taken, not what the rule box was worth, so an ex knocked
+  // out with one prize left reports 1 rather than claiming 2.
+  if (prizesOwed > 1) {
+    logEvent(state, prizesTaken === 1 ? 'pokemonBnb.log.ruleBoxPrizesOne' : 'pokemonBnb.log.ruleBoxPrizes', {
+      card: knockedOut.card.name,
+      player: beneficiary,
+      count: prizesTaken,
+    })
   }
   if (state.over) return
 

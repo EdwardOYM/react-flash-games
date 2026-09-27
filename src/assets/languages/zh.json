@@ -473,6 +473,7 @@
       "mustPromote": "{player} 需要选择新的出战宝可梦。",
       "takePrize": "{player} 拿走一张奖赏卡——还剩 {remaining} 张。",
       "ruleBoxPrizes": "{card} 有 EX 规则框——{player} 因此获得 {count} 张奖赏卡。",
+      "ruleBoxPrizesOne": "{card} 有 EX 规则框——{player} 因此获得 {count} 张奖赏卡。",
       "deckOut": "{player} 已经没有牌可抽了。",
       "damageDealt": "{player} 的 {attack} 对 {target} 造成 {amount} 点伤害。",
       "noDamage": "{player} 的 {attack} 没有对 {target} 造成伤害。",
