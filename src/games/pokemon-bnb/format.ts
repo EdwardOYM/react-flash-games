@@ -12,12 +12,13 @@ export function substituteParams(template: string, params: Record<string, string
   return template.replace(/\{(\w+)\}/g, (_, name) => params[name] ?? `{${name}}`)
 }
 
-/** A template built from a counter count, choosing the singular or plural key. */
-export function countLabel(
-  count: number,
-  one: string,
-  many: string,
-  params: Record<string, string> = { count: String(count) },
-): string {
-  return substituteParams(count === 1 ? one : many, params)
+/**
+ * The singular or plural template for a count, already filled.
+ *
+ * Singular and plural are separate KEYS rather than one template, so "1
+ * counters" is impossible by construction. `ms` and `zh` are identical across
+ * the pair because neither language inflects for number.
+ */
+export function countLabel(count: number, one: string, many: string): string {
+  return substituteParams(count === 1 ? one : many, { count: String(count) })
 }
