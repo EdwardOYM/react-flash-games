@@ -8,6 +8,7 @@
 
 import { useEffect, useRef } from 'react'
 import { PokemonCard } from './PokemonCard'
+import { Attachments } from './BattleBoard'
 import { PokemonVitals } from './PokemonVitals'
 import type { CardDef, CardRarity } from './cards'
 import type { InPlayPokemon } from './game-core'
@@ -109,6 +110,11 @@ export function CardFocus({
             statuses={target.statuses}
           />
           {target.inPlay && <PokemonVitals pokemon={target.inPlay} t={t} />}
+          {/* Plan 04.6 QA-6.6: the overlay shows the SAME per-type Energy
+              breakdown as the lane behind it, by reusing the board's component
+              rather than re-implementing it here. Guarded on `inPlay`, so a
+              hand or discard card — which has no attachments — renders nothing. */}
+          {target.inPlay && <Attachments pokemon={target.inPlay} t={t} />}
         </div>
         <div className="bnb-focus-panel">
           <p className="bnb-focus-zone">{target.zone}</p>

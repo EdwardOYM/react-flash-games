@@ -107,8 +107,11 @@ function energyTypeName(type: string, t: (key: TranslationKey) => string): strin
  * Energy + Tool attached to one Pokemon, as chips rather than full faces: a
  * Pokemon can hold a dozen Energy and full faces would blow the 16:9 stage.
  * The count and the Tool's name are all the rules need.
+ *
+ * Exported so the card-focus overlay shows the SAME readout for the same
+ * Pokemon (plan 04.6 QA-6.6) rather than a second, drifting implementation.
  */
-function Attachments({ pokemon, t }: { pokemon: InPlayPokemon; t: (key: TranslationKey) => string }) {
+export function Attachments({ pokemon, t }: { pokemon: InPlayPokemon; t: (key: TranslationKey) => string }) {
   if (pokemon.attachedEnergy.length === 0 && !pokemon.attachedTool) return null
   const groups = energyGroups(pokemon)
   return (
