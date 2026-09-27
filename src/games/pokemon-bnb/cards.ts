@@ -124,6 +124,25 @@ export function isBasicPokemon(card: CardDef): boolean {
   return cardIsPokemon(card) && card.stage === 'Basic'
 }
 
+/**
+ * How many Prize cards the opponent takes when this Pokemon is knocked out.
+ *
+ * Rulebook: a Pokemon carrying an `EX` rule box is worth **two** Prize cards;
+ * an ordinary Pokemon is worth one. Read from the real TCGdex `suffix` field
+ * (plan 04.6 CP1), never from the card name, so this is data rather than a
+ * proxy — the name already contains "ex", but a name is not a rule box.
+ *
+ * **The 3-prize Mega ex rule is deliberately absent.** No Mega ex card exists in
+ * any set this repo loads (verified: zero, locally and in the TCGdex API), so
+ * the branch would be unreachable and untestable, and its upstream `suffix`
+ * spelling could not be verified. A hypothetical `"MEGA EX"` therefore returns
+ * 1 today, which is the known gap, not a claim about Mega ex. When a Mega set
+ * with real card data lands, add it beside the EX branch and a harness case.
+ */
+export function prizesForKnockOut(card: PokemonCardDef): number {
+  return card.suffix?.trim().toUpperCase() === 'EX' ? 2 : 1
+}
+
 export function cardRarityRank(rarity: CardRarity): number {
   const order: CardRarity[] = ['common', 'rare', 'pikachu rare', 'double rare', 'illustration rare', 'special illustration rare', 'futuristic rare']
   return order.indexOf(rarity)

@@ -4,6 +4,7 @@
 // Part of the game-core module split (CP7-E-a); see ./index.ts for the full
 // engine header and the re-export barrel.
 
+import { prizesForKnockOut } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { BURN_DAMAGE, POISON_DAMAGE } from './constants'
 import { cloneBattleState, drawCards, foeOf, inPlayList, isKnockedOut, logEvent, sideOf } from './helpers'
@@ -132,7 +133,18 @@ export function performKo(state: BattleState, koSlot: PlayerSlot): void {
   logEvent(state, 'pokemonBnb.log.knockOut', { player: koSlot, card: knockedOut.card.name })
 
   const beneficiary = foeOf(koSlot)
-  if (sideOf(state, beneficiary).prizeCount > 0) takePrizeCard(state, beneficiary)
+  // A Pokemon with an EX rule box is worth TWO Prize cards (04.6). The take is
+  // bounded by what is actually left in the pile, so an ex knocked out with one
+  // prize remaining takes that one card and wins, rather than reaching into an
+  // empty pile. `takePrizeCard` calls `checkVictory`, so a pile emptied
+  // mid-loop ends the match — hence the `state.over` return, which also keeps
+  // the promotion gate below from firing after a win.
+  const prizesOwed = prizesForKnockOut(knockedOut.card)
+  for (let taken = 0; taken < prizesOwed; taken += 1) {
+    if (sideOf(state, beneficiary).prizeCount === 0) break
+    takePrizeCard(state, beneficiary)
+    if (state.over) return
+  }
   if (state.over) return
 
   if (koSide.bench.length > 0) {
