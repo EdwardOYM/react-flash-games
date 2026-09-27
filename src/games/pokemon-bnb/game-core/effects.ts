@@ -94,7 +94,7 @@ export type ParsedEffect =
   | { kind: 'noDamageOnTails' }
   | { kind: 'draw'; amount: number }
   | { kind: 'heal'; amount: number }
-  | { kind: 'discardEnergy'; amount: number | 'all' }
+  | { kind: 'discardEnergy'; amount: number | 'all'; energyTypes?: string[] }
   | { kind: 'status'; status: StatusCondition; coin: boolean }
   | { kind: 'unsupported'; text: string }
 
@@ -378,14 +378,33 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
-    const discardCount = sentence.match(/^discard (\d+) energy from this/i)
-    if (discardCount) {
-      effects.push({ kind: 'discardEnergy', amount: Number(discardCount[1]) })
-      pendingCoin = false
-      continue
-    }
-    if (/^discard all energy from this/i.test(sentence)) {
-      effects.push({ kind: 'discardEnergy', amount: 'all' })
+    // 04.7 CP2: one general "discard ... from this Pokemon" branch replaces the
+    // two narrow ones it subsumes. It only matches when the WHOLE sentence is
+    // the discard, so a compound clause ("Discard all Energy from this Pokemon,
+    // and this attack does 90 damage to 1 of your opponent's Pokemon") still
+    // falls through to `unsupported` — discarding there is not the only effect,
+    // and the rest needs a player choice this game cannot make.
+    const discardFrom = sentence.match(/^discard (.+?) from this pokemon\.?$/i)
+    if (discardFrom) {
+      const body = discardFrom[1].trim()
+      if (/^all energy$/i.test(body)) {
+        effects.push({ kind: 'discardEnergy', amount: 'all' })
+      } else {
+        // Strip the printed article first, or "an Energy" would yield a type
+        // called "an". Type names are then the words directly before each
+        // "Energy": "2 Lightning Energy" -> one type counted twice; "a Fire
+        // Energy, a Water Energy, and a Lightning Energy" -> one of each. A
+        // leading digit is a COUNT of that type, and with no digit at all the
+        // clause still means one Energy, so the floor is 1.
+        const cleaned = body.replace(/^(?:an?|the)\s+/i, '').trim()
+        const types = [...cleaned.matchAll(/([a-z]+)\s+energy/gi)].map((m) => m[1].toLowerCase())
+        const count = cleaned.match(/^(\d+)\b/)?.[1]
+        effects.push({
+          kind: 'discardEnergy',
+          amount: count ? Number(count) : Math.max(1, types.length),
+          energyTypes: types,
+        })
+      }
       pendingCoin = false
       continue
     }
@@ -545,8 +564,29 @@ export function applyEffect(
       break
     }
     case 'discardEnergy': {
-      const count = effect.amount === 'all' ? context.attacker.attachedEnergy.length : effect.amount
-      const discarded = context.attacker.attachedEnergy.splice(0, count)
+      // 04.7 CP2: `energyTypes` narrows what may be discarded, and a list of more
+      // than one type means ONE OF EACH (Lugia: "a Fire Energy, a Water Energy,
+      // and a Lightning Energy"). With no types the old behaviour is unchanged:
+      // `all` empties the slot, a number takes that many from the front.
+      const types = effect.energyTypes ?? []
+      const user = context.attacker
+      const discarded: EnergyCardDef[] = []
+      if (types.length > 1) {
+        for (const type of types) {
+          const index = user.attachedEnergy.findIndex((card) => card.provides === type)
+          if (index >= 0) discarded.push(user.attachedEnergy.splice(index, 1)[0])
+        }
+      } else {
+        const wanted = effect.amount === 'all' ? user.attachedEnergy.length : effect.amount
+        const only = types[0]
+        for (let i = 0; i < wanted; i += 1) {
+          const index = only
+            ? user.attachedEnergy.findIndex((card) => card.provides === only)
+            : user.attachedEnergy.length - 1
+          if (index < 0) break
+          discarded.push(user.attachedEnergy.splice(index, 1)[0])
+        }
+      }
       side.discard.push(...discarded)
       logEvent(state, 'pokemonBnb.log.effectDiscardEnergy', {
         player: context.actor,
