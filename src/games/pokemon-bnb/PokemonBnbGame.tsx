@@ -1920,6 +1920,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
             {battle.pendingPromotion === mySlot && !battle.over && (
               <p className="bnb-notice">{battleErrorCopy('must-promote')}</p>
             )}
+            {battle.pendingChoice?.actor === mySlot && !battle.over && (
+              <p className="bnb-notice">{battleErrorCopy('must-choose-target')}</p>
+            )}
           </header>
           {/*
            * CP7 promotion gate. It follows `pendingPromotion`, not the local
@@ -1951,7 +1954,40 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               </div>
             </div>
           )}
-          {battle.pendingPromotion === null && (() => {
+          {/*
+           * 04.8 CP2-B target picker. Shaped like the promotion gate above and for
+           * the same reason: while a choice is open the action bar is hidden and
+           * `processAction` refuses everything but the pick, so the dialog is the
+           * only live control. It follows `pendingChoice.actor` rather than the
+           * local seat for the same reason the gate does — the seat that must
+           * choose owns the dialog.
+           */}
+          {battle.pendingChoice !== null && !battle.over && (
+            <div className="bnb-choice-gate" role="dialog" aria-modal="false" aria-label={t('pokemonBnb.chooseTargetTitle')}>
+              <p className="bnb-choice-title">{t('pokemonBnb.chooseTargetTitle')}</p>
+              <p className="bnb-hint">{battleErrorCopy('must-choose-target')}</p>
+              <div className="bnb-choice-list">
+                {battle.pendingChoice.targets.map((choiceTarget, index) => {
+                  const side = battle[choiceTarget.side]
+                  const victim = choiceTarget.zone === 'active' ? side.active : side.bench[choiceTarget.zone]
+                  if (!victim) return null
+                  return (
+                    <button
+                      key={`${choiceTarget.side}-${choiceTarget.zone}`}
+                      type="button"
+                      onClick={() => runBattleAction(battle.pendingChoice!.actor, { type: 'chooseTarget', targetIndex: index })}
+                    >
+                      {substituteParams(t('pokemonBnb.chooseTargetAction'), {
+                        amount: String(battle.pendingChoice!.effect.kind === 'damage' ? battle.pendingChoice!.effect.amount : 0),
+                        name: victim.card.name,
+                      })}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          {battle.pendingPromotion === null && battle.pendingChoice === null && (() => {
                 // CP7: in the hot-seat harness the acting seat follows the turn,
                 // but a pending Knock Out must be promoted by the seat that owns
                 // it — otherwise a simultaneous KO leaves the harness stuck.

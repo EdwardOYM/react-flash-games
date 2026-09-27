@@ -152,6 +152,16 @@
 .bnb-overlay-card .bnb-copy { margin: 0 0 18px; }
 .bnb-promote-gate { width: min(100%, 960px); margin: 0 auto; padding: 10px 12px; border: 1px dashed #ffc857; background: #1a262b; }
 .bnb-promote-title { margin: 0 0 6px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; text-transform: uppercase; }
+/*
+ * 04.8 CP2-B target picker. Mirrors the promotion gate's geometry rather than
+ * inventing a second overlay shape: same 960px cap, same dashed-gold frame, and a
+ * wrapping button row so six targets still fit at 960x540 and in landscape.
+ */
+.bnb-choice-gate { width: min(100%, 960px); margin: 0 auto; padding: 10px 12px; border: 1px dashed #ffc857; background: #1a262b; }
+.bnb-choice-title { margin: 0 0 6px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; text-transform: uppercase; }
+.bnb-choice-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.bnb-choice-list button { flex: 1 1 12rem; min-width: 0; padding: 10px 12px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
+.bnb-choice-list button:hover, .bnb-choice-list button:focus-visible { border-color: #ffc857; color: #ffc857; }
 
 /* Mobile landscape: fixed 100dvh page, stage fits the shorter dimension. */
 @media (orientation: landscape) and (max-height: 600px) {

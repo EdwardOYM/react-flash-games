@@ -334,6 +334,11 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
   // CP7-C: damage, Weakness/Resistance, card-text clauses, KO, Prizes, victory.
   resolveAttack(next, actor, attack, parseAttackEffects(attack.text))
 
+  // 04.8 CP2-B: a parked choice holds the turn OPEN — the attack is not finished
+  // until the player has picked a target, so `applyEndTurn` must not run yet.
+  // `resolveChoice` closes it once the pick lands.
+  if (next.pendingChoice) return { state: next, log: tailLog(next, logStart) }
+
   // Attacking ends the turn, unless the attack already ended the match.
   const closed = next.over ? next : applyEndTurn(next, actor)
   return { state: closed, log: tailLog(closed, logStart) }

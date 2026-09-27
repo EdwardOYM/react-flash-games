@@ -13,7 +13,7 @@ import { cardIsEnergy, cardIsPokemon, type AttackDef, type CardDef, type EnergyC
 import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
 import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
-import type { BattleLogEntry, BattleState, InPlayPokemon, StatusCondition } from './types'
+import type { BattleLogEntry, BattleState, ChoiceTarget, InPlayPokemon, StatusCondition } from './types'
 import { applyDeckOutLoss, performBenchKo, performKo, prizesTaken, takePrizeCard } from './turns'
 
 // -- CP7-C: damage, effects, KO, prizes, victory --
@@ -100,6 +100,12 @@ export type ParsedEffect =
   // "Flip 3 coins. This attack does 50 damage for each heads." — a bounded,
   // seeded flip against the single defender, so it stays ordinary damage maths.
   | { kind: 'coinFlipDamage'; amount: number; flips: number }
+  // -- 04.8 CP2-B: the first clause that hands the TARGET to the player. It is
+  // never applied directly: `resolveAttack` parks a `PendingChoice` instead, and
+  // `resolveChoice` applies it once the player picks. Anchored end-to-end, so the
+  // three "for each damage counter" / "to 1 of your opponent's Benched" shapes
+  // cannot fall into it and be silently mis-read.
+  | { kind: 'damageChosenTarget'; amount: number }
   // 04.7: NOT damage maths — it pays out at Knock Out time, so it is applied
   // after damage like the other post-damage clauses.
   | { kind: 'extraPrizeOnKo'; amount: number }
@@ -309,6 +315,16 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.8 CP2-B: "This attack does 20 damage to 1 of your opponent's Pokemon."
+    // The trailing `\.` is load-bearing — without it this would also swallow
+    // Greninja ex's "…to 1 of your opponent's Pokemon for each damage counter on
+    // that Pokemon." and apply a flat amount where a per-counter count belongs.
+    const chosenTarget = sentence.match(/^this attack does (\d+) damage to 1 of your opponent's pokemon\.$/i)
+    if (chosenTarget) {
+      effects.push({ kind: 'damageChosenTarget', amount: Number(chosenTarget[1]) })
+      pendingCoin = false
+      continue
+    }
     // 04.8 CP1: "Flip 3 coins." then a per-heads amount. `pendingCoinCount`
     // carries the count to the next sentence; a stray "Flip a coin." still means
     // one, so it does not clear it. Hydreigen's "Flip 3 coins. For each heads,
@@ -486,7 +502,10 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
   // no pre-existing parse result changes.
   if (effects.some((effect) => effect.kind === 'unsupported')) {
     const filtered = effects.filter(
-      (effect) => effect.kind !== 'spreadDamage' && effect.kind !== 'coinFlipDamage',
+      (effect) =>
+        effect.kind !== 'spreadDamage' &&
+        effect.kind !== 'coinFlipDamage' &&
+        effect.kind !== 'damageChosenTarget',
     )
     if (filtered.length !== effects.length) return filtered
   }
@@ -704,6 +723,10 @@ export function applyEffect(
     // the safe answer.
     case 'spreadDamage':
     case 'coinFlipDamage':
+    // 04.8 CP2-B: consumed by resolveAttack, which parks the choice; resolveChoice
+    // then applies it. Reaching here means a mis-classified phase, where doing
+    // nothing is the safe answer.
+    case 'damageChosenTarget':
       break
     default:
       break // before-damage clauses are consumed by resolveAttack
@@ -937,6 +960,29 @@ export function resolveAttack(
           if (state.over) break
         }
       }
+    }
+  }
+
+  // 5. 04.8 CP2-B: a clause that hands the target to the player parks a choice
+  // rather than applying anything. Built AFTER the Knock Out on purpose, so the
+  // offered list is the board as it actually stands now. `declareAttack` then
+  // holds the turn open until `resolveChoice` runs.
+  const chosen = effects.find((effect) => effect.kind === 'damageChosenTarget')
+  if (chosen) {
+    const foeSlot = foeOf(actor)
+    const foeSide = sideOf(state, foeSlot)
+    const targets: ChoiceTarget[] = [
+      ...(foeSide.active ? [{ side: foeSlot, zone: 'active' as const }] : []),
+      ...foeSide.bench.map((_, index) => ({ side: foeSlot, zone: index })),
+    ]
+    if (targets.length > 0) {
+      state.pendingChoice = {
+        actor,
+        targets,
+        effect: { kind: 'damage', amount: chosen.amount },
+        attackName: context.attackName,
+      }
+      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
     }
   }
 }

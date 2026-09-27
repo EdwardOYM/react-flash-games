@@ -88,6 +88,21 @@ export function controlStates(
     }
   }
 
+  // 04.8 CP2-B: a pending target choice blocks every ordinary action, on the same
+  // discipline as a Knock Out. There is no control id for the pick itself — the
+  // picker is its own dialog, and the action bar is hidden while it is open — so
+  // unlike the promotion gate this branch has no exception.
+  if (state.pendingChoice !== null) {
+    const waiting: ControlState = state.pendingChoice.actor === actor
+      ? blocked('must-choose-target')
+      : blocked('not-your-turn')
+    return {
+      attachEnergy: waiting, playBasic: waiting, playItem: waiting, playSupporter: waiting,
+      playStadium: waiting, attachTool: waiting, evolve: waiting, retreat: waiting,
+      beginAttack: waiting, useAttack: waiting, pass: waiting, promote: waiting,
+    }
+  }
+
   // `not-main-phase` must not claim it is somebody else's turn when it is
   // actually this player's turn in the wrong phase (e.g. Main, where Pass is
   // illegal) — that reason is only true for a genuine ownership failure.
