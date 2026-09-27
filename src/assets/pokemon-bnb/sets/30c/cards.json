@@ -570,6 +570,7 @@
       "set": "30c",
       "number": "015",
       "name": "Fuecoco ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -810,6 +811,7 @@
       "set": "30c",
       "number": "021",
       "name": "Greninja ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -1987,6 +1989,7 @@
       "set": "30c",
       "number": "053",
       "name": "Pikachu ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -2030,6 +2033,7 @@
       "set": "30c",
       "number": "054",
       "name": "Pikachu ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -2443,6 +2447,7 @@
       "set": "30c",
       "number": "064",
       "name": "Mewtwo ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -2531,6 +2536,7 @@
       "set": "30c",
       "number": "066",
       "name": "Mew ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -2693,6 +2699,7 @@
       "set": "30c",
       "number": "070",
       "name": "Espeon ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -2732,6 +2739,7 @@
       "set": "30c",
       "number": "071",
       "name": "Sylveon ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -3493,6 +3501,7 @@
       "set": "30c",
       "number": "090",
       "name": "Gengar ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -3576,6 +3585,7 @@
       "set": "30c",
       "number": "092",
       "name": "Umbreon ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -3983,6 +3993,7 @@
       "set": "30c",
       "number": "102",
       "name": "Jirachi ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -4316,6 +4327,7 @@
       "set": "30c",
       "number": "109",
       "name": "Salamence ex",
+      "suffix": "EX",
       "rarity": "double rare",
       "supertype": "pokemon",
       "types": [
@@ -5695,6 +5707,7 @@
       "set": "30c",
       "number": "147",
       "name": "Fuecoco ex",
+      "suffix": "EX",
       "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
@@ -5738,6 +5751,7 @@
       "set": "30c",
       "number": "148",
       "name": "Greninja ex",
+      "suffix": "EX",
       "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
@@ -5780,6 +5794,7 @@
       "set": "30c",
       "number": "149",
       "name": "Pikachu ex",
+      "suffix": "EX",
       "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
@@ -5823,6 +5838,7 @@
       "set": "30c",
       "number": "150",
       "name": "Pikachu ex",
+      "suffix": "EX",
       "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
@@ -5866,6 +5882,7 @@
       "set": "30c",
       "number": "151",
       "name": "Mewtwo ex",
+      "suffix": "EX",
       "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
@@ -5915,6 +5932,7 @@
       "set": "30c",
       "number": "152",
       "name": "Mew ex",
+      "suffix": "EX",
       "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
@@ -5959,6 +5977,7 @@
       "set": "30c",
       "number": "153",
       "name": "Sylveon ex",
+      "suffix": "EX",
       "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
@@ -5994,6 +6013,7 @@
       "set": "30c",
       "number": "154",
       "name": "Gengar ex",
+      "suffix": "EX",
       "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
@@ -6034,6 +6054,7 @@
       "set": "30c",
       "number": "155",
       "name": "Jirachi ex",
+      "suffix": "EX",
       "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
@@ -6082,6 +6103,7 @@
       "set": "30c",
       "number": "156",
       "name": "Salamence ex",
+      "suffix": "EX",
       "rarity": "special illustration rare",
       "supertype": "pokemon",
       "types": [
@@ -6119,6 +6141,7 @@
       "set": "30c",
       "number": "157",
       "name": "Mewtwo ex",
+      "suffix": "EX",
       "rarity": "futuristic rare",
       "supertype": "pokemon",
       "types": [
@@ -6168,6 +6191,7 @@
       "set": "30c",
       "number": "158",
       "name": "Mew ex",
+      "suffix": "EX",
       "rarity": "futuristic rare",
       "supertype": "pokemon",
       "types": [

@@ -139,6 +139,10 @@ async function main() {
     if (category === 'pokemon') {
       cards.push({
         ...base,
+        // The printed rule box, verbatim from the API. Without this the rule
+        // data is unrecoverable: the name already contains "ex" but the NAME is
+        // a proxy, and a regeneration would silently drop the real field.
+        suffix: detail.suffix ? String(detail.suffix) : undefined,
         types: Array.isArray(detail.types) ? detail.types.map(mapCardType) : [],
         hp: Number(detail.hp) || 0,
         stage: String(detail.stage ?? 'Basic'),

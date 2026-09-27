@@ -41,6 +41,19 @@ export type PokemonCardDef = {
   number: string
   name: string
   rarity: CardRarity
+  /**
+   * The printed rule box, from the TCGdex `suffix` field — e.g. `"EX"` for a
+   * Pokémon ex. It is the ONLY data-backed way to know a card's rule box: the
+   * upstream API has no `ruleBox` field, and 30c carries no `evolvesFrom`
+   * either, so this follows the same "use the real field, not the name" rule
+   * (see `prizesForKnockOut`, which reads this).
+   *
+   * Deliberately stored as the raw upstream string rather than a closed union:
+   * the values in circulation (EX, MEGA EX, and whatever else) are not
+   * enumerated anywhere in this repo, so narrowing them here would encode a
+   * guess. Absent on ordinary cards.
+   */
+  suffix?: string
   supertype: 'pokemon'
   types: CardType[]
   hp: number
