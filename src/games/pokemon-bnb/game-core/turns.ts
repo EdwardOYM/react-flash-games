@@ -8,7 +8,7 @@ import { prizesForKnockOut } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { BURN_DAMAGE, POISON_DAMAGE } from './constants'
 import { cloneBattleState, drawCards, foeOf, inPlayList, isKnockedOut, logEvent, sideOf } from './helpers'
-import type { BattleState } from './types'
+import type { BattleState, InPlayPokemon } from './types'
 import { flipCoin } from './effects'
 
 /**
@@ -123,39 +123,43 @@ export function takePrizeCard(state: BattleState, slot: PlayerSlot): void {
   checkVictory(state)
 }
 
-/** Knock Out the Active Pokemon of `koSlot`, then settle Prize and promotion. */
-export function performKo(state: BattleState, koSlot: PlayerSlot): void {
-  const koSide = sideOf(state, koSlot)
-  const knockedOut = koSide.active
-  if (!knockedOut) return
-  koSide.active = null
-  koSide.discard.push(knockedOut.card, ...knockedOut.attachedEnergy, ...(knockedOut.attachedTool ? [knockedOut.attachedTool] : []))
-  logEvent(state, 'pokemonBnb.log.knockOut', { player: koSlot, card: knockedOut.card.name })
+/** Move a knocked-out Pokemon and everything attached to it into the discard. */
+function discardKnockedOut(side: ReturnType<typeof sideOf>, knockedOut: InPlayPokemon): void {
+  side.discard.push(
+    knockedOut.card,
+    ...knockedOut.attachedEnergy,
+    ...(knockedOut.attachedTool ? [knockedOut.attachedTool] : []),
+  )
+}
 
-  const beneficiary = foeOf(koSlot)
-  // A Pokemon with an EX rule box is worth TWO Prize cards (04.6). The take is
-  // bounded by what is actually left in the pile, so an ex knocked out with one
-  // prize remaining takes that one card and wins, rather than reaching into an
-  // empty pile. `takePrizeCard` calls `checkVictory`, so a pile emptied
-  // mid-loop ends the match — hence the `state.over` return, which also keeps
-  // the promotion gate below from firing after a win.
+/**
+ * The Prize payout for one knocked-out Pokemon, shared by the Active and Bench
+ * Knock-Out paths (04.6, extracted 04.8 CP1).
+ *
+ * A Pokemon with an EX rule box is worth TWO Prize cards. The take is bounded by
+ * what is actually left in the pile, so an ex knocked out with one prize
+ * remaining takes that one card and wins, rather than reaching into an empty
+ * pile. `takePrizeCard` calls `checkVictory`, so a pile emptied mid-loop ends
+ * the match — hence the `state.over` break.
+ *
+ * One line per multi-prize knockout, and only then: a plain 1-prize knockout is
+ * already fully explained by the generic `takePrize` line. The count is what was
+ * ACTUALLY taken, not what the rule box was worth, so an ex knocked out with one
+ * prize left reports 1 rather than claiming 2.
+ */
+function settleKnockOutPrizes(
+  state: BattleState,
+  beneficiary: PlayerSlot,
+  knockedOut: InPlayPokemon,
+): void {
   const prizesOwed = prizesForKnockOut(knockedOut.card)
   let prizesTaken = 0
   for (let taken = 0; taken < prizesOwed; taken += 1) {
     if (sideOf(state, beneficiary).prizeCount === 0) break
     takePrizeCard(state, beneficiary)
     prizesTaken += 1
-    // `break`, not `return`: the take is finished either way, and returning
-    // here would swallow the rule-box log line for the knockout that ENDS the
-    // match — the most interesting case of all. The `state.over` return below
-    // still gates the promotion exactly as before, so the take logic itself is
-    // unchanged.
     if (state.over) break
   }
-  // One line per multi-prize knockout, and only then: a plain 1-prize knockout
-  // is already fully explained by the generic `takePrize` line. The count is
-  // what was ACTUALLY taken, not what the rule box was worth, so an ex knocked
-  // out with one prize left reports 1 rather than claiming 2.
   if (prizesOwed > 1) {
     logEvent(state, prizesTaken === 1 ? 'pokemonBnb.log.ruleBoxPrizesOne' : 'pokemonBnb.log.ruleBoxPrizes', {
       card: knockedOut.card.name,
@@ -163,6 +167,19 @@ export function performKo(state: BattleState, koSlot: PlayerSlot): void {
       count: prizesTaken,
     })
   }
+}
+
+/** Knock Out the Active Pokemon of `koSlot`, then settle Prize and promotion. */
+export function performKo(state: BattleState, koSlot: PlayerSlot): void {
+  const koSide = sideOf(state, koSlot)
+  const knockedOut = koSide.active
+  if (!knockedOut) return
+  koSide.active = null
+  discardKnockedOut(koSide, knockedOut)
+  logEvent(state, 'pokemonBnb.log.knockOut', { player: koSlot, card: knockedOut.card.name })
+
+  const beneficiary = foeOf(koSlot)
+  settleKnockOutPrizes(state, beneficiary, knockedOut)
   if (state.over) return
 
   if (koSide.bench.length > 0) {
@@ -174,6 +191,32 @@ export function performKo(state: BattleState, koSlot: PlayerSlot): void {
     state.winReason = 'no-pokemon'
     state.over = true
   }
+}
+
+/**
+ * Knock Out a BENCHED Pokemon (04.8 CP1, for spread damage).
+ *
+ * Deliberately different from `performKo` in two ways, both rulebook: a benched
+ * knockout leaves the Active alone, so there is no promotion gate; and the
+ * opponent still takes the Prize cards the rule box is worth — benching an ex is
+ * exactly how a player risks two prizes, so the EX payout applies here too.
+ * `checkVictory` then ends the match if that emptied the pile, or if the side has
+ * no Pokemon left in play at all.
+ */
+export function performBenchKo(
+  state: BattleState,
+  koSlot: PlayerSlot,
+  knockedOut: InPlayPokemon,
+): void {
+  const koSide = sideOf(state, koSlot)
+  const index = koSide.bench.indexOf(knockedOut)
+  if (index < 0) return
+  koSide.bench.splice(index, 1)
+  discardKnockedOut(koSide, knockedOut)
+  logEvent(state, 'pokemonBnb.log.knockOut', { player: koSlot, card: knockedOut.card.name })
+  settleKnockOutPrizes(state, foeOf(koSlot), knockedOut)
+  if (state.over) return
+  checkVictory(state)
 }
 
 // -- CP7-D: turn lifecycle, statuses, timer, snapshots --

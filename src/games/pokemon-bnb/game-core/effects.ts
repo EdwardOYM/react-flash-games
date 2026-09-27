@@ -14,7 +14,7 @@ import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
 import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
 import type { BattleLogEntry, BattleState, InPlayPokemon, StatusCondition } from './types'
-import { applyDeckOutLoss, performKo, prizesTaken, takePrizeCard } from './turns'
+import { applyDeckOutLoss, performBenchKo, performKo, prizesTaken, takePrizeCard } from './turns'
 
 // -- CP7-C: damage, effects, KO, prizes, victory --
 
@@ -88,6 +88,18 @@ export type ParsedEffect =
   | { kind: 'bonusDamagePerDefenderAttached'; amount: number }
   | { kind: 'bonusDamageIfDefenderIsEx'; amount: number }
   | { kind: 'flipUntilTailsDamage'; amount: number }
+  // -- 04.8 CP1: effects that reach past the defender, and so need their own
+  // resolution rather than a `base` bonus. All print a base damage of 0.
+  //
+  // `spreadDamage` hits EVERY Pokemon the opponent has in play, so it cannot be
+  // folded into `base`: that is applied to the Active alone, with Weakness and
+  // Resistance. The printed "(Don't apply Weakness and Resistance for Benched
+  // Pokemon.)" reminder is stripped before parsing, since it is a caveat on the
+  // spread rather than an effect of its own. `exOnly` is the Mewtwo ex variant.
+  | { kind: 'spreadDamage'; amount: number; exOnly: boolean }
+  // "Flip 3 coins. This attack does 50 damage for each heads." — a bounded,
+  // seeded flip against the single defender, so it stays ordinary damage maths.
+  | { kind: 'coinFlipDamage'; amount: number; flips: number }
   // 04.7: NOT damage maths — it pays out at Knock Out time, so it is applied
   // after damage like the other post-damage clauses.
   | { kind: 'extraPrizeOnKo'; amount: number }
@@ -262,14 +274,58 @@ function nameMatches(cardName: string, names: string[]): boolean {
 
 /** Parse one attack's verbatim text into ordered effect clauses. */
 export function parseAttackEffects(text: string): ParsedEffect[] {
-  const plain = plainCardText(text)
-  if (!plain) return []
+  // 04.8 CP1: strip the spread caveat before splitting into sentences, or the
+  // reminder becomes a clause of its own and the whole attack reports
+  // `unsupported`. Matched exactly rather than as a general parenthetical,
+  // because other sets print parentheses that ARE effects ("If you do, ...").
+  const plain = plainCardText(text).replace(
+    /\(\s*don't apply weakness and resistance for benched pokemon\.?\s*\)/gi,
+    ' ',
+  )
+  if (!plain.trim()) return []
   const effects: ParsedEffect[] = []
-  const sentences = plain.split(/(?<=\.)\s+/)
+  // An empty sentence would become an `unsupported` clause with no text, and the
+  // all-or-nothing guard below would then read the whole attack as unparseable.
+  // Stripping the reminder can leave exactly such a trailing fragment.
+  const sentences = plain.split(/(?<=\.)\s+/).filter((sentence) => sentence.trim().length > 0)
   let pendingCoin = false
+  let pendingCoinCount = 0
   let pendingUntilTails = false
 
   for (const sentence of sentences) {
+    // -- 04.8 CP1: spread damage. Matched before the "for each" families because
+    // "to each of your opponent's Pokemon" would otherwise be read as a per-card
+    // count. The trailing `\s*\.?` absorbs the data's odd "Pokemon ex ." spacing
+    // (a `$`-anchored pattern would silently miss all three Mewtwo ex attacks).
+    const spread = sentence.match(
+      /^this attack does (\d+) damage to each of your opponent's pokemon( ex)?\s*\.?$/i,
+    )
+    if (spread) {
+      effects.push({
+        kind: 'spreadDamage',
+        amount: Number(spread[1]),
+        exOnly: Boolean(spread[2]),
+      })
+      pendingCoin = false
+      continue
+    }
+    // 04.8 CP1: "Flip 3 coins." then a per-heads amount. `pendingCoinCount`
+    // carries the count to the next sentence; a stray "Flip a coin." still means
+    // one, so it does not clear it. Hydreigen's "Flip 3 coins. For each heads,
+    // discard an Energy..." deliberately does NOT match — its second sentence is
+    // a discard, not a damage amount, so it falls through to `unsupported`.
+    const coinCount = sentence.match(/^flip (\d+) coins\.?$/i)
+    if (coinCount) {
+      pendingCoinCount = Number(coinCount[1])
+      pendingCoin = false
+      continue
+    }
+    const perHeads = sentence.match(/^this attack does (\d+) damage for each heads\.?$/i)
+    if (perHeads && pendingCoinCount > 0) {
+      effects.push({ kind: 'coinFlipDamage', amount: Number(perHeads[1]), flips: pendingCoinCount })
+      pendingCoinCount = 0
+      continue
+    }
     // -- 04.7: the damage-maths families, matched before the generic ones so a
     // specific "for each" clause is never swallowed by a looser pattern.
     const perEnergyType = sentence.match(/^this attack does (\d+) (?:more )?damage for each (\w+) energy attached to this pokemon\.?$/i)
@@ -421,6 +477,18 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     }
     effects.push({ kind: 'unsupported', text: sentence })
     pendingCoin = false
+  }
+  // 04.8 CP1: the reach effects are ALL-OR-NOTHING. Ferrothorn reads "This
+  // attack does 50 damage to each of your opponent's Pokemon. ... This Pokemon
+  // also does 130 damage to itself." — applying the spread while dropping the
+  // self-Knock-Out would be a materially wrong game state, so the unsupported
+  // clause wins and the spread is dropped. Scoped to the two NEW kinds only, so
+  // no pre-existing parse result changes.
+  if (effects.some((effect) => effect.kind === 'unsupported')) {
+    const filtered = effects.filter(
+      (effect) => effect.kind !== 'spreadDamage' && effect.kind !== 'coinFlipDamage',
+    )
+    if (filtered.length !== effects.length) return filtered
   }
   return effects
 }
@@ -630,11 +698,87 @@ export function applyEffect(
     case 'bonusDamagePerDefenderAttached':
     case 'bonusDamageIfDefenderIsEx':
     case 'flipUntilTailsDamage':
+    // 04.8 CP1: consumed by resolveAttack — the spread resolves against every
+    // opponent Pokemon in play, the coin flip only against the defender. Both
+    // reach here only if a phase were mis-classified, and then doing nothing is
+    // the safe answer.
+    case 'spreadDamage':
+    case 'coinFlipDamage':
       break
     default:
       break // before-damage clauses are consumed by resolveAttack
   }
   return tailLog(state, logStart)
+}
+
+/**
+ * Resolve a spread attack against every Pokemon the opponent has in play
+ * (04.8 CP1).
+ *
+ * The Active takes the attack through the ordinary Weakness/Resistance path: the
+ * printed reminder exempts only BENCHED Pokemon, so the Active is still weak to
+ * a matching type. Benched targets take the flat printed amount with no Weakness
+ * or Resistance, exactly as the card says.
+ *
+ * Damage is applied to every target first, then the knockouts settle. The Bench
+ * settles BEFORE the Active, and that order is load-bearing: `performKo` opens a
+ * promotion gate onto whatever is left in the Bench, so knocking the Active out
+ * first would leave a gate pointing at an empty Bench. Both target lists are
+ * captured before any knockout, since the Active reference goes stale the moment
+ * `performKo` nulls it.
+ */
+function resolveSpreadAttack(
+  state: BattleState,
+  actor: PlayerSlot,
+  attacker: InPlayPokemon,
+  attack: AttackDef,
+  effect: { amount: number; exOnly: boolean },
+): void {
+  const defenderSlot = foeOf(actor)
+  const foeSide = sideOf(state, defenderSlot)
+  const isEx = (pokemon: InPlayPokemon) => pokemon.card.suffix?.trim().toUpperCase() === 'EX'
+  const matches = (pokemon: InPlayPokemon) => !effect.exOnly || isEx(pokemon)
+  const active = foeSide.active
+  const bench = foeSide.bench.filter(matches)
+
+  if (active && matches(active)) {
+    const outcome = computeAttackDamage(state, attacker, active, effect.amount)
+    if (outcome.damage > 0) {
+      active.damage += outcome.damage
+      logEvent(state, 'pokemonBnb.log.damageDealt', {
+        player: actor,
+        attack: attack.name,
+        target: active.card.name,
+        amount: outcome.damage,
+        weakness: outcome.weakness,
+        resistance: outcome.resistance,
+      })
+    } else {
+      logEvent(state, 'pokemonBnb.log.noDamage', {
+        player: actor,
+        attack: attack.name,
+        target: active.card.name,
+      })
+    }
+  }
+  for (const target of bench) {
+    target.damage += effect.amount
+    logEvent(state, 'pokemonBnb.log.damageDealt', {
+      player: actor,
+      attack: attack.name,
+      target: target.card.name,
+      amount: effect.amount,
+      weakness: 1,
+      resistance: 0,
+    })
+  }
+
+  for (const target of bench) {
+    if (!isKnockedOut(target)) continue
+    performBenchKo(state, defenderSlot, target)
+    if (state.over) return
+  }
+  if (active && matches(active) && isKnockedOut(active)) performKo(state, defenderSlot)
 }
 
 /**
@@ -656,6 +800,16 @@ export function resolveAttack(
   const defender = sideOf(state, defenderSlot).active
   if (!attacker || !defender) return
   const context: EffectContext = { actor, attacker, defender, attackName: attack.name }
+
+  // 0. A spread attack is its own resolution: it is the only clause on such a
+  // card (the parser drops a spread that shares a sentence with anything it
+  // cannot honour), so there is no `base` to fold it into and no second clause
+  // to run. It returns before the single-target pipeline entirely.
+  const spread = effects.find((effect) => effect.kind === 'spreadDamage')
+  if (spread) {
+    resolveSpreadAttack(state, actor, attacker, attack, spread)
+    return
+  }
 
   // 1. Damage modifiers: flat bonuses, per-Prize-taken bonuses, coin gates.
   let base = attack.damage
@@ -722,6 +876,16 @@ export function resolveAttack(
       // Bounded: an unbounded loop would hang the match on a pathological seed.
       let heads = 0
       while (heads < MAX_COIN_FLIPS && flipCoin(state)) heads += 1
+      const bonus = effect.amount * heads
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'coinFlipDamage') {
+      // 04.8 CP1: "Flip 3 coins. This attack does 50 damage for each heads." A
+      // fixed count, so the loop is bounded by the printed number and the amount
+      // lands in `base` like any other damage maths — the defender's Weakness and
+      // Resistance still apply, as they do to any single-target attack.
+      let heads = 0
+      for (let flip = 0; flip < effect.flips; flip += 1) if (flipCoin(state)) heads += 1
       const bonus = effect.amount * heads
       base += bonus
       logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
