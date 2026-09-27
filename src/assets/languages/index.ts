@@ -532,6 +532,8 @@ type PkmBnbErrorTranslationKey =
   | 'viewOnly'
   | 'mustPromote'
   | 'noPromotionPending'
+  | 'mustChooseTarget'
+  | 'noChoicePending'
   | 'energyLimit'
   | 'alreadyAttached'
   | 'notEnergy'

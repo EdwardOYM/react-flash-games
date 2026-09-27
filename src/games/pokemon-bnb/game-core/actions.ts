@@ -9,9 +9,9 @@ import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN } from './constants'
 import { canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, failure, inPlayOf, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState } from './types'
-import { applyAbilityEffect, classifyAbility, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, resolveAttack } from './effects'
+import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
-import { applyEndTurn, applyStartOfTurn, checkVictory, performKo } from './turns'
+import { applyEndTurn, applyStartOfTurn, checkVictory, performBenchKo, performKo } from './turns'
 
 // -- CP7-B: turn sub-phases + action dispatcher --
 
@@ -398,6 +398,16 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
     }
     return failure(state, 'must-promote')
   }
+  // 04.8 CP2: a pending choice blocks everything but its own resolution, on the
+  // same discipline as a Knock Out. Checked AFTER promotion deliberately: a KO is
+  // a hard game-state requirement that must never be pre-empted by an effect
+  // clause, and a Bench knockout can open a promotion while a choice is open.
+  if (state.pendingChoice) {
+    if (action.type === 'chooseTarget' && actor === state.pendingChoice.actor) {
+      return resolveChoice(state, actor, action.targetIndex)
+    }
+    return failure(state, 'must-choose-target')
+  }
   switch (action.type) {
     case 'confirmSetupReveal':
     case 'chooseTurnOrder':
@@ -427,9 +437,61 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
       return pass(state, actor)
     case 'promoteActive':
       return failure(state, 'no-promotion-pending')
+    case 'chooseTarget':
+      return failure(state, 'no-choice-pending')
     default:
       return failure(state, 'unknown-action')
   }
+}
+
+/**
+ * Resolve a pending choice (04.8 CP2) by INDEX into the target list the engine
+ * already agreed to expose. An index rather than a zone reference, so a client
+ * cannot name a target the engine never offered — the list is the contract.
+ *
+ * The Active takes the effect through the ordinary Weakness/Resistance path;
+ * a Benched target takes the flat amount, honouring the "(Don't apply Weakness
+ * and Resistance for Benched Pokémon.)" rider those cards print. Either knockout
+ * then settles on its own path (`performKo` / `performBenchKo`), and the turn
+ * closes, since the attack that opened the choice is now finished.
+ */
+export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex: number): ActionResult {
+  if (state.over) return failure(state, 'match-over')
+  const choice = state.pendingChoice
+  if (!choice) return failure(state, 'no-choice-pending')
+  if (choice.actor !== actor) return failure(state, 'not-your-turn')
+  const target = choice.targets[targetIndex]
+  if (!target) return failure(state, 'no-target')
+
+  const next = cloneBattleState(state)
+  const logStart = next.log.length
+  const targetSide = sideOf(next, target.side)
+  const victim = target.zone === 'active' ? targetSide.active : targetSide.bench[target.zone]
+  if (!victim) return failure(state, 'no-target')
+  const attacker = sideOf(next, actor).active
+
+  const amount = choice.effect.kind === 'damage'
+    ? (target.zone === 'active' && attacker
+        ? computeAttackDamage(next, attacker, victim, choice.effect.amount).damage
+        : choice.effect.amount)
+    : 0
+  if (amount > 0) {
+    victim.damage += amount
+    logEvent(next, 'pokemonBnb.log.damageDealt', {
+      player: actor,
+      attack: choice.attackName,
+      target: victim.card.name,
+      amount,
+    })
+  }
+  next.pendingChoice = null
+
+  if (isKnockedOut(victim)) {
+    if (target.zone === 'active') performKo(next, target.side)
+    else performBenchKo(next, target.side, victim)
+  }
+  const closed = next.over ? next : applyEndTurn(next, actor)
+  return { state: closed, log: tailLog(closed, logStart) }
 }
 
 /**

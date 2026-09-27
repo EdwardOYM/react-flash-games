@@ -92,6 +92,11 @@ export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
     timerSeconds: state.timerSeconds,
     pendingPromotion: state.pendingPromotion,
     promotionQueue: [...state.promotionQueue],
+    // 04.8 CP2: copied deeply so a render-side mutation cannot reach the
+    // authoritative state. It names no hidden zone, so nothing is disclosed.
+    pendingChoice: state.pendingChoice
+      ? { ...state.pendingChoice, targets: state.pendingChoice.targets.map((t) => ({ ...t })) }
+      : null,
     stadium: state.stadium ? structuredClone(state.stadium) : null,
     turnStarted: state.turnStarted,
     setup: structuredClone(state.setup),
@@ -152,6 +157,12 @@ export function applySnapshot(snapshot: Snapshot): BattleState {
     timerSeconds: snapshot.timerSeconds,
     pendingPromotion: snapshot.pendingPromotion,
     promotionQueue: [...snapshot.promotionQueue],
+    // The picker must render identically for the guest, so the choice rides the
+    // snapshot. The rebuilt state is `viewOnly`, so this copy can never be acted
+    // on — only the authoritative seat resolves a choice.
+    pendingChoice: snapshot.pendingChoice
+      ? { ...snapshot.pendingChoice, targets: snapshot.pendingChoice.targets.map((t) => ({ ...t })) }
+      : null,
     stadium: snapshot.stadium ? structuredClone(snapshot.stadium) : null,
     turnStarted: snapshot.turnStarted,
     setup: structuredClone(snapshot.setup),

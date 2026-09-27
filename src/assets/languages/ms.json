@@ -524,6 +524,8 @@
       "viewOnly": "Ini pandangan penonton - anda tidak boleh bertindak buat masa ini.",
       "mustPromote": "Pilih Pokemon Aktif baharu dahulu.",
       "noPromotionPending": "Tiada Pokemon Aktif baharu diperlukan buat masa ini.",
+      "mustChooseTarget": "Pilih sasaran untuk kesan ini dahulu.",
+      "noChoicePending": "Tiada kesan sedang menunggu sasaran buat masa ini.",
       "energyLimit": "Anda sudah melekatkan satu kad Tenaga giliran ini.",
       "alreadyAttached": "Pokemon itu sudah menerima kad Tenaga giliran ini.",
       "notEnergy": "Kad itu bukan kad Tenaga.",

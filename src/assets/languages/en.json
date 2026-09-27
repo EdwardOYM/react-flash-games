@@ -524,6 +524,8 @@
       "viewOnly": "This is a spectator view - you cannot act right now.",
       "mustPromote": "Choose a new Active Pokemon first.",
       "noPromotionPending": "No new Active Pokemon is needed right now.",
+      "mustChooseTarget": "Choose a target for this effect first.",
+      "noChoicePending": "No effect is waiting for a target right now.",
       "energyLimit": "You already attached an Energy card this turn.",
       "alreadyAttached": "That Pokemon already took an Energy card this turn.",
       "notEnergy": "That card is not an Energy card.",

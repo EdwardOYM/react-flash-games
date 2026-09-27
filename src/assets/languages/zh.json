@@ -524,6 +524,8 @@
       "viewOnly": "当前为观战视角，无法操作。",
       "mustPromote": "请先选择新的出战宝可梦。",
       "noPromotionPending": "现在不需要更换出战宝可梦。",
+      "mustChooseTarget": "请先为此效果选择一个目标。",
+      "noChoicePending": "现在没有等待选择目标的效果。",
       "energyLimit": "本回合你已经粘贴过能量卡。",
       "alreadyAttached": "这只宝可梦本回合已经接受过能量卡。",
       "notEnergy": "那张卡不是能量卡。",

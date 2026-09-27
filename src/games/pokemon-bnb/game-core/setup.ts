@@ -261,6 +261,7 @@ export function setupBattle(
     timerSeconds: settings.timerSeconds,
     pendingPromotion: null,
     promotionQueue: [],
+    pendingChoice: null,
     stadium: null,
     turnStarted: false,
     viewOnly: false,

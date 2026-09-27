@@ -24,6 +24,33 @@ export type SetupPlayerState = {
 }
 export type SpecialConditionState = Record<StatusCondition, boolean>
 
+/**
+ * One legal target of a pending choice. `zone` reuses the `'active' | number`
+ * convention the existing `target` actions already use for Active-vs-Bench.
+ */
+export type ChoiceTarget = { side: PlayerSlot; zone: 'active' | number }
+
+/**
+ * 04.8 CP2: an effect that the printed text hands to the player to resolve.
+ *
+ * This is the generalisation of the Knock Out promotion gate: the same three
+ * steps — the engine parks a flag, `processAction` refuses every other action,
+ * and the UI offers a `role="dialog"` picker. Deliberately inert in CP2-A: no
+ * card text produces one yet, because a choice with no picker would soft-lock
+ * the match. CP2-B wires the dialog and the first text atomically with it.
+ */
+export type PendingChoice = {
+  /** The seat that must choose. Only this seat may resolve it. */
+  actor: PlayerSlot
+  /** Legal targets, in a stable order. Stored, not recomputed, so the list a
+   *  player saw cannot drift from the list the engine validates against. */
+  targets: ChoiceTarget[]
+  /** What happens to the chosen target. */
+  effect: { kind: 'damage'; amount: number }
+  /** Printed attack that asked for the choice, for the log line. */
+  attackName: string
+}
+
 export type InPlayPokemon = {
   uid: string
   card: PokemonCardDef
@@ -111,6 +138,12 @@ export type BattleState = {
   promotionQueue: PlayerSlot[]
   /** Side that must choose a new Active after a KO before anything else. */
   pendingPromotion: PlayerSlot | null
+  /**
+   * 04.8 CP2: a printed effect awaiting the actor's target pick. Inert in
+   * CP2-A — no card text produces one yet, because a choice with no picker would
+   * soft-lock the match. CP2-B wires the dialog and the first text together.
+   */
+  pendingChoice: PendingChoice | null
   /** True once the current turn's start step (draw + flag reset) has run. */
   turnStarted: boolean
   /**
@@ -151,6 +184,11 @@ export type Snapshot = {
   timerSeconds: number
   pendingPromotion: PlayerSlot | null
   promotionQueue: PlayerSlot[]
+  /** 04.8 CP2: carried verbatim so the guest renders the same picker the host
+   *  sees. It names no hidden zone, so this is NO privacy change — the deck and
+   *  the opponent's hand stay hidden, which is why deck search stays a separate,
+   *  still-blocked decision. */
+  pendingChoice: PendingChoice | null
   stadium: TrainerCardDef | null
   turnStarted: boolean
   setup: SetupPlayerState
@@ -176,5 +214,8 @@ export type BattleAction =
   | { type: 'pass' }
   | { type: 'useAttack'; attackIndex: number }
   | { type: 'promoteActive'; benchIndex: number }
+  /** 04.8 CP2: resolve the pending choice by INDEX into its stored target list,
+   *  never a forged zone — the engine re-validates the entry it already agreed. */
+  | { type: 'chooseTarget'; targetIndex: number }
 
 export type ActionResult = { state: BattleState; log: BattleLogEntry[]; error?: string }
