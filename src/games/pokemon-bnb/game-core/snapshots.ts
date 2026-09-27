@@ -43,11 +43,19 @@ function cloneInPlay(pokemon: InPlayPokemon): InPlayPokemon {
   return JSON.parse(JSON.stringify(pokemon)) as InPlayPokemon
 }
 
-function snapshotSide(side: SideState, isViewer: boolean): SnapshotSide {
+/**
+ * `prizeTotal` is the configured Prize count for the whole match, and
+ * `prizeCount` is what is still face-down. This used to read
+ * `side.prizeCount - side.prizes.length`, which is always 0: the engine keeps
+ * those two in step (takePrizeCard re-assigns `prizeCount = prizes.length`), so
+ * the field reported "0 taken" for the entire match. The real count is the
+ * configured total minus what remains, exactly `turns.prizesTaken`.
+ */
+function snapshotSide(side: SideState, isViewer: boolean, prizeTotal: number): SnapshotSide {
   return {
     handCount: side.hand.length,
     deckCount: side.deck.length,
-    prizesTaken: side.prizeCount - side.prizes.length,
+    prizesTaken: Math.max(0, prizeTotal - side.prizeCount),
     prizeCount: side.prizeCount,
     discard: [...side.discard],
     active: side.active ? cloneInPlay(side.active) : null,
@@ -88,8 +96,8 @@ export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
     turnStarted: state.turnStarted,
     setup: structuredClone(state.setup),
     log: [...state.log],
-    host: snapshotSide(state.host, viewer === 'host'),
-    guest: snapshotSide(state.guest, viewer === 'guest'),
+    host: snapshotSide(state.host, viewer === 'host', state.prizeCards),
+    guest: snapshotSide(state.guest, viewer === 'guest', state.prizeCards),
   }
 }
 
@@ -99,7 +107,14 @@ function snapshotSideToState(snapshot: SnapshotSide): SideState {
     hand: snapshot.hand ? [...snapshot.hand] : fillHidden(snapshot.handCount),
     active: snapshot.active ? cloneInPlay(snapshot.active) : null,
     bench: snapshot.bench.map(cloneInPlay),
-    prizes: fillHidden(snapshot.prizeCount - snapshot.prizesTaken),
+    // `prizeCount` IS the number still face-down, so it alone sizes the hidden
+    // pile. This previously read `prizeCount - prizesTaken`, which was correct
+    // only because `prizesTaken` was wrongly always 0 — two bugs cancelling.
+    // With `prizesTaken` now honest, subtracting it would UNDER-count the
+    // rebuilt pile. PROVEN, not assumed: reverting only this line makes the
+    // CP5 harness fail three assertions (a mid-match 3-remaining pile rebuilds
+    // as 2 placeholders) — see the plan's CP5 entry.
+    prizes: fillHidden(snapshot.prizeCount),
     prizeCount: snapshot.prizeCount,
     discard: [...snapshot.discard],
     lostZone: [],
