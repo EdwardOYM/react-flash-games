@@ -29,6 +29,7 @@
 import { useState } from 'react'
 import { cardIsEnergy, type CardDef } from './cards'
 import { cardBackShowsArt, cardBackUrl, cardFaceShowsText, cardImageUrl } from './cardImage'
+import { damageCounters } from './game-core'
 import './PokemonCard.css'
 
 type PokemonCardProps = {
@@ -40,7 +41,9 @@ type PokemonCardProps = {
   rarityLabel?: string
   /** Translated aria-label for the back, e.g. t('pokemonBnb.cardFaceDown'). */
   faceDownLabel?: string
-  /** Battle overlay (CP8): damage counters banked on this Pokemon. */
+  /** Battle overlay (CP8): RAW damage banked on this Pokemon. CP4 converts it
+   *  to damage counters for the badge (1 counter = 10 damage); the engine
+   *  still keeps raw points, so this prop stays the engine's own figure. */
   damage?: number
   /** Battle overlay (CP8): status pips, e.g. ['poison', 'burn']. */
   statuses?: string[]
@@ -63,6 +66,10 @@ export function PokemonCard({ card, faceDown, rarityLabel, faceDownLabel, damage
   const artUrl = cardImageUrl(card)
   /** Text face whenever the artwork is absent or failed (see the header note). */
   const showTextFace = cardFaceShowsText(artUrl, failedUrl)
+  // CP4: the badge reads in the rulebook's unit. `damageCounters` floors, so a
+  // partial counter never rounds up into a fake one, and the badge is hidden
+  // until a whole counter exists rather than proudly showing "0".
+  const damageBadge = typeof damage === 'number' && damage > 0 ? damageCounters(damage) : 0
 
   return (
     // A card is presented as a single image, so `role="img"` is right — but only
@@ -118,7 +125,7 @@ export function PokemonCard({ card, faceDown, rarityLabel, faceDownLabel, damage
               {rarityLabel && <span className="pkm-card-textface-rarity">{rarityLabel}</span>}
             </span>
           ) : null}
-          {typeof damage === 'number' && damage > 0 && <span className="pkm-card-damage">{damage}</span>}
+          {damageBadge > 0 && <span className="pkm-card-damage">{damageBadge}</span>}
           {statusList.length > 0 && (
             <span className="pkm-card-statuses">{statusList.map((status) => <i key={status} className={`pkm-card-status pkm-card-status-${status}`} />)}</span>
           )}

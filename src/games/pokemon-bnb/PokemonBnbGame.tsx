@@ -9,7 +9,7 @@ import { readConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import { isBasicPokemon, cardIsEnergy, type CardDef, type CardRarity, type SetId } from './cards'
 import { DECK_SIZE, buildPoolIsValid, poolHasBasic, serializeDeck, type DeckLegalityReason, type EnergySelection } from './deck'
-import { applySnapshot, applyTimeout, classifyAbility, HIDDEN_CARD, processAction, setupBattle, STATUS_CONDITIONS, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type SideState, type Snapshot } from './game-core'
+import { applySnapshot, applyTimeout, classifyAbility, HIDDEN_CARD, processAction, setupBattle, STATUS_CONDITIONS, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type InPlayPokemon, type SideState, type Snapshot } from './game-core'
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
 import { basicEnergyCatalog, openPacks, buildPool, seatSeed, type OpenedCard, type OpenedPool } from './pack'
@@ -22,6 +22,7 @@ import { CardFocus } from './CardFocus'
 import { focusActions, type CardRef, type FocusAction } from './focus'
 import { PackStack } from '../cardstack/PackStack'
 import { attackControl, controlStates, reasonKey, type ControlId } from './controls'
+import { substituteParams } from './format'
 import { HighscoreTable } from '../highscore/HighscoreTable'
 import './PokemonBnbGame.css'
 
@@ -72,11 +73,6 @@ const DEFAULT_SET_ID = SET_ENTRIES[0].id as SetId
 function setLabel(setId: string, t: (key: TranslationKey) => string): string {
   const key = SET_LABEL_KEYS[setId] as TranslationKey | undefined
   return key ? t(key) : setId
-}
-
-/** Fill {name} style placeholders, matching the Tron game's copy handling. */
-function substituteParams(template: string, params: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (_, name) => params[name] ?? `{${name}}`)
 }
 
 /** Peer failures arrive as codes; players see translated copy instead. */
@@ -1257,7 +1253,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     const side = battle[focusRef.seat]
     const isOwn = focusRef.seat === viewSeat
     let card: CardDef | null = null
-    let damage: number | undefined
+    let inPlay: InPlayPokemon | undefined
     let statuses: string[] | undefined
     if (focusRef.source === 'hand') {
       card = side.hand[focusRef.index] ?? null
@@ -1267,7 +1263,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       const pokemon = focusRef.source === 'active' ? side.active : side.bench[focusRef.index]
       if (pokemon) {
         card = pokemon.card
-        damage = pokemon.damage
+        // CP4: hand the whole in-play Pokemon to the overlay, not a loose damage
+        // number, so its health/counter readout is derived from one source.
+        inPlay = pokemon
         statuses = STATUS_CONDITIONS.filter((status) => pokemon.conditions[status])
       }
     }
@@ -1277,7 +1275,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     const actions = isOwn ? focusActions(battle, viewSeat, focusRef, { handIndex: selHand, benchIndex: selBench }) : []
     return {
       card,
-      damage,
+      inPlay,
       statuses,
       source: focusRef.source,
       readOnly: !isOwn,
@@ -2098,7 +2096,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               <CardFocus
                 target={{
                   card: focus.card,
-                  damage: focus.damage,
+                  inPlay: focus.inPlay,
                   statuses: focus.statuses,
                   zone: `${seatName(focusRef?.seat ?? mySlot)} · ${t(focus.source === 'active' ? 'pokemonBnb.zoneActive' : focus.source === 'bench' ? 'pokemonBnb.zoneBench' : focus.source === 'hand' ? 'pokemonBnb.zoneHand' : 'pokemonBnb.zoneDiscard')}`,
                   targets: focusTargets,

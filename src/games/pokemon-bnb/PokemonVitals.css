@@ -1,0 +1,62 @@
+/* CP4 PokemonVitals — co-located styles for the HP + damage-counter readout.
+   The board caps at the 960x540 reference embed; this line sits BESIDE a card,
+   never on it, so it must never widen the lane. `min-width: 0` plus wrapping
+   keeps a long localized string from pushing the Bench into a sideways scroll. */
+
+.bnb-vitals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+  margin: 0;
+  font-size: .78rem;
+  line-height: 1.2;
+  color: #b9c9cd;
+}
+
+.bnb-vitals-hp {
+  font-weight: 700;
+  color: #e8f1f3;
+  white-space: nowrap;
+}
+
+/* The counter chip is the "damage taken" signal, so it carries the warm
+   accent the status pips use rather than the neutral health colour. */
+.bnb-vitals-counters {
+  padding: 1px 6px;
+  border: 1px solid #a33;
+  border-radius: 999px;
+  background: #3a1f22;
+  color: #ffc9c9;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Remaining health only matters once something has been dealt, so it stays
+   muted: it is a reassurance, not a headline. */
+.bnb-vitals-left {
+  color: #8fa3a8;
+  white-space: nowrap;
+}
+
+/* Mobile landscape: the lanes are already short on height, so the readout
+   shrinks rather than pushing the Bench below the fold. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .bnb-vitals {
+    gap: 1px 6px;
+    font-size: .7rem;
+  }
+
+  .bnb-vitals-counters {
+    padding: 0 5px;
+  }
+}
+
+/* Narrow portrait: allow the three parts to stack instead of squeezing into
+   an unreadable single line beside a card. */
+@media (max-width: 520px) {
+  .bnb-vitals {
+    font-size: .74rem;
+  }
+}

@@ -8,15 +8,22 @@
 
 import { useEffect, useRef } from 'react'
 import { PokemonCard } from './PokemonCard'
+import { PokemonVitals } from './PokemonVitals'
 import type { CardDef, CardRarity } from './cards'
+import type { InPlayPokemon } from './game-core'
 import type { FocusAction } from './focus'
 import type { TranslationKey } from '../../assets/languages'
 import './CardFocus.css'
 
 export type CardFocusTarget = {
   card: CardDef
-  /** Damage banked on this Pokemon, when the card is in play. */
-  damage?: number
+  /**
+   * The in-play Pokemon this card IS, when it is in play. CP4: the panel shows
+   * the same health + damage-counter readout as the board, and that readout is
+   * derived from the in-play state rather than a loose damage number, so the
+   * overlay can never show a different figure than the lane behind it.
+   */
+  inPlay?: InPlayPokemon
   statuses?: string[]
   /** Where this card sits, for the heading. */
   zone: string
@@ -98,9 +105,10 @@ export function CardFocus({
             card={target.card}
             rarityLabel={rarityLabel(target.card.rarity)}
             faceDownLabel={faceDownLabel}
-            damage={target.damage}
+            damage={target.inPlay?.damage}
             statuses={target.statuses}
           />
+          {target.inPlay && <PokemonVitals pokemon={target.inPlay} t={t} />}
         </div>
         <div className="bnb-focus-panel">
           <p className="bnb-focus-zone">{target.zone}</p>

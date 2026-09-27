@@ -14,6 +14,7 @@ import type { CardDef, CardRarity } from './cards'
 import { HIDDEN_CARD, MAX_BENCH, STATUS_CONDITIONS, type InPlayPokemon, type SideState } from './game-core'
 import type { PlayerSlot } from './net/protocol'
 import { PokemonCard } from './PokemonCard'
+import { PokemonVitals } from './PokemonVitals'
 import type { TranslationKey } from '../../assets/languages'
 import './BattleBoard.css'
 
@@ -120,6 +121,9 @@ export function BattleSide({
               />
             </button>
             <Attachments pokemon={active} t={t} />
+            {/* CP4: health and damage counters, beside the card. The card face
+                is the hosted artwork, so the readout lives next to it. */}
+            <PokemonVitals pokemon={active} t={t} />
             {activeConditionLabels.length > 0 && (
               <span className="bnb-side-conditions">{activeConditionLabels.join(' / ')}</span>
             )}
@@ -153,6 +157,9 @@ export function BattleSide({
                   statuses={statusListFor(pokemon)}
                 />
                 <Attachments pokemon={pokemon} t={t} />
+                {/* CP4: the Bench gets the same readout as the Active — a
+                    benched Pokemon takes damage the same way. */}
+                <PokemonVitals pokemon={pokemon} t={t} />
               </span>
             )
             return (
