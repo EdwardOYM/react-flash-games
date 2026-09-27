@@ -12,9 +12,9 @@
 import { cardIsEnergy, cardIsPokemon, type AttackDef, type CardDef, type EnergyCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
-import { drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
+import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
 import type { BattleLogEntry, BattleState, InPlayPokemon, StatusCondition } from './types'
-import { applyDeckOutLoss, performKo, prizesTaken } from './turns'
+import { applyDeckOutLoss, performKo, prizesTaken, takePrizeCard } from './turns'
 
 // -- CP7-C: damage, effects, KO, prizes, victory --
 
@@ -75,6 +75,22 @@ export function computeAttackDamage(
 export type ParsedEffect =
   | { kind: 'bonusDamage'; amount: number; coin: boolean }
   | { kind: 'bonusDamagePerPrize'; amount: number }
+  // -- 04.7: damage maths over board state the engine already holds. Every one
+  // of these reads a printed "for each" / "if ... , this attack does N more
+  // damage" clause. All 04.7 cards print a base damage of 0, so the clause IS
+  // the attack's damage and adding to `base` is the whole rule.
+  | { kind: 'bonusDamagePerEnergyType'; amount: number; energyType: string }
+  | { kind: 'bonusDamagePerDamageCounter'; amount: number }
+  | { kind: 'bonusDamageIfHasEnergyType'; amount: number; energyType: string }
+  | { kind: 'bonusDamagePerOwnCount'; amount: number; names: string[] }
+  | { kind: 'bonusDamagePerTypeCount'; amount: number }
+  | { kind: 'bonusDamagePerDiscardEnergy'; amount: number }
+  | { kind: 'bonusDamagePerDefenderAttached'; amount: number }
+  | { kind: 'bonusDamageIfDefenderIsEx'; amount: number }
+  | { kind: 'flipUntilTailsDamage'; amount: number }
+  // 04.7: NOT damage maths — it pays out at Knock Out time, so it is applied
+  // after damage like the other post-damage clauses.
+  | { kind: 'extraPrizeOnKo'; amount: number }
   | { kind: 'noDamageOnTails' }
   | { kind: 'draw'; amount: number }
   | { kind: 'heal'; amount: number }
@@ -210,6 +226,40 @@ const STATUS_WORDS: Record<string, StatusCondition> = {
   paralyzed: 'paralyzed',
 }
 
+// -- 04.7: damage-maths clauses --
+
+/**
+ * Hard cap on "flip a coin until you get tails" (04.7). The printed effect is
+ * unbounded, so without a cap a pathological seed could spin forever and hang
+ * the match. The cap is far above any plausible real run, and reaching it is
+ * still a legal outcome: the bonus simply stops counting.
+ */
+const MAX_COIN_FLIPS = 32
+
+/** Attached Energy of one type. Special Energy (no `provides`) is its own type. */
+function countAttachedEnergy(pokemon: InPlayPokemon, energyType: string): number {
+  return pokemon.attachedEnergy.filter((card) => (card.provides ?? 'special') === energyType).length
+}
+
+/** Every Pokemon a side has in play: the Active first, then the Bench. */
+function ownInPlay(state: BattleState, slot: PlayerSlot): InPlayPokemon[] {
+  const side = sideOf(state, slot)
+  return side.active ? [side.active, ...side.bench] : [...side.bench]
+}
+
+/**
+ * True when a card name matches one of a printed list, tolerating the "ex"
+ * suffix the list spells out: "Pikachu and Pikachu ex" must count a card
+ * named either "Pikachu" or "Pikachu ex" (04.7).
+ */
+function nameMatches(cardName: string, names: string[]): boolean {
+  const target = cardName.trim().toLowerCase()
+  return names.some((name) => {
+    const wanted = name.trim().toLowerCase()
+    return target === wanted || target === `${wanted} ex` || target.startsWith(`${wanted} ex `)
+  })
+}
+
 /** Parse one attack's verbatim text into ordered effect clauses. */
 export function parseAttackEffects(text: string): ParsedEffect[] {
   const plain = plainCardText(text)
@@ -217,8 +267,85 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
   const effects: ParsedEffect[] = []
   const sentences = plain.split(/(?<=\.)\s+/)
   let pendingCoin = false
+  let pendingUntilTails = false
 
   for (const sentence of sentences) {
+    // -- 04.7: the damage-maths families, matched before the generic ones so a
+    // specific "for each" clause is never swallowed by a looser pattern.
+    const perEnergyType = sentence.match(/^this attack does (\d+) (?:more )?damage for each (\w+) energy attached to this pokemon\.?$/i)
+    if (perEnergyType) {
+      effects.push({ kind: 'bonusDamagePerEnergyType', amount: Number(perEnergyType[1]), energyType: perEnergyType[2].toLowerCase() })
+      pendingCoin = false
+      continue
+    }
+    const perCounter = sentence.match(/^this attack does (\d+) (?:more )?damage for each damage counter on this pokemon\.?$/i)
+    if (perCounter) {
+      effects.push({ kind: 'bonusDamagePerDamageCounter', amount: Number(perCounter[1]) })
+      pendingCoin = false
+      continue
+    }
+    const hasEnergyType = sentence.match(/^if this pokemon has any (\w+) energy attached, this attack does (\d+) more damage\.?$/i)
+    if (hasEnergyType) {
+      effects.push({ kind: 'bonusDamageIfHasEnergyType', amount: Number(hasEnergyType[2]), energyType: hasEnergyType[1].toLowerCase() })
+      pendingCoin = false
+      continue
+    }
+    const perOwn = sentence.match(/^this attack does (\d+) (?:more )?damage for each of your (.+) in play\.?$/i)
+    // Guard the name list: "for each of your BENCHED Pokemon in play" is a
+    // different (unimplemented) effect, not a per-card-name count. Without this
+    // the loose capture would read "Benched Pokemon" as two card names and
+    // silently apply a wrong bonus — exactly the failure the anchored patterns
+    // exist to prevent.
+    const positional = /^(?:active|benched|benched pokemon|your|pokemon ex)$/i
+    if (perOwn && !positional.test(perOwn[2].trim())) {
+      // A bare "Pokemon" means any Pokemon in play; anything else is a name list
+      // ("Pikachu and Pikachu ex").
+      const names = perOwn[2].trim().toLowerCase() === 'pokemon' ? [] : perOwn[2].split(/\s+and\s+/i)
+      effects.push({ kind: 'bonusDamagePerOwnCount', amount: Number(perOwn[1]), names: names.map((n) => n.trim()) })
+      pendingCoin = false
+      continue
+    }
+    const perType = sentence.match(/^this attack does (\d+) damage for each type of basic energy attached to all of your pokemon\.?$/i)
+    if (perType) {
+      effects.push({ kind: 'bonusDamagePerTypeCount', amount: Number(perType[1]) })
+      pendingCoin = false
+      continue
+    }
+    const perDiscard = sentence.match(/^this attack does (\d+) more damage for each energy card in your discard pile\.?$/i)
+    if (perDiscard) {
+      effects.push({ kind: 'bonusDamagePerDiscardEnergy', amount: Number(perDiscard[1]) })
+      pendingCoin = false
+      continue
+    }
+    const perDefender = sentence.match(/^this attack does (\d+) more damage for each energy attached to your opponent's active pokemon\.?$/i)
+    if (perDefender) {
+      effects.push({ kind: 'bonusDamagePerDefenderAttached', amount: Number(perDefender[1]) })
+      pendingCoin = false
+      continue
+    }
+    // Card markup leaves "ex , this" (a space before the comma), so allow it.
+    const defenderEx = sentence.match(/^if your opponent's active pokemon is a pokemon ex\s*, this attack does (\d+) more damage\.?$/i)
+    if (defenderEx) {
+      effects.push({ kind: 'bonusDamageIfDefenderIsEx', amount: Number(defenderEx[1]) })
+      pendingCoin = false
+      continue
+    }
+    if (/^flip a coin until you get tails\.?$/i.test(sentence)) {
+      pendingUntilTails = true
+      continue
+    }
+    const untilTailsDamage = sentence.match(/^this attack does (\d+) damage for each heads\.?$/i)
+    if (untilTailsDamage && pendingUntilTails) {
+      effects.push({ kind: 'flipUntilTailsDamage', amount: Number(untilTailsDamage[1]) })
+      pendingUntilTails = false
+      continue
+    }
+    const bonusPrize = sentence.match(/^if your opponent's pokemon is knocked out by damage from this attack, take (\d+) more prize cards?\.?$/i)
+    if (bonusPrize) {
+      effects.push({ kind: 'extraPrizeOnKo', amount: Number(bonusPrize[1]) })
+      pendingCoin = false
+      continue
+    }
     if (/^flip a coin\.?$/i.test(sentence)) {
       pendingCoin = true
       continue
@@ -446,6 +573,24 @@ export function applyEffect(
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: effect.text })
       break
     }
+    // 04.7: the extra Prize card is a Knock-Out payout, not a post-damage
+    // clause, so it is settled in resolveAttack's KO block. Reaching here means
+    // no knockout happened, and then there is correctly nothing to pay.
+    case 'extraPrizeOnKo':
+      break
+    // 04.7: the damage-maths kinds are consumed by resolveAttack's damage loop.
+    // They reach this switch only if a phase were ever mis-classified, and then
+    // applying nothing is the safe answer.
+    case 'bonusDamagePerEnergyType':
+    case 'bonusDamagePerDamageCounter':
+    case 'bonusDamageIfHasEnergyType':
+    case 'bonusDamagePerOwnCount':
+    case 'bonusDamagePerTypeCount':
+    case 'bonusDamagePerDiscardEnergy':
+    case 'bonusDamagePerDefenderAttached':
+    case 'bonusDamageIfDefenderIsEx':
+    case 'flipUntilTailsDamage':
+      break
     default:
       break // before-damage clauses are consumed by resolveAttack
   }
@@ -486,6 +631,60 @@ export function resolveAttack(
       const bonus = effect.amount * prizesTaken(state, actor)
       base += bonus
       logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamagePerEnergyType') {
+      const bonus = effect.amount * countAttachedEnergy(attacker, effect.energyType)
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamagePerDamageCounter') {
+      // 04.5's counter unit: one counter is 10 damage.
+      const bonus = effect.amount * damageCounters(defender.damage)
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamageIfHasEnergyType') {
+      const bonus = countAttachedEnergy(attacker, effect.energyType) > 0 ? effect.amount : 0
+      base += bonus
+      if (bonus > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamagePerOwnCount') {
+      const inPlay = ownInPlay(state, actor)
+      const matches = effect.names.length === 0
+        ? inPlay.length
+        : inPlay.filter((pokemon) => nameMatches(pokemon.card.name, effect.names)).length
+      const bonus = effect.amount * matches
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamagePerTypeCount') {
+      // "each TYPE of Basic Energy" — distinct types, not cards. Special Energy
+      // provides no type, so it never counts toward a "type of Basic" clause.
+      const types = new Set(
+        ownInPlay(state, actor)
+          .flatMap((pokemon) => pokemon.attachedEnergy)
+          .map((card) => card.provides)
+          .filter((type) => type !== undefined),
+      )
+      const bonus = effect.amount * types.size
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamagePerDiscardEnergy') {
+      const bonus = effect.amount * sideOf(state, actor).discard.filter(cardIsEnergy).length
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamagePerDefenderAttached') {
+      const bonus = effect.amount * defender.attachedEnergy.length
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamageIfDefenderIsEx') {
+      // 04.6's rule-box field, reused as a condition instead of a Prize take.
+      const isEx = defender.card.suffix?.trim().toUpperCase() === 'EX'
+      const bonus = isEx ? effect.amount : 0
+      base += bonus
+      if (bonus > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'flipUntilTailsDamage') {
+      // Bounded: an unbounded loop would hang the match on a pathological seed.
+      let heads = 0
+      while (heads < MAX_COIN_FLIPS && flipCoin(state)) heads += 1
+      const bonus = effect.amount * heads
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
     } else if (effect.kind === 'noDamageOnTails' && !flipCoin(state)) {
       logEvent(state, 'pokemonBnb.log.coinTails', { player: actor })
       base = 0
@@ -518,5 +717,22 @@ export function resolveAttack(
   }
 
   // 4. Knock Out of the defender.
-  if (isKnockedOut(defender)) performKo(state, defenderSlot)
+  if (isKnockedOut(defender)) {
+    performKo(state, defenderSlot)
+    // 04.7: "If your opponent's Pokémon is Knocked Out by damage from this
+    // attack, take 1 more Prize card." The bonus is a plain extra take, not a
+    // new rule box, and it reuses 04.6's take loop. It is applied HERE rather
+    // than inside performKo, so the KO path needs no extra parameter — and it
+    // fires only when this very attack is what did the knocking out.
+    if (!state.over) {
+      for (const effect of effects) {
+        if (effect.kind !== 'extraPrizeOnKo') continue
+        for (let taken = 0; taken < effect.amount; taken += 1) {
+          if (sideOf(state, actor).prizeCount === 0) break
+          takePrizeCard(state, actor)
+          if (state.over) break
+        }
+      }
+    }
+  }
 }
