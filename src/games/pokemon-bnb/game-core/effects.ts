@@ -294,7 +294,7 @@ export type ParsedEffect =
   // a bonus: resolveAttack reads it to bypass computeAttackDamage entirely.
   | { kind: 'noWeakness' }
   // Secondary damage (resolved in resolveAttack, because a hit can KO):
-  | { kind: 'selfDamage'; amount: number }
+  | { kind: 'selfDamage'; amount: number; coin?: boolean }
   | { kind: 'spreadOwnBench'; amount: number }
   // Zone effects (plain after-damage clauses, no KO risk):
   | { kind: 'discardTopOfDeck'; count: number }
@@ -1270,6 +1270,110 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     )
     if (floatUp) {
       effects.push({ kind: 'shuffleSelfIntoDeck', optional: true })
+      pendingCoin = false
+      continue
+    }
+    // =====================================================================
+    // 04.11 CP1: PHRASING VARIANTS of clauses that already exist.
+    //
+    // Every one of these is an effect kind 04.7-04.10 already ships; what differs is
+    // the WORDING. The classic cards drop "This attack" in favour of a bare "Does",
+    // name the card instead of saying "this Pokemon", and — the one that cost a probe
+    // to find — the existing "does X to the Active" pattern requires the word "also"
+    // (it is the "active AND ALSO a benched" form), so 171's plain "This attack does 30
+    // damage to 1 of your opponent's Benched Pokemon" matched NOTHING. Each pattern below
+    // is anchored end-to-end and sits BEFORE the pattern it parallels, so it cannot be
+    // shadowed by it.
+    // =====================================================================
+    // 162 / 171: the same clause as 04.8's "does X to 1 of your opponent's BENCHED",
+    // without "also" and (for 162) without "This attack".
+    const benchedOnlyAny = sentence.match(
+      /^(?:this attack )?does (\d+) damage to 1 of your opponent's benched pokemon\.$/i,
+    )
+    if (benchedOnlyAny) {
+      effects.push({ kind: 'damageChosenTarget', amount: Number(benchedOnlyAny[1]), benchedOnly: true })
+      pendingCoin = false
+      continue
+    }
+    // 164: "Does 20 damage to each of your opponent's Pokemon" — the spread wording of
+    // 04.8's, minus "This attack does".
+    const spreadPlain = sentence.match(/^does (\d+) damage to each of your opponent's pokemon\.$/i)
+    if (spreadPlain) {
+      effects.push({ kind: 'spreadDamage', amount: Number(spreadPlain[1]), exOnly: false })
+      pendingCoin = false
+      continue
+    }
+    // 164: "If the Defending Pokemon is Pokemon-ex, this attack does 70 damage plus 50
+    // more damage." 04.6's clause reads "does N MORE damage"; this one prints a BASE
+    // too — and 164's printed `damage` field is 0, so the 70 has to come from the text.
+    // It is pushed as a plain `bonusDamage` (which adds to `base`) rather than a new
+    // `baseDamage` kind, because `base` already starts at the printed value and adding
+    // is the same operation. The condition wording also differs ("the Defending
+    // Pokemon", not "your opponent's Active Pokemon"), which is why it never matched.
+    const defenderExBase = sentence.match(
+      /^if the defending pokemon is pokemon-\s*ex\s*, this attack does (\d+) damage plus (\d+) more damage\.$/i,
+    )
+    if (defenderExBase) {
+      effects.push({ kind: 'bonusDamage', amount: Number(defenderExBase[1]), coin: false })
+      effects.push({ kind: 'bonusDamageIfDefenderIsEx', amount: Number(defenderExBase[2]) })
+      pendingCoin = false
+      continue
+    }
+    // 172: "If tails, Pikachu does 10 damage to itself." The existing clause is the
+    // "also does N damage to itself" recoil form and is NOT coin-gated; this one flips a
+    // coin first and NAMES the card, so it is a separate match rather than a loosened one.
+    // 172's printed damage is 30, so the self-hit is genuinely IN ADDITION to it.
+    const selfHitNamed = sentence.match(/^if tails, \w[\w ]*? does (\d+) damage to itself\.$/i)
+    if (selfHitNamed) {
+      effects.push({ kind: 'selfDamage', amount: Number(selfHitNamed[1]), coin: true })
+      pendingCoin = false
+      continue
+    }
+    // 187: "Discard an Energy card attached to Lugia." 04.7's discard form is
+    // "discard … from THIS Pokemon"; naming the card instead must still resolve to the
+    // attacker's own attachments, so the clause records `self` explicitly.
+    const discardNamedSelf = sentence.match(/^discard an energy card attached to \w[\w ]*?\.$/i)
+    if (discardNamedSelf) {
+      effects.push({ kind: 'discardEnergy', amount: 1 })
+      pendingCoin = false
+      continue
+    }
+    // 171: "This Pokemon can't attack during your next turn." 04.9's lock form is
+    // "During your next turn, this Pokemon can't use attacks" — the INVERSION, and the
+    // window is the holder's OWN next turn, so `whose` is 'self' (+1) not 'foe' (+2).
+    const selfTurnLock = sentence.match(/^this pokemon can't attack during your next turn\.$/i)
+    if (selfTurnLock) {
+      effects.push({ kind: 'durationCantAttack', whose: 'self', subject: 'attacker' })
+      pendingCoin = false
+      continue
+    }
+    // 166: "Search your deck for up to 3 Lightning Energy cards and attach them to 1 of
+    // your Pokemon." 04.10 CP4's `searchAttachEnergy` verbatim, with a typed filter and
+    // 04.10's 'oneForAll' destination. The machinery already exists.
+    const attachToOne = sentence.match(
+      /^search your deck for up to (\d+) (\w+) energy cards and attach them to 1 of your pokemon\.$/i,
+    )
+    if (attachToOne) {
+      effects.push({
+        kind: 'searchAttachEnergy', from: 'deck',
+        energyType: attachToOne[2].toLowerCase(),
+        max: Number(attachToOne[1]), target: 'oneForAll',
+      })
+      pendingCoin = false
+      continue
+    }
+    // 185: "Search your deck for up to 3 basic Energy cards and attach them to your
+    // Pokemon V in any way you like." The same clause with 04.10's 'perCard' and an
+    // UNTYPED filter — "basic Energy" is not a type, so `energyType` is left off rather
+    // than set to the word "basic", which would match no Energy at all.
+    const attachAnyWay = sentence.match(
+      /^search your deck for up to (\d+) basic energy cards and attach them to your \w[\w ]*? in any way you like\.$/i,
+    )
+    if (attachAnyWay) {
+      effects.push({
+        kind: 'searchAttachEnergy', from: 'deck',
+        max: Number(attachAnyWay[1]), target: 'perCard',
+      })
       pendingCoin = false
       continue
     }
@@ -2658,7 +2762,10 @@ export function resolveAttack(
       }
     }
     const recoil = effects.find((effect) => effect.kind === 'selfDamage')
-    if (recoil && recoil.kind === 'selfDamage' && !state.over) {
+    // 04.11 CP1 / 172: the coin gate. 04.7's recoil form is unconditional; this one
+    // prints "If tails", and the flip happens HERE so the log cannot claim damage that
+    // a heads result never dealt.
+    if (recoil && recoil.kind === 'selfDamage' && !state.over && (!recoil.coin || flipCoin(state))) {
       attacker.damage += recoil.amount
       logEvent(state, 'pokemonBnb.log.damageDealt', {
         player: actor,
