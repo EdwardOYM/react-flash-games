@@ -239,6 +239,20 @@ export type ParsedEffect =
   | { kind: 'bonusDamageIfHasEnergyType'; amount: number; energyType: string }
   | { kind: 'bonusDamagePerOwnCount'; amount: number; names: string[] }
   | { kind: 'bonusDamagePerTypeCount'; amount: number }
+  // -- 04.11 CP2: a MULTIPLIER on the base, not an addition. Every existing damage-maths
+  // kind ADDS; these say "10 damage TIMES the number of Energy", which is a different
+  // operation, so they cannot be folded into a bonus. `scope` is the genuine novelty:
+  // 187a reads the DEFENDER's attachments, which no clause has ever done — every other
+  // count is of the attacker's own board.
+  | { kind: 'damageTimesEnergy'; base: number; scope: 'self' | 'allOwn' | 'defender'; energyType?: string }
+  // 04.11 CP2 / 164: "10 more damage for each Energy attached to <this card>". The
+  // existing `bonusDamagePerEnergyType` needs a TYPE; this one is UNTYPED and counts
+  // CARDS rather than types, so neither existing kind can express it.
+  | { kind: 'bonusDamagePerAttachedEnergy'; amount: number }
+  // 04.11 CP2 / 173: a BRANCHING amount — one number if the Defending Pokemon is
+  // undamaged and a DIFFERENT one if it is not. No clause had two amounts keyed on a
+  // board condition, so this is new rather than a variant.
+  | { kind: 'branchingDamageOnDefenderCounters'; clean: number; damaged: number }
   | { kind: 'bonusDamagePerDiscardEnergy'; amount: number }
   | { kind: 'bonusDamagePerDefenderAttached'; amount: number }
   | { kind: 'bonusDamageIfDefenderIsEx'; amount: number }
@@ -1270,6 +1284,82 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     )
     if (floatUp) {
       effects.push({ kind: 'shuffleSelfIntoDeck', optional: true })
+      pendingCoin = false
+      continue
+    }
+    // 04.11 CP2: a MULTIPLIER on the base, in three scopes. All three print
+    // "does N damage TIMES …", which every existing damage-maths kind got wrong by
+    // being an ADDITION — so these are new kinds, not variants.
+    const timesOwn = sentence.match(
+      /^(?:this attack )?does (\d+) damage times the (?:amount|number) of (?:(\w+) )?energy attached to all of your active pokemon\.$/i,
+    )
+    if (timesOwn) {
+      effects.push({
+        kind: 'damageTimesEnergy', base: Number(timesOwn[1]), scope: 'self',
+        ...(timesOwn[2] ? { energyType: timesOwn[2].toLowerCase() } : {}),
+      })
+      pendingCoin = false
+      continue
+    }
+    const timesAll = sentence.match(
+      /^this attack does (\d+) damage times the amount of (\w+) energy attached to all of your pokemon\.$/i,
+    )
+    if (timesAll) {
+      effects.push({
+        kind: 'damageTimesEnergy', base: Number(timesAll[1]), scope: 'allOwn',
+        energyType: timesAll[2].toLowerCase(),
+      })
+      pendingCoin = false
+      continue
+    }
+    // 187a: the DEFENDER's attachments. The only clause in the engine that reads the
+    // other side's board, and the reason `scope` exists.
+    const timesDefender = sentence.match(
+      /^this attack does (\d+) damage times the number of energy cards attached to the defending pokemon\.$/i,
+    )
+    if (timesDefender) {
+      effects.push({ kind: 'damageTimesEnergy', base: Number(timesDefender[1]), scope: 'defender' })
+      pendingCoin = false
+      continue
+    }
+    // 164: "Does 10 damage plus 10 more damage for each Energy attached to <this card>."
+    // The card's printed damage is 0, so the 10 is pushed as a plain bonus; the card
+    // NAME stands in for "this Pokemon", and an UNTYPED per-CARD count needs its own
+    // kind because `bonusDamagePerEnergyType` requires a type.
+    const perOwnEnergyNamed = sentence.match(
+      /^does (\d+) damage plus (\d+) more damage for each energy attached to \w[\w ]*?\.$/i,
+    )
+    if (perOwnEnergyNamed) {
+      effects.push({ kind: 'bonusDamage', amount: Number(perOwnEnergyNamed[1]), coin: false })
+      effects.push({ kind: 'bonusDamagePerAttachedEnergy', amount: Number(perOwnEnergyNamed[2]) })
+      pendingCoin = false
+      continue
+    }
+    // 173: two SENTENCES giving two amounts. The first raises the clause; the second
+    // is CONSUMED as its continuation. Two separate clauses would each need to know
+    // about the other, so a second `branchingDamage…` would overwrite the first — so
+    // the second is recognised and dropped, and the "damaged" number is patched in by
+    // the merge below rather than pushed separately.
+    const branchedClean = sentence.match(
+      /^if the defending pokemon has no damage counters on it, this attack does (\d+) damage\.$/i,
+    )
+    if (branchedClean) {
+      effects.push({ kind: 'branchingDamageOnDefenderCounters', clean: Number(branchedClean[1]), damaged: 0 })
+      pendingCoin = false
+      continue
+    }
+    const branchedDamaged = sentence.match(
+      /^if it has any damage counters on it, this attack does (\d+) damage\.$/i,
+    )
+    if (branchedDamaged) {
+      // Merge into the clause the first sentence raised, so the two halves cannot drift
+      // into two independent clauses.
+      const existing = effects.find((e) => e.kind === 'branchingDamageOnDefenderCounters')
+      if (existing && existing.kind === 'branchingDamageOnDefenderCounters') {
+        existing.damaged = Number(branchedDamaged[1])
+      } else {
+        effects.push({ kind: 'branchingDamageOnDefenderCounters', clean: 0, damaged: Number(branchedDamaged[1]) })
+      }
       pendingCoin = false
       continue
     }
@@ -2596,6 +2686,32 @@ export function resolveAttack(
       const bonus = damageTakenLastTurn(state, attacker)
       base += bonus
       if (bonus > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'damageTimesEnergy') {
+      // 04.11 CP2: a MULTIPLIER, so it ASSIGNS `base` rather than adding to it. Writing
+      // `base += base * n` would be the same arithmetic but would compound with a second
+      // multiplier, so the assignment is deliberate.
+      if (effect.scope === 'allOwn') {
+        base = effect.base * inPlayList(sideOf(state, actor)).reduce(
+          (n, pokemon) => n + (effect.energyType
+            ? pokemon.attachedEnergy.filter((c) => c.provides === effect.energyType).length
+            : pokemon.attachedEnergy.length), 0)
+      } else {
+        const holder = effect.scope === 'defender' ? defender : attacker
+        base = effect.base * (effect.energyType
+          ? holder.attachedEnergy.filter((c) => c.provides === effect.energyType).length
+          : holder.attachedEnergy.length)
+      }
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: base })
+    } else if (effect.kind === 'branchingDamageOnDefenderCounters') {
+      // 04.11 CP2 / 173: two amounts keyed on the DEFENDER's damage counters.
+      const bonus = defender.damage > 0 ? effect.damaged : effect.clean
+      base += bonus
+      if (bonus > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamagePerAttachedEnergy') {
+      // 04.11 CP2 / 164: an UNTYPED per-CARD count on the attacker itself.
+      const bonus = effect.amount * attacker.attachedEnergy.length
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
     } else if (effect.kind === 'bonusDamageIfDefenderDamaged') {
       // 04.9 CP1: "already has any damage counters on it". `damage > 0` is the
       // whole test — and it is the same raw number `isKnockedOut` reads, so a
