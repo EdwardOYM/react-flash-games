@@ -1465,6 +1465,46 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.10 CP6 / 051-124: the COMMA-JOINED COMPOUND. "Discard all [Type] Energy from
+    // this Pokemon, and this attack does N damage to 1 of your opponent's Pokemon."
+    //
+    // **The splitter is NOT being changed, and that is the whole finding.** The plan
+    // expected this to need "a grammar-aware sentence splitter, not a regex", on the
+    // reasoning that a comma-joined compound must be cut in two. Measuring first showed
+    // that is both unnecessary and dangerous: 12 cards in 30C contain a comma followed
+    // by and/or, and only 051/124 join two separate EFFECTS. The rest join parts of ONE
+    // clause — 121 Lugia is a list ("a Fire Energy, a Water Energy, and a Lightning
+    // Energy"), 017/029/037/076/131 are three verbs on one object ("Search your deck for
+    // a Supporter card, reveal it, and put it into your hand"), and 102/155 join two
+    // conditions of one rule with "or". A splitter would have fragmented every one of
+    // those already-working clauses. Matching the whole sentence and pushing BOTH clauses
+    // keeps the comma inside the pattern, exactly like every other clause here, and
+    // leaves the splitter untouched so it cannot regress anything.
+    //
+    // The type group is optional, so 051 ("all Lightning Energy") and 124 ("all Energy")
+    // share one pattern; `discardEnergy`'s applier already reads `amount: 'all'` plus a
+    // single type as "every Energy of that type", which is what 051 prints.
+    const discardAllThenDamage = sentence.match(
+      /^discard all (?:([a-z]+) )?energy from this pokemon, and this attack does (\d+) damage to 1 of your opponent's pokemon\.$/i,
+    )
+    if (discardAllThenDamage) {
+      // Order matters and is NOT arbitrary: the applier loop runs before the target pick
+      // is parked at step 5, so putting the discard FIRST means the Energy is gone from
+      // the attacker before the player is asked to aim the damage. Reversing the two
+      // would show them a board that no longer matches the printed cost.
+      effects.push({
+        kind: 'discardEnergy',
+        amount: 'all',
+        ...(discardAllThenDamage[1] ? { energyTypes: [discardAllThenDamage[1].toLowerCase()] } : {}),
+      })
+      effects.push({
+        kind: 'damageChosenTarget',
+        amount: Number(discardAllThenDamage[2]),
+        benchedOnly: false,
+      })
+      pendingCoin = false
+      continue
+    }
     // 04.7 CP2: one general "discard ... from this Pokemon" branch replaces the
     // two narrow ones it subsumes. It only matches when the WHOLE sentence is
     // the discard, so a compound clause ("Discard all Energy from this Pokemon,
