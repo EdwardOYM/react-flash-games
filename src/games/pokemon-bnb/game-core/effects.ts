@@ -269,6 +269,13 @@ export type ParsedEffect =
   // "Flip 3 coins. This attack does 50 damage for each heads." — a bounded,
   // seeded flip against the single defender, so it stays ordinary damage maths.
   | { kind: 'coinFlipDamage'; amount: number; flips: number }
+  // 04.11 CP3 / 165: "10 damage TIMES the number of heads" is a MULTIPLIER on the
+  // coin count, the same operation CP2's `damageTimesEnergy` is — and for the same
+  // reason it cannot be `coinFlipDamage`, which ADDS. `coinFlipDamage` would turn
+  // 10x3 heads into 30, not 10. `perPokemon` is 165's second form, where the number
+  // of flips is "a coin for each of your Pokemon in play (including this one)" and
+  // is therefore only knowable from the board at resolution.
+  | { kind: 'damageTimesHeads'; amount: number; flips: number; perPokemon?: boolean }
   // -- 04.8 CP2-B/C: the clauses that hand the TARGET to the player. None is ever
   // applied directly: `resolveAttack` parks a `PendingChoice` instead, and
   // `resolveChoice` applies it once the player picks. All anchored end-to-end, so
@@ -425,6 +432,10 @@ export type ParsedEffect =
   // after damage like the other post-damage clauses.
   | { kind: 'extraPrizeOnKo'; amount: number }
   | { kind: 'noDamageOnTails' }
+  // 04.11 CP3 / 188: "Flip 2 coins. If BOTH of them are heads …" — a gate on a
+  // SPECIFIC number of heads, not the single flip `noDamageOnTails` and the
+  // `coin`-gated `bonusDamage` both model. 2 of 2 is the only value that satisfies it.
+  | { kind: 'bonusDamageIfAllHeads'; amount: number; flips: number }
   // -- 04.10 CP4: lift Basic Energy out of a zone and ATTACH it. This is deliberately
   // its own kind rather than a fourth `to` on `searchDeckUpTo`: `searchDeckUpTo` always
   // moves a card INTO a pile, and attaching moves it onto a Pokemon, which carries the
@@ -472,7 +483,17 @@ export function effectTiming(kind: ParsedEffect['kind']): EffectTiming {
   // opponent's Active Pokemon." The ONLY before-damage clause in the set, and the
   // ordering is the whole card — the Tool must be gone before the damage lands, not
   // after, so it is resolved ahead of the Weakness/Resistance maths.
-  if (kind === 'bonusDamage' || kind === 'bonusDamagePerPrize' || kind === 'noDamageOnTails' || kind === 'discardAllToolsOnDefender') {
+  // 04.11 CP3: `damageTimesHeads` and `bonusDamageIfAllHeads` are the same class of
+  // clause as `bonusDamage` — they change the AMOUNT, and step 1 is the only loop that
+  // runs them. Without these two entries `effectTiming` returned 'afterDamage' and both
+  // kinds silently resolved nothing: 165 parsed correctly, dealt 0 on every seed, and
+  // still "worked" because an unsupported-looking 0 is indistinguishable from tails.
+  // **A clause that parses but is never routed is the quietest failure in this engine.**
+  if (
+    kind === 'bonusDamage' || kind === 'bonusDamagePerPrize' || kind === 'noDamageOnTails'
+    || kind === 'discardAllToolsOnDefender' || kind === 'damageTimesHeads'
+    || kind === 'bonusDamageIfAllHeads'
+  ) {
     return 'beforeDamage'
   }
   return 'afterDamage'
@@ -1790,6 +1811,46 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoinCount = 0
       continue
     }
+    // 04.11 CP3 / 165: "Flip a coin for each of your Pokemon in play (including this
+    // one). This attack does 20 damage times the number of heads."
+    //
+    // The flip count is DERIVED from the board, so it cannot be read at parse time —
+    // the same reason 04.10 CP2 stored a card NAME in `pendingHeadsPerOwnName` rather
+    // than a count. "including this one" is the parenthetical the text actually
+    // prints, and it is why the Actor's own Active is included in the count.
+    const perOwnPokemonFlip = sentence.match(
+      /^flip a coin for each of your (?:own )?pokemon in play(?: \(including this one\))?\.?$/i,
+    )
+    if (perOwnPokemonFlip) {
+      pendingHeadsPerOwnName = '\u0000perOwnPokemon'
+      continue
+    }
+    // 04.11 CP3 / 165: the multiplier half. `coinFlipDamage` above handles the ADDING
+    // "for each heads" form; this is the "TIMES the number of heads" form and the two
+    // must not be conflated (10x3 is 30, not 10x+3=13).
+    const timesHeads = sentence.match(/^this attack does (\d+) damage times the number of heads\.?$/i)
+    if (timesHeads && (pendingCoinCount > 0 || pendingHeadsPerOwnName !== '')) {
+      effects.push(
+        pendingHeadsPerOwnName === '\u0000perOwnPokemon'
+          ? { kind: 'damageTimesHeads', amount: Number(timesHeads[1]), flips: 0, perPokemon: true }
+          : { kind: 'damageTimesHeads', amount: Number(timesHeads[1]), flips: pendingCoinCount },
+      )
+      pendingCoinCount = 0
+      pendingHeadsPerOwnName = ''
+      continue
+    }
+    // 04.11 CP3 / 188: "Flip 2 coins. If BOTH of them are heads, this attack does 20
+    // more damage." The gate is on a SPECIFIC head count, so it reads `pendingCoinCount`
+    // rather than the single-flip `pendingCoin` the neighbouring patterns use.
+    const allHeads = sentence.match(
+      /^if (?:both|both of them) of them are heads, this attack does (\d+) more damage\.?$/i,
+    )
+    if (allHeads && pendingCoinCount > 0) {
+      effects.push({ kind: 'bonusDamageIfAllHeads', amount: Number(allHeads[1]), flips: pendingCoinCount })
+      pendingCoinCount = 0
+      pendingCoin = false
+      continue
+    }
     // -- 04.7: the damage-maths families, matched before the generic ones so a
     // specific "for each" clause is never swallowed by a looser pattern.
     const perEnergyType = sentence.match(/^this attack does (\d+) (?:more )?damage for each (\w+) energy attached to this pokemon\.?$/i)
@@ -2672,6 +2733,31 @@ export function resolveAttack(
       const bonus = effect.amount * heads
       base += bonus
       logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'damageTimesHeads') {
+      // 04.11 CP3 / 165: a MULTIPLIER on the number of heads, so it ASSIGNS `base`
+      // rather than adding — `coinFlipDamage` above adds, and 10x3 must be 30, not 13.
+      // `perPokemon` resolves the flip count from the board at THIS point, because
+      // "a coin for each of your Pokemon in play (including this one)" is only
+      // knowable now and not at parse time.
+      const flips = effect.perPokemon
+        ? ownInPlay(state, actor).length
+        : effect.flips
+      let heads = 0
+      for (let flip = 0; flip < flips; flip += 1) if (flipCoin(state)) heads += 1
+      base = effect.amount * heads
+      if (heads > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: base })
+    } else if (effect.kind === 'bonusDamageIfAllHeads') {
+      // 04.11 CP3 / 188: EVERY flip must be heads. 2 of 2 is the only value that
+      // satisfies "both of them", so this is a strict all-or-nothing gate — a
+      // `heads === flips` test, not `heads > 0`.
+      let allHeads = true
+      for (let flip = 0; flip < effect.flips; flip += 1) if (!flipCoin(state)) allHeads = false
+      if (allHeads) {
+        base += effect.amount
+        logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: effect.amount })
+      } else {
+        logEvent(state, 'pokemonBnb.log.coinTails', { player: actor })
+      }
     } else if (effect.kind === 'bonusDamageIfKoByAttackLastTurn') {
       // 04.10 CP3 / 005-091. The bonus lands in `base` like any other printed
       // bonus, so the defender's Weakness and Resistance still apply to it.
