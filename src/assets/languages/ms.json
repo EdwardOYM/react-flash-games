@@ -485,6 +485,7 @@
       "effectDiscardEnergy": "{player} membuang {count} Tenaga.",
       "chooseTarget": "{player} mesti memilih 1 daripada {count} Pokemon di medan.",
       "effectSearchDeck": "{player} mencari {card} dalam dek mereka.",
+      "effectShuffleHand": "{player} mencampurkan tangan mereka ke dalam dek.",
       "effectDraw": "{player} mengambil {count} kad.",
       "effectHeal": "Pokemon Aktif {player} memulihkan {amount} kerosakan.",
       "effectStatus": "{target} kini {status}.",

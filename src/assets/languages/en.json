@@ -485,6 +485,7 @@
       "effectDiscardEnergy": "{player} discarded {count} Energy.",
       "chooseTarget": "{player} must choose 1 of {count} Pokemon in play.",
       "effectSearchDeck": "{player} searched their deck for {card}.",
+      "effectShuffleHand": "{player} shuffled their hand into their deck.",
       "effectDraw": "{player} drew {count} cards.",
       "effectHeal": "{player}'s Active Pokemon healed {amount} damage.",
       "effectStatus": "{target} is now {status}.",

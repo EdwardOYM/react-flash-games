@@ -14,9 +14,8 @@ import { cardIsEnergy, cardIsPokemon, cardIsTrainer, type AttackDef, type CardDe
 import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
 import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
-import type { BattleLogEntry, BattleState, InPlayPokemon, StatusCondition } from './types'
+import { STATUS_CONDITIONS, type BattleLogEntry, type BattleState, type InPlayPokemon, type StatusCondition } from './types'
 import { applyDeckOutLoss, performBenchKo, performKo, prizesTaken, takePrizeCard } from './turns'
-
 // -- CP7-C: damage, effects, KO, prizes, victory --
 
 /**
@@ -119,6 +118,31 @@ export type ParsedEffect =
   // 04.8 CP3-B: the search itself, parked by resolveAttack and applied by
   // resolveChoice. `filter` mirrors the existing `searchToHand` Ability filter.
   | { kind: 'searchDeck'; filter: 'pokemon' | 'trainer' | 'energy' }
+  // -- 04.9 CP1: the PURE slice. Twelve clause kinds that read state the engine
+  // already holds — no picker, no UI, no new per-turn state. Measured, not
+  // estimated: ~27 of the 82 remaining unsupported instances are these.
+  //
+  // Damage modifiers (folded into `base` in resolveAttack):
+  | { kind: 'bonusDamageIfDefenderDamaged'; amount: number }
+  | { kind: 'bonusDamageIfHasTool'; amount: number }
+  | { kind: 'bonusDamagePerHandCard'; amount: number }
+  | { kind: 'bonusDamagePerBenchWithHp'; amount: number; hp: number }
+  // "This attack's damage isn't affected by Weakness or Resistance…". A FLAG, not
+  // a bonus: resolveAttack reads it to bypass computeAttackDamage entirely.
+  | { kind: 'noWeakness' }
+  // Secondary damage (resolved in resolveAttack, because a hit can KO):
+  | { kind: 'selfDamage'; amount: number }
+  | { kind: 'spreadOwnBench'; amount: number }
+  // Zone effects (plain after-damage clauses, no KO risk):
+  | { kind: 'discardTopOfDeck'; count: number }
+  | { kind: 'opponentShufflesHandAndDraws'; count: number }
+  | { kind: 'drawUntilHandSize'; count: number }
+  | { kind: 'clearSpecialConditions' }
+  // "If you have exactly 30 cards in your hand, take 2 Prize cards. If you do,
+  // shuffle your hand into your deck." One clause, not two: the second sentence
+  // only fires if the first did, and threading that across sentences would need
+  // cross-sentence state this parser deliberately does not keep.
+  | { kind: 'prizesThenShuffleHand'; handSize: number; amount: number }
   // (b) "Place 13 damage counters on 1 of your opponent's Pokemon." Converted to
   //     damage at parse time with 04.5's unit, so no second code path exists for
   //     a counter-denominated amount.
@@ -317,6 +341,105 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
   let pendingUntilTails = false
 
   for (const sentence of sentences) {
+    // -- 04.9 CP1: the pure slice, matched FIRST so no looser pattern below can
+    // swallow one. Every pattern is anchored end-to-end; the near-miss suite in
+    // the CP1 harness is what proves that.
+    const selfHit = sentence.match(/^this pokemon also does (\d+) damage to itself\.$/i)
+    if (selfHit) {
+      effects.push({ kind: 'selfDamage', amount: Number(selfHit[1]) })
+      pendingCoin = false
+      continue
+    }
+    const ownBenchSpread = sentence.match(
+      /^this attack also does (\d+) damage to each of your benched pokemon\.$/i,
+    )
+    if (ownBenchSpread) {
+      effects.push({ kind: 'spreadOwnBench', amount: Number(ownBenchSpread[1]) })
+      pendingCoin = false
+      continue
+    }
+    if (/^this attack's damage isn't affected by weakness or resistance,? or by any effects on your opponent's active pokemon\.$/i.test(sentence)) {
+      effects.push({ kind: 'noWeakness' })
+      pendingCoin = false
+      continue
+    }
+    const defenderHurt = sentence.match(
+      /^if your opponent's active pokemon already has any damage counters on it, this attack does (\d+) more damage\.$/i,
+    )
+    if (defenderHurt) {
+      effects.push({ kind: 'bonusDamageIfDefenderDamaged', amount: Number(defenderHurt[1]) })
+      pendingCoin = false
+      continue
+    }
+    const hasTool = sentence.match(
+      /^if this pokemon has a pokemon tool attached, this attack does (\d+) more damage\.$/i,
+    )
+    if (hasTool) {
+      effects.push({ kind: 'bonusDamageIfHasTool', amount: Number(hasTool[1]) })
+      pendingCoin = false
+      continue
+    }
+    const perHand = sentence.match(/^this attack does (\d+) damage for each card in your hand\.$/i)
+    if (perHand) {
+      effects.push({ kind: 'bonusDamagePerHandCard', amount: Number(perHand[1]) })
+      pendingCoin = false
+      continue
+    }
+    const perFrailBench = sentence.match(
+      /^this attack does (\d+) damage for each of your benched pokemon that has a maximum hp of (\d+)\.$/i,
+    )
+    if (perFrailBench) {
+      effects.push({
+        kind: 'bonusDamagePerBenchWithHp',
+        amount: Number(perFrailBench[1]),
+        hp: Number(perFrailBench[2]),
+      })
+      pendingCoin = false
+      continue
+    }
+    const prizesThenShuffle = sentence.match(
+      /^if you have exactly (\d+) cards in your hand, take (\d+) prize cards\.$/i,
+    )
+    if (prizesThenShuffle) {
+      effects.push({
+        kind: 'prizesThenShuffleHand',
+        handSize: Number(prizesThenShuffle[1]),
+        amount: Number(prizesThenShuffle[2]),
+      })
+      pendingCoin = false
+      continue
+    }
+    if (/^if you do, shuffle your hand into your deck\.$/i.test(sentence)) {
+      // Absorbed by the clause above: it is that clause's second half, and a
+      // standalone clause here would fire even when the hand-size test failed.
+      pendingCoin = false
+      continue
+    }
+    const discardTop = sentence.match(/^discard the top (\d+) cards? of your deck\.$/i)
+    if (discardTop) {
+      effects.push({ kind: 'discardTopOfDeck', count: Number(discardTop[1]) })
+      pendingCoin = false
+      continue
+    }
+    const foeShuffles = sentence.match(
+      /^your opponent shuffles their hand into their deck and draws (\d+) cards\.$/i,
+    )
+    if (foeShuffles) {
+      effects.push({ kind: 'opponentShufflesHandAndDraws', count: Number(foeShuffles[1]) })
+      pendingCoin = false
+      continue
+    }
+    const drawUntil = sentence.match(/^draw cards until you have (\d+) cards in your hand\.$/i)
+    if (drawUntil) {
+      effects.push({ kind: 'drawUntilHandSize', count: Number(drawUntil[1]) })
+      pendingCoin = false
+      continue
+    }
+    if (/^this pokemon recovers from all special conditions\.$/i.test(sentence)) {
+      effects.push({ kind: 'clearSpecialConditions' })
+      pendingCoin = false
+      continue
+    }
     // -- 04.8 CP1: spread damage. Matched before the "for each" families because
     // "to each of your opponent's Pokemon" would otherwise be read as a per-card
     // count. The trailing `\s*\.?` absorbs the data's odd "Pokemon ex ." spacing
@@ -719,6 +842,74 @@ export function applyEffect(
       if (drawn.length < effect.amount) applyDeckOutLoss(state, context.actor)
       break
     }
+    // -- 04.9 CP1: the pure zone effects. None of these can Knock Out, so they
+    // belong here rather than in resolveAttack's secondary-damage step.
+    case 'discardTopOfDeck': {
+      // The top of a deck is a FACT, not a choice: the acting seat can see its
+      // own deck (04.8 CP3-A) and "the top N" is fully determined. Shifting takes
+      // from the front, which is the side `drawCards` also consumes.
+      const drawn = side.deck.splice(0, effect.count)
+      side.discard.push(...drawn)
+      logEvent(state, 'pokemonBnb.log.effectDiscardEnergy', { player: context.actor, count: drawn.length })
+      break
+    }
+    case 'opponentShufflesHandAndDraws': {
+      // 04.9 CP1. The hand returns to the deck and N are drawn. The shuffle is a
+      // deterministic reversal of the known order rather than a random one: both
+      // peers run this over an identical state, so a seeded shuffle would change
+      // the physical order without changing determinism — and reversal is the
+      // cheaper way to keep the two in step. Recorded as a fidelity gap, as in
+      // 04.8 CP3-B.
+      const foe = sideOf(state, foeOf(context.actor))
+      foe.deck.push(...foe.hand)
+      foe.hand = []
+      const drawn = drawCards(foe, effect.count)
+      logEvent(state, 'pokemonBnb.log.effectDraw', { player: foeOf(context.actor), count: drawn.length })
+      if (drawn.length < effect.count) applyDeckOutLoss(state, foeOf(context.actor))
+      break
+    }
+    case 'drawUntilHandSize': {
+      // Bounded by the deck: `drawCards` returns what it could get, and a short
+      // draw is a deck-out rather than an infinite loop.
+      const needed = Math.max(0, effect.count - side.hand.length)
+      const drawn = drawCards(side, needed)
+      logEvent(state, 'pokemonBnb.log.effectDraw', { player: context.actor, count: drawn.length })
+      if (drawn.length < needed) applyDeckOutLoss(state, context.actor)
+      break
+    }
+    case 'clearSpecialConditions': {
+      // "recovers from all Special Conditions" — the attacker, matching the
+      // existing `heal` clause which also acts on `context.attacker`. Iterating the
+      // engine's own STATUS_CONDITIONS list rather than `Object.keys` keeps this
+      // exhaustive AND typed: a new condition cannot be silently left behind.
+      for (const key of STATUS_CONDITIONS) context.attacker.conditions[key] = false
+      logEvent(state, 'pokemonBnb.log.effectHeal', { player: context.actor, amount: context.attacker.damage })
+      break
+    }
+    case 'prizesThenShuffleHand': {
+      // "If you have exactly 30 cards in your hand, take 2 Prize cards. If you do,
+      // shuffle your hand into your deck." The second sentence fires ONLY on
+      // success, which is why this is one clause rather than two.
+      if (side.hand.length !== effect.handSize) break
+      for (let taken = 0; taken < effect.amount; taken += 1) {
+        if (side.prizeCount === 0) break
+        takePrizeCard(state, context.actor)
+        if (state.over) return tailLog(state, logStart)
+      }
+      side.deck.push(...side.hand)
+      side.hand = []
+      logEvent(state, 'pokemonBnb.log.effectShuffleHand', { player: context.actor })
+      break
+    }
+    // 04.9 CP1: consumed by resolveAttack (the bonuses, the flag, the recoil).
+    case 'bonusDamageIfDefenderDamaged':
+    case 'bonusDamageIfHasTool':
+    case 'bonusDamagePerHandCard':
+    case 'bonusDamagePerBenchWithHp':
+    case 'noWeakness':
+    case 'selfDamage':
+    case 'spreadOwnBench':
+      break
     case 'heal': {
       const healed = Math.min(effect.amount, context.attacker.damage)
       context.attacker.damage -= healed
@@ -902,19 +1093,22 @@ export function resolveAttack(
   if (!attacker || !defender) return
   const context: EffectContext = { actor, attacker, defender, attackName: attack.name }
 
-  // 0. A spread attack is its own resolution: it is the only clause on such a
-  // card (the parser drops a spread that shares a sentence with anything it
-  // cannot honour), so there is no `base` to fold it into and no second clause
-  // to run. It returns before the single-target pipeline entirely.
+  // 0. A spread attack is its own damage resolution: it is the only clause on
+  // such a card (the parser drops a spread that shares a sentence with anything it
+  // cannot honour). It sets a FLAG rather than returning, because a card may pair a
+  // spread with further clauses — 104 Ferrothorn is "50 damage to each of your
+  // opponent's Pokémon … This Pokémon also does 130 damage to itself", and an
+  // early return silently dropped that second half. Steps 1-2 are skipped for a
+  // spread; every later step still runs.
   const spread = effects.find((effect) => effect.kind === 'spreadDamage')
-  if (spread) {
-    resolveSpreadAttack(state, actor, attacker, attack, spread)
-    return
-  }
+  if (spread) resolveSpreadAttack(state, actor, attacker, attack, spread)
 
   // 1. Damage modifiers: flat bonuses, per-Prize-taken bonuses, coin gates.
-  let base = attack.damage
-  for (const effect of effects) {
+  // Skipped entirely for a spread (step 0 already resolved it) — a spread prints a
+  // base damage of 0, so running these would be harmless, but leaving the step out
+  // is what makes "a spread never touches the Active" a structural fact.
+  let base = spread ? 0 : attack.damage
+  for (const effect of spread ? [] : effects) {
     if (effect.kind === 'bonusDamage') {
       if (effect.coin && !flipCoin(state)) {
         logEvent(state, 'pokemonBnb.log.coinTails', { player: actor })
@@ -990,14 +1184,48 @@ export function resolveAttack(
       const bonus = effect.amount * heads
       base += bonus
       logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamageIfDefenderDamaged') {
+      // 04.9 CP1: "already has any damage counters on it". `damage > 0` is the
+      // whole test — and it is the same raw number `isKnockedOut` reads, so a
+      // display change can never disagree with it.
+      const bonus = defender.damage > 0 ? effect.amount : 0
+      base += bonus
+      if (bonus > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamageIfHasTool') {
+      const bonus = attacker.attachedTool ? effect.amount : 0
+      base += bonus
+      if (bonus > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamagePerHandCard') {
+      const bonus = effect.amount * sideOf(state, actor).hand.length
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamagePerBenchWithHp') {
+      // Bench ONLY, never the Active: "each of your BENCHED Pokemon that has…".
+      // `ownInPlay` includes the Active, so slicing is load-bearing here — the
+      // CP1 harness caught the Active being counted.
+      const matches = ownInPlay(state, actor).slice(1).filter((p) => p.card.hp === effect.hp)
+      const bonus = effect.amount * matches.length
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'noWeakness') {
+      // 04.9 CP1: a FLAG, not a bonus. It deliberately adds nothing to `base` and
+      // is read just below, where the Weakness/Resistance maths would otherwise run.
     } else if (effect.kind === 'noDamageOnTails' && !flipCoin(state)) {
       logEvent(state, 'pokemonBnb.log.coinTails', { player: actor })
       base = 0
     }
   }
 
-  // 2. Weakness / Resistance, then damage on the defender.
-  const outcome = computeAttackDamage(state, attacker, defender, base)
+  // 2. Weakness / Resistance, then damage on the defender. A spread already dealt
+  // its own damage in step 0, so this step is skipped for one.
+  if (!spread) {
+  // 04.9 CP1: `noWeakness` bypasses the multiplier entirely — that is the whole
+  // printed clause ("isn't affected by Weakness or Resistance"), so the damage
+  // lands at face value and the modifier is never consulted.
+  const ignoresWeakness = effects.some((effect) => effect.kind === 'noWeakness')
+  const outcome = ignoresWeakness
+    ? { damage: Math.max(0, base), weakness: 1, resistance: 0 }
+    : computeAttackDamage(state, attacker, defender, base)
   if (outcome.damage > 0) {
     defender.damage += outcome.damage
     logEvent(state, 'pokemonBnb.log.damageDealt', {
@@ -1015,14 +1243,56 @@ export function resolveAttack(
       target: defender.card.name,
     })
   }
+  }
 
-  // 3. Non-damage clauses (statuses, healing, energy discard, draw).
+  // 3. Non-damage clauses (statuses, healing, energy discard, draw). These run for
+  // a spread too — a spread card can carry them (04.9 CP1's Ferrothorn carries
+  // `selfDamage`, resolved in 3b below).
   for (const effect of effects) {
     if (effectTiming(effect.kind) === 'afterDamage') applyEffect(state, effect, context)
   }
 
+  // 3b. 04.9 CP1: secondary damage that can Knock Out. These sit HERE rather than in
+  // `applyEffect` because a KO has to settle, and all the KO machinery (prizes, the
+  // promotion queue, the ordered Bench path) lives in this file's neighbours.
+  //
+  // The BENCH settles before the SELF hit, matching CP1's 04.8 ordering rule: the
+  // attacker's own promotion gate must be the last thing a simultaneous effect
+  // opens, never something a later clause can contradict.
+  {
+    const ownBench = effects.find((effect) => effect.kind === 'spreadOwnBench')
+    if (ownBench && ownBench.kind === 'spreadOwnBench') {
+      const targets = ownInPlay(state, actor).slice(1)
+      for (const target of targets) {
+        target.damage += ownBench.amount
+        logEvent(state, 'pokemonBnb.log.damageDealt', {
+          player: actor,
+          attack: context.attackName,
+          target: target.card.name,
+          amount: ownBench.amount,
+        })
+      }
+      for (const target of targets) {
+        if (!isKnockedOut(target)) continue
+        performBenchKo(state, actor, target)
+        if (state.over) break
+      }
+    }
+    const recoil = effects.find((effect) => effect.kind === 'selfDamage')
+    if (recoil && recoil.kind === 'selfDamage' && !state.over) {
+      attacker.damage += recoil.amount
+      logEvent(state, 'pokemonBnb.log.damageDealt', {
+        player: actor,
+        attack: context.attackName,
+        target: attacker.card.name,
+        amount: recoil.amount,
+      })
+      if (isKnockedOut(attacker)) performKo(state, actor)
+    }
+  }
+
   // 4. Knock Out of the defender.
-  if (isKnockedOut(defender)) {
+  if (!spread && isKnockedOut(defender)) {
     performKo(state, defenderSlot)
     // 04.7: "If your opponent's Pokémon is Knocked Out by damage from this
     // attack, take 1 more Prize card." The bonus is a plain extra take, not a

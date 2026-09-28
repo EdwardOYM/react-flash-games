@@ -493,6 +493,7 @@ type PkmBnbLogTranslationKey =
   | 'effectDiscardEnergy'
   | 'chooseTarget'
   | 'effectSearchDeck'
+  | 'effectShuffleHand'
   | 'effectDraw'
   | 'effectHeal'
   | 'effectStatus'
