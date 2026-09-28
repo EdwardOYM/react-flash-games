@@ -580,9 +580,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       case 'uncommon': return t('pokemonBnb.rarityUncommon')
       case 'double rare': return t('pokemonBnb.rarityUltraRare')
       case 'illustration rare': return t('pokemonBnb.rarityIllustrationRare')
-      case 'pikachu rare': return 'Pikachu Rare'
-      case 'special illustration rare': return 'Special illustration rare'
-      case 'futuristic rare': return 'Futuristic Rare'
+      case 'pikachu rare': return t('pokemonBnb.rarityPikachuRare')
+      case 'classic rare': return t('pokemonBnb.rarityClassicRare')
+      case 'special illustration rare': return t('pokemonBnb.raritySpecialIllustrationRare')
+      case 'futuristic rare': return t('pokemonBnb.rarityFuturisticRare')
     }
   }
 

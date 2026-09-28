@@ -6230,6 +6230,1210 @@
         }
       ],
       "illustrator": "YOSHIROTTEN"
+    },
+    {
+      "id": "30c-159",
+      "set": "30c",
+      "number": "159",
+      "name": "Charizard",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "fire"
+      ],
+      "hp": 120,
+      "stage": "Stage2",
+      "retreat": 3,
+      "weaknesses": [
+        {
+          "type": "water",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "fighting",
+          "value": "-30"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Fire Spin",
+          "cost": [
+            "fire",
+            "fire",
+            "fire",
+            "fire"
+          ],
+          "damage": 100,
+          "text": "Discard 2 Energy cards attached to Charizard in order to use this attack."
+        }
+      ],
+      "abilities": [
+        {
+          "name": "Energy Burn",
+          "text": "As often as you like during your turn (before your attack), you may turn all Energy attached to Charizard into Fire Energy for the rest of the turn. This power can't be used if Charizard is Asleep, Confused, or Paralyzed.",
+          "type": "Pokemon Power"
+        }
+      ],
+      "illustrator": "Mitsuhiro Arita"
+    },
+    {
+      "id": "30c-160",
+      "set": "30c",
+      "number": "160",
+      "name": "Delcatty",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "colorless"
+      ],
+      "hp": 70,
+      "stage": "Stage1",
+      "retreat": 1,
+      "weaknesses": [
+        {
+          "type": "fighting",
+          "value": "×2"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Max Energy Source",
+          "cost": [
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "Does 10 damage times the amount of Energy attached to all of your Active Pokémon."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Atsuko Nishida"
+    },
+    {
+      "id": "30c-161",
+      "set": "30c",
+      "number": "161",
+      "name": "Metagross",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "lightning"
+      ],
+      "hp": 100,
+      "stage": "Stage2",
+      "retreat": 3,
+      "weaknesses": [
+        {
+          "type": "fire",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "grass",
+          "value": "-30"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Crush and Burn",
+          "cost": [
+            "lightning",
+            "metal"
+          ],
+          "damage": 0,
+          "text": "You may discard as many Energy cards as you like attached to your Pokémon in play. If you do, this attack does 30 damage plus 20 more damage for each Energy card you discarded."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Masakazu Fukuda"
+    },
+    {
+      "id": "30c-162",
+      "set": "30c",
+      "number": "162",
+      "name": "Genesect EX",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "grass"
+      ],
+      "suffix": "EX",
+      "hp": 170,
+      "stage": "Basic",
+      "retreat": 1,
+      "weaknesses": [
+        {
+          "type": "fire",
+          "value": "×2"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Megalo Cannon",
+          "cost": [
+            "grass",
+            "grass",
+            "colorless"
+          ],
+          "damage": 100,
+          "text": "Does 20 damage to 1 of your opponent's Benched Pokémon. <em>\t   (Don't apply Weakness and Resistance for Benched Pokémon.)</em>"
+        }
+      ],
+      "abilities": [
+        {
+          "name": "Red Signal",
+          "text": "When you attach a Plasma Energy from your hand to this Pokémon, you may switch 1 of your opponent's Benched Pokémon with his or her Active Pokémon.",
+          "type": "Ability"
+        }
+      ],
+      "illustrator": "Eske Yoshinob"
+    },
+    {
+      "id": "30c-163",
+      "set": "30c",
+      "number": "163",
+      "name": "Misty",
+      "rarity": "classic rare",
+      "supertype": "trainer",
+      "types": [],
+      "trainerType": "Supporter",
+      "effect": ""
+    },
+    {
+      "id": "30c-164",
+      "set": "30c",
+      "number": "164",
+      "name": "Dark Tyranitar",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "darkness"
+      ],
+      "hp": 120,
+      "stage": "Stage2",
+      "retreat": 2,
+      "weaknesses": [
+        {
+          "type": "fighting",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "psychic",
+          "value": "-30"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Grind",
+          "cost": [
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "Does 10 damage plus 10 more damage for each Energy attached to Dark Tyranitar."
+        },
+        {
+          "name": "Spinning Tail",
+          "cost": [
+            "darkness",
+            "colorless",
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "Does 20 damage to each of your opponent's Pokémon. <em>\t   (Don't apply Weakness and Resistance for Benched Pokémon.)</em>"
+        },
+        {
+          "name": "Bite Off",
+          "cost": [
+            "darkness",
+            "darkness",
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "If the Defending Pokémon is Pokémon-<em>ex</em>, this attack does 70 damage plus 50 more damage."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Nakaoka"
+    },
+    {
+      "id": "30c-165",
+      "set": "30c",
+      "number": "165",
+      "name": "Sneasel",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "darkness"
+      ],
+      "hp": 60,
+      "stage": "Basic",
+      "retreat": 0,
+      "weaknesses": [],
+      "resistances": [
+        {
+          "type": "psychic",
+          "value": "-30"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Fury Swipes",
+          "cost": [
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "Flip 3 coins. This attack does 10 damage times the number of heads."
+        },
+        {
+          "name": "Beat Up",
+          "cost": [
+            "darkness",
+            "darkness"
+          ],
+          "damage": 0,
+          "text": "Flip a coin for each of your Pokémon in play (including this one). This attack does 20 damage times the number of heads."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Ken Sugimori"
+    },
+    {
+      "id": "30c-166",
+      "set": "30c",
+      "number": "166",
+      "name": "Pikachu & Zekrom GX",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "lightning"
+      ],
+      "suffix": "GX",
+      "hp": 240,
+      "stage": "Basic",
+      "retreat": 3,
+      "weaknesses": [
+        {
+          "type": "fighting",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "metal",
+          "value": "-20"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Full Blitz",
+          "cost": [
+            "lightning",
+            "lightning",
+            "lightning"
+          ],
+          "damage": 150,
+          "text": "Search your deck for up to 3 <span class=\"energy-symbol Lightning\" title=\"Lightning\">Lightning</span> Energy cards and attach them to 1 of your Pokémon. Then, shuffle your deck."
+        },
+        {
+          "name": "Tag Bolt {GX}",
+          "cost": [
+            "lightning",
+            "lightning",
+            "lightning"
+          ],
+          "damage": 200,
+          "text": "If this Pokémon has at least 3 extra <span class=\"energy-symbol Lightning\" title=\"Lightning\">Lightning</span> Energy attached to it <em>(in addition to this attack's cost)</em>, this attack does 170 damage to 1 of your opponent's Benched Pokémon. <em>(Don't apply Weakness and Resistance for Benched Pokémon.) (You can't use more than 1 <em>GX</em> attack in a game.)</em>"
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Mitsuhiro Arita"
+    },
+    {
+      "id": "30c-167",
+      "set": "30c",
+      "number": "167",
+      "name": "Greninja BREAK",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "water"
+      ],
+      "hp": 170,
+      "stage": "BREAK",
+      "retreat": 0,
+      "weaknesses": [],
+      "resistances": [],
+      "attacks": [],
+      "abilities": [
+        {
+          "name": "Giant Water Shuriken",
+          "text": "Once during your turn (before your attack)\t   , if this Pokémon is your Active Pokémon, you may discard a Water Energy card from your hand. If you do, put 6 damage counters on 1 of your oppponent's Pokémon.",
+          "type": "Ability"
+        }
+      ],
+      "illustrator": "5ban Graphics"
+    },
+    {
+      "id": "30c-168",
+      "set": "30c",
+      "number": "168",
+      "name": "Uxie",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "psychic"
+      ],
+      "hp": 70,
+      "stage": "Basic",
+      "retreat": 1,
+      "weaknesses": [
+        {
+          "type": "psychic",
+          "value": "+20"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Psychic Restore",
+          "cost": [
+            "colorless"
+          ],
+          "damage": 20,
+          "text": "You may put Uxie and all cards attached to it on the bottom of your deck in any order."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Ken Sugimori"
+    },
+    {
+      "id": "30c-169",
+      "set": "30c",
+      "number": "169",
+      "name": "Crobat G",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "psychic"
+      ],
+      "suffix": "SP",
+      "hp": 80,
+      "stage": "Basic",
+      "retreat": 0,
+      "weaknesses": [
+        {
+          "type": "lightning",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "fighting",
+          "value": "-20"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Toxic Fang",
+          "cost": [
+            "psychic",
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "The Defending Pokémon is now Poisoned. Put 2 damage counters instead of 1 on the Defending Pokémon between turns."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Makoto Imai"
+    },
+    {
+      "id": "30c-170",
+      "set": "30c",
+      "number": "170",
+      "name": "Raikou",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "lightning"
+      ],
+      "hp": 110,
+      "stage": "Basic",
+      "retreat": 2,
+      "weaknesses": [
+        {
+          "type": "fighting",
+          "value": "×2"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Amazing Shot",
+          "cost": [
+            "grass",
+            "lightning",
+            "metal"
+          ],
+          "damage": 120,
+          "text": "This attack also does 120 damage to 1 of your opponent's Benched Pokémon. <em>(Don't apply Weakness and Resistance for Benched Pokémon.)</em>"
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Hideki Ishikawa"
+    },
+    {
+      "id": "30c-171",
+      "set": "30c",
+      "number": "171",
+      "name": "Buzzwole GX",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "fighting"
+      ],
+      "suffix": "GX",
+      "hp": 190,
+      "stage": "Basic",
+      "retreat": 2,
+      "weaknesses": [
+        {
+          "type": "psychic",
+          "value": "×2"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Jet Punch",
+          "cost": [
+            "fighting"
+          ],
+          "damage": 30,
+          "text": "This attack does 30 damage to 1 of your opponent's Benched Pokémon. <em>(Don't apply Weakness and Resistance for Benched Pokémon.)</em>"
+        },
+        {
+          "name": "Knuckle Impact",
+          "cost": [
+            "fighting",
+            "fighting",
+            "fighting"
+          ],
+          "damage": 160,
+          "text": "This Pokémon can't attack during your next turn."
+        },
+        {
+          "name": "Absorption {GX}",
+          "cost": [
+            "fighting",
+            "fighting",
+            "fighting"
+          ],
+          "damage": 0,
+          "text": "This attack does 40 damage for each of your remaining Prize cards. <em>(You can't use more than 1 <em>GX</em> attack in a game.)</em>"
+        }
+      ],
+      "abilities": [],
+      "illustrator": "5ban Graphics"
+    },
+    {
+      "id": "30c-172",
+      "set": "30c",
+      "number": "172",
+      "name": "Pikachu",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "lightning"
+      ],
+      "hp": 40,
+      "stage": "Basic",
+      "retreat": 1,
+      "weaknesses": [
+        {
+          "type": "fighting",
+          "value": "×2"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Gnaw",
+          "cost": [
+            "colorless"
+          ],
+          "damage": 10,
+          "text": ""
+        },
+        {
+          "name": "Thunder Jolt",
+          "cost": [
+            "lightning",
+            "colorless"
+          ],
+          "damage": 30,
+          "text": "Flip a coin. If tails, Pikachu does 10 damage to itself."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Mitsuhiro Arita"
+    },
+    {
+      "id": "30c-173",
+      "set": "30c",
+      "number": "173",
+      "name": "Erika's Jigglypuff",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "colorless"
+      ],
+      "hp": 50,
+      "stage": "Basic",
+      "retreat": 1,
+      "weaknesses": [
+        {
+          "type": "fighting",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "psychic",
+          "value": "-30"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Group Therapy",
+          "cost": [
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "You and your opponent remove 1 damage counter from each of your Pokémon with damage counters on them."
+        },
+        {
+          "name": "Pulled Punch",
+          "cost": [
+            "colorless",
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "If the Defending Pokémon has no damage counters on it, this attack does 40 damage. If it has any damage counters on it, this attack does 10 damage."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Ken Sugimori"
+    },
+    {
+      "id": "30c-174",
+      "set": "30c",
+      "number": "174",
+      "name": "Rayquaza EX",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "dragon"
+      ],
+      "suffix": "EX",
+      "hp": 170,
+      "stage": "Basic",
+      "retreat": 1,
+      "weaknesses": [
+        {
+          "type": "dragon",
+          "value": "×2"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Celestial Roar",
+          "cost": [
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "Discard the top 3 cards of your deck. If any of those cards are Energy cards, attach them to this Pokémon."
+        },
+        {
+          "name": "Dragon Burst",
+          "cost": [
+            "fire",
+            "lightning"
+          ],
+          "damage": 0,
+          "text": "Discard all basic <span class=\"energy-symbol Fire\" title=\"Fire\">Fire</span> Energy or all basic <span class=\"energy-symbol Lightning\" title=\"Lightning\">Lightning</span> Energy attached to this Pokémon. This attack does 60 damage times the number of Energy cards you discarded."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Eske Yoshinob"
+    },
+    {
+      "id": "30c-175",
+      "set": "30c",
+      "number": "175",
+      "name": "Solgaleo GX",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "metal"
+      ],
+      "suffix": "GX",
+      "hp": 250,
+      "stage": "Basic",
+      "retreat": 3,
+      "weaknesses": [
+        {
+          "type": "fire",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "psychic",
+          "value": "-20"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Sunsteel Strike",
+          "cost": [
+            "metal",
+            "metal",
+            "colorless"
+          ],
+          "damage": 230,
+          "text": "Discard all Energy from this Pokémon."
+        },
+        {
+          "name": "Sol Burst {GX}",
+          "cost": [
+            "metal"
+          ],
+          "damage": 0,
+          "text": "Search your deck for up to 5 Energy cards and attach them to your Pokémon in any way you like. Then, shuffle your deck. <em>(You can't use more than 1 <em>GX</em> attack in a game.)</em>"
+        }
+      ],
+      "abilities": [
+        {
+          "name": "Ultra Road",
+          "text": "Once during your turn\t\t(before your attack), you may switch your Active Pokémon with 1 of your Benched Pokémon.",
+          "type": "Ability"
+        }
+      ],
+      "illustrator": "PLANETA"
+    },
+    {
+      "id": "30c-176",
+      "set": "30c",
+      "number": "176",
+      "name": "Gengar",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "psychic"
+      ],
+      "hp": 130,
+      "stage": "Stage2",
+      "retreat": 0,
+      "weaknesses": [
+        {
+          "type": "darkness",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "colorless",
+          "value": "-20"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Hurl into Darkness",
+          "cost": [
+            "psychic"
+          ],
+          "damage": 0,
+          "text": "Look at your opponent's hand and choose a number of Pokémon you find there up to the number of <span class=\"energy-symbol Psychic\" title=\"Psychic\">Psychic</span> Energy attached to Gengar. Put the Pokémon you chose in the Lost Zone."
+        },
+        {
+          "name": "Cursed Drop",
+          "cost": [
+            "psychic",
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "Put 4 damage counters on your opponent's Pokémon in any way you like."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Takashi Yamaguchi"
+    },
+    {
+      "id": "30c-177",
+      "set": "30c",
+      "number": "177",
+      "name": "Darkrai & Cresselia LEGEND",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "psychic"
+      ],
+      "suffix": "Legend",
+      "hp": 150,
+      "stage": "Basic",
+      "retreat": 0,
+      "weaknesses": [],
+      "resistances": [],
+      "attacks": [],
+      "abilities": [],
+      "illustrator": "Shinji Higuchi + Noriko Takaya 樋口 真嗣 + 高屋 法子"
+    },
+    {
+      "id": "30c-178",
+      "set": "30c",
+      "number": "178",
+      "name": "Darkrai & Cresselia LEGEND",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "psychic"
+      ],
+      "suffix": "Legend",
+      "hp": 150,
+      "stage": "Basic",
+      "retreat": 2,
+      "weaknesses": [
+        {
+          "type": "psychic",
+          "value": ""
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Lost Crisis",
+          "cost": [
+            "darkness",
+            "darkness",
+            "colorless",
+            "colorless"
+          ],
+          "damage": 100,
+          "text": "Choose 2 Energy attached to Darkrai & Cresselia LEGEND and put them into the Lost Zone. If any of your opponent's Pokémon would be Knocked Out by damage from this attack, put that Pokémon and all cards attached to it in the Lost Zone instead of discarding it."
+        },
+        {
+          "name": "Moon's Invite",
+          "cost": [
+            "psychic"
+          ],
+          "damage": 0,
+          "text": "Move as many damage counters on your opponent's Pokémon as you like to any of your opponent's other Pokémon in any way you like."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Shinji Higuchi"
+    },
+    {
+      "id": "30c-179",
+      "set": "30c",
+      "number": "179",
+      "name": "N",
+      "rarity": "classic rare",
+      "supertype": "trainer",
+      "types": [],
+      "trainerType": "Supporter",
+      "effect": ""
+    },
+    {
+      "id": "30c-180",
+      "set": "30c",
+      "number": "180",
+      "name": "Palkia",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "water"
+      ],
+      "hp": 120,
+      "stage": "Basic",
+      "retreat": 3,
+      "weaknesses": [
+        {
+          "type": "lightning",
+          "value": "×2"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Hydro Reflect",
+          "cost": [
+            "water",
+            "water",
+            "water"
+          ],
+          "damage": 60,
+          "text": "You may move all Energy cards attached to Palkia to your Benched Pokémon in any way you like. (Ignore this effect if you don't have any Benched Pokémon.)"
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Ryo Ueda"
+    },
+    {
+      "id": "30c-181",
+      "set": "30c",
+      "number": "181",
+      "name": "M Gardevoir EX",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "psychic"
+      ],
+      "suffix": "EX",
+      "hp": 210,
+      "stage": "Basic",
+      "retreat": 2,
+      "weaknesses": [
+        {
+          "type": "metal",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "darkness",
+          "value": "-20"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Brilliant Arrow",
+          "cost": [
+            "psychic",
+            "colorless",
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "This attack does 30 damage times the amount of <span class=\"energy-symbol Fairy\" title=\"Fairy\">Fairy</span> Energy attached to all of your Pokémon."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "5ban Graphics"
+    },
+    {
+      "id": "30c-182",
+      "set": "30c",
+      "number": "182",
+      "name": "Shining Celebi",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "grass"
+      ],
+      "hp": 50,
+      "stage": "Basic",
+      "retreat": 1,
+      "weaknesses": [
+        {
+          "type": "fire",
+          "value": "×2"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Healing Water",
+          "cost": [
+            "water"
+          ],
+          "damage": 0,
+          "text": "Remove a number of damage counters from 1 of your Benched Pokémon equal to the number of <span class=\"energy-symbol Water\" title=\"Water\">Water</span> Energy cards attached to Shining Celebi. If the Pokémon has fewer damage counters than that, remove all of them."
+        },
+        {
+          "name": "Miracle Leaf",
+          "cost": [
+            "grass",
+            "psychic"
+          ],
+          "damage": 10,
+          "text": "Flip a number of coins equal to the number of Energy attached to the Defending Pokémon. If you get 1 or more heads, the Defending Pokémon is now Asleep, Confused, or Poisoned (your choice)."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Hironobu Yoshida"
+    },
+    {
+      "id": "30c-183",
+      "set": "30c",
+      "number": "183",
+      "name": "Scizor ex",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "metal"
+      ],
+      "suffix": "EX",
+      "hp": 120,
+      "stage": "Basic",
+      "retreat": 1,
+      "weaknesses": [
+        {
+          "type": "fire",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "grass",
+          "value": "-30"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Steel Wing",
+          "cost": [
+            "metal",
+            "colorless"
+          ],
+          "damage": 40,
+          "text": "During your opponent's next turn, any damage done to Scizor <em>ex</em> by attacks is reduced by 20 <em>(after applying Weakness and Resistance)</em>."
+        },
+        {
+          "name": "Cross-Cut",
+          "cost": [
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "If the Defending Pokémon is an Evolved Pokémon, this attack does 50 damage plus 30 more damage."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Mitsuhiro Arita"
+    },
+    {
+      "id": "30c-184",
+      "set": "30c",
+      "number": "184",
+      "name": "Mew VMAX",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "psychic"
+      ],
+      "hp": 310,
+      "stage": "VMAX",
+      "retreat": 0,
+      "weaknesses": [
+        {
+          "type": "darkness",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "fighting",
+          "value": "-30"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Cross Fusion Strike",
+          "cost": [
+            "colorless",
+            "colorless"
+          ],
+          "damage": 0,
+          "text": "Choose 1 of your Benched Fusion Strike Pokémon's attacks and use it as this attack."
+        },
+        {
+          "name": "Max Miracle",
+          "cost": [
+            "psychic",
+            "psychic"
+          ],
+          "damage": 130,
+          "text": "This attack's damage isn't affected by any effects on your opponent's Active Pokémon."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "5ban Graphics"
+    },
+    {
+      "id": "30c-185",
+      "set": "30c",
+      "number": "185",
+      "name": "Arceus VSTAR",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "colorless"
+      ],
+      "hp": 280,
+      "stage": "Basic",
+      "retreat": 2,
+      "weaknesses": [
+        {
+          "type": "fighting",
+          "value": "×2"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Trinity Nova",
+          "cost": [
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          "damage": 200,
+          "text": "Search your deck for up to 3 basic Energy cards and attach them to your Pokémon V in any way you like. Then, shuffle your deck."
+        }
+      ],
+      "abilities": [
+        {
+          "name": "Starbirth",
+          "text": "During your turn, you may search your deck for up to 2 cards and put them into your hand. Then, shuffle your deck. (You can't use more than 1 VSTAR Power in a game.)",
+          "type": "Ability"
+        }
+      ],
+      "illustrator": "5ban Graphics"
+    },
+    {
+      "id": "30c-186",
+      "set": "30c",
+      "number": "186",
+      "name": "Zacian V",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "metal"
+      ],
+      "suffix": "V",
+      "hp": 220,
+      "stage": "Basic",
+      "retreat": 2,
+      "weaknesses": [
+        {
+          "type": "fire",
+          "value": "×2"
+        }
+      ],
+      "resistances": [
+        {
+          "type": "grass",
+          "value": "-30"
+        }
+      ],
+      "attacks": [
+        {
+          "name": "Brave Blade",
+          "cost": [
+            "metal",
+            "metal",
+            "metal"
+          ],
+          "damage": 230,
+          "text": "During your next turn, this Pokémon can't attack."
+        }
+      ],
+      "abilities": [
+        {
+          "name": "Intrepid Sword",
+          "text": "Once during your turn, you may look at the top 3 cards of your deck and attach any number of Metal Energy cards you find there to this Pokémon. Put the other cards into your hand. If you use this Ability, your turn ends.",
+          "type": "Ability"
+        }
+      ],
+      "illustrator": "5ban Graphics"
+    },
+    {
+      "id": "30c-187",
+      "set": "30c",
+      "number": "187",
+      "name": "Lugia",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "colorless"
+      ],
+      "hp": 80,
+      "stage": "Basic",
+      "retreat": 3,
+      "weaknesses": [
+        {
+          "type": "psychic",
+          "value": "×2"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Psychic",
+          "cost": [
+            "fire",
+            "psychic"
+          ],
+          "damage": 0,
+          "text": "This attack does 10 damage times the number of Energy cards attached to the Defending Pokémon."
+        },
+        {
+          "name": "Steam Blast",
+          "cost": [
+            "fire",
+            "water",
+            "water",
+            "colorless"
+          ],
+          "damage": 50,
+          "text": "Discard an Energy card attached to Lugia."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Naoyo Kimura"
+    },
+    {
+      "id": "30c-188",
+      "set": "30c",
+      "number": "188",
+      "name": "Magikarp",
+      "rarity": "classic rare",
+      "supertype": "pokemon",
+      "types": [
+        "water"
+      ],
+      "hp": 30,
+      "stage": "Basic",
+      "retreat": 1,
+      "weaknesses": [
+        {
+          "type": "lightning",
+          "value": "×2"
+        }
+      ],
+      "resistances": [],
+      "attacks": [
+        {
+          "name": "Expert Splasher",
+          "cost": [
+            "water"
+          ],
+          "damage": 0,
+          "text": "Flip 2 coins. If both of them are heads, this attack does 20 more damage."
+        }
+      ],
+      "abilities": [],
+      "illustrator": "Shinji Kanda"
     }
   ]
 }

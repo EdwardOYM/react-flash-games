@@ -96,6 +96,14 @@ export function PokemonPackRip({
         return translate('packBattle.rarityUltraRare')
       case 'illustration rare':
         return translate('packBattle.rarityIllustrationRare')
+      case 'pikachu rare':
+        return translate('packBattle.rarityPikachuRare')
+      case 'classic rare':
+        return translate('packBattle.rarityClassicRare')
+      case 'special illustration rare':
+        return translate('packBattle.raritySpecialIllustrationRare')
+      case 'futuristic rare':
+        return translate('packBattle.rarityFuturisticRare')
       default:
         return translate('packBattle.rarityCommon')
     }

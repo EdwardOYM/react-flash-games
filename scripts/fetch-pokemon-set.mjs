@@ -27,6 +27,8 @@ const RARITY_MAP = {
   // guaranteed illustration-rare slot; "Futuristic Rare" is a chase treatment.
   'pikachu rare': 'illustrationRare',
   'futuristic rare': 'ultraRare',
+  // 30c 159-188: the classic-era reprints, their own 1-in-10 pack chase tier.
+  'classic rare': 'classic rare',
 }
 
 const TYPE_ALIASES = {

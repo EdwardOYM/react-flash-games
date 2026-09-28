@@ -48,12 +48,15 @@ export const PACK_BATTLE_30C: BattlePackDef = {
       id: 'uncommon-or-better',
       poolRef: 'uncommonOrBetter',
       count: 1,
-      weights: { rare: 68, 'double rare': 17, 'illustration rare': 9, 'special illustration rare': 3, 'futuristic rare': 1 },
+      // Weights total 110, so "classic rare" at 11 is exactly 1 in 10 packs.
+      // It lives ONLY in this slot: adding it to common-or-better too would
+      // give two independent rolls per pack and roughly double the rate.
+      weights: { rare: 69, 'double rare': 17, 'illustration rare': 9, 'classic rare': 11, 'special illustration rare': 3, 'futuristic rare': 1 },
     },
   ],
   pools: {
     commonOrBetter: { ladder: ['common', 'rare', 'double rare', 'illustration rare', 'special illustration rare', 'futuristic rare'] },
-    uncommonOrBetter: { ladder: ['rare', 'double rare', 'illustration rare', 'special illustration rare', 'futuristic rare'] },
+    uncommonOrBetter: { ladder: ['rare', 'double rare', 'illustration rare', 'classic rare', 'special illustration rare', 'futuristic rare'] },
     basicEnergy: {
       types: ['grass', 'fire', 'water', 'lightning', 'psychic', 'fighting', 'darkness', 'metal'],
     },

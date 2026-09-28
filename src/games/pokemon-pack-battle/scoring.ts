@@ -34,6 +34,9 @@ export function isGuaranteedPikachuIr(card: CardDef): boolean {
 export function tierForRarity(rarity: string): BattleTier {
   if (rarity === 'futuristic rare') return 7
   if (rarity === 'special illustration rare') return 5
+  // 30c 159-188: the classic reprints, worth 3 — above an illustration rare
+  // (2) and below a special illustration rare (5).
+  if (rarity === 'classic rare') return 3
   if (rarity === 'illustration rare') return 2
   if (rarity === 'double rare') return 1
   return 0

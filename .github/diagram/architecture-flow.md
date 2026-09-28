@@ -74,8 +74,8 @@ flowchart TD
         packBattle -->|"shared seed -> identical deterministic 6-card battle packs (energy, common, common, pikachu-ir, common-or-better, uncommon-or-better)"| packData["battlePack.ts PACK_BATTLE_30C + scoring.ts tier/points + shared 30c set data"]
         packBattle -->|"per-pack session state: opened, six revealed flags, expanded; host/guest focus independently by owned pack; totals derive from revealed flags"| packCeremony["ceremonyState.ts — pure v3 transitions, ownership checks, fixed-order reveal, union merge, totals, completion, focused-pack and key resolvers"]
         packBattle -->|"two simultaneous seat lanes: one focused PackStack each; normal mode exposes one action target and leaves the latest revealed card on top; pack-reveal-all expands all six for review; completed stack waits for explicit next owned pack"| packStack["src/games/cardstack/PackStack.tsx / PackStack.css — SHARED stack and PokemonCard flip presentation (03.2 CP8 extracted it here and generalized it to plain CardDef[] so pokemon-bnb renders the same reveal; classes renamed ppb-pack-stack* -> pkcs-stack*)"]
-        packBattle -->|"pointsForCard per revealed slot by card identity; Pikachu IR scores 0; tier-0..5 flair; packs-left and card-N-of-6 progress"| packData
-        packBattle -->|"solo rip (04.3): openBattlePacks(battleSetCards(), PACK_BATTLE_30C, count, fresh session-only seed) — the same 6-slot distribution, no wire; PackStack renders the fixed seeded reveal and expanded review"| packData
+        packBattle -->|"pointsForCard per revealed slot by card identity; Pikachu IR scores 0; tier-0..7 flair (CR 3, IR 2, SIR 5, FR 7); packs-left and card-N-of-6 progress"| packData
+        packBattle -->|"solo rip (04.3): openBattlePacks(battleSetCards(), PACK_BATTLE_30C, count, fresh session-only seed) — the same 6-slot distribution (the uncommon-or-better slot is the sole roll for 'classic rare' 159-188, weighted 11 of 110 = 1 in 10 packs, 3 pts), no wire; PackStack renders the fixed seeded reveal and expanded review"| packData
     end
 
     subgraph STATE["View state machine"]

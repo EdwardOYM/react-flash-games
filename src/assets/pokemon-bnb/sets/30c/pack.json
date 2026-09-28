@@ -18,9 +18,10 @@
       "poolRef": "uncommonOrBetter",
       "count": 1,
       "weights": {
-        "rare": 68,
+        "rare": 69,
         "double rare": 17,
         "illustration rare": 9,
+        "classic rare": 11,
         "special illustration rare": 3,
         "futuristic rare": 1
       }
@@ -43,6 +44,7 @@
         "rare",
         "double rare",
         "illustration rare",
+        "classic rare",
         "special illustration rare",
         "futuristic rare"
       ]

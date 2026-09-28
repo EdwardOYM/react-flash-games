@@ -11,6 +11,8 @@ export type CardRarity =
   | 'double rare'
   | 'illustration rare'
   | 'pikachu rare'
+  /** 30c 159-188: classic-era reprints, the 1-in-10 pack chase. */
+  | 'classic rare'
   | 'special illustration rare'
   | 'futuristic rare'
 export type CardSupertype = 'pokemon' | 'trainer' | 'energy'
@@ -157,7 +159,7 @@ export function prizesForKnockOut(card: PokemonCardDef): number {
 }
 
 export function cardRarityRank(rarity: CardRarity): number {
-  const order: CardRarity[] = ['common', 'rare', 'pikachu rare', 'double rare', 'illustration rare', 'special illustration rare', 'futuristic rare']
+  const order: CardRarity[] = ['common', 'rare', 'pikachu rare', 'double rare', 'illustration rare', 'classic rare', 'special illustration rare', 'futuristic rare']
   return order.indexOf(rarity)
 }
 
@@ -165,4 +167,4 @@ export function isUncommonOrBetter(card: CardDef): boolean {
   return cardRarityRank(card.rarity) >= cardRarityRank('rare')
 }
 
-export const RARITY_ORDER: CardRarity[] = ['common', 'rare', 'pikachu rare', 'double rare', 'illustration rare', 'special illustration rare', 'futuristic rare']
+export const RARITY_ORDER: CardRarity[] = ['common', 'rare', 'pikachu rare', 'double rare', 'illustration rare', 'classic rare', 'special illustration rare', 'futuristic rare']
