@@ -8,7 +8,7 @@
 import type { CardDef, CardType, EnergyCardDef, PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { DAMAGE_PER_COUNTER } from './constants'
-import type { ActionResult, BattleLogEntry, BattleState, InPlayPokemon, SideState } from './types'
+import type { ActionResult, ActiveDuration, BattleLogEntry, BattleState, DurationEffect, InPlayPokemon, SideState } from './types'
 
 // -- Pure helpers --
 
@@ -137,6 +137,123 @@ export function inPlayList(side: SideState): InPlayPokemon[] {
 /** Rejection result: the caller keeps the untouched state and gets a code. */
 export function failure(state: BattleState, error: string): ActionResult {
   return { state, log: [], error }
+}
+
+// -- 04.9 CP5: time-limited "during your next turn" effects --
+//
+// One module-level home for the whole mechanism, so the expiry rule exists in
+// exactly one place. The four operations are: ADD (when a printed clause
+// resolves), PRUNE (when a turn ends), and the two READS the action gates need.
+
+// The turn a clause printed during turn `turn` is live for. The engine's counter
+// advances by one per `applyEndTurn` and the seats strictly alternate, so the
+// OPPONENT's next turn is always +1 and the actor's OWN next turn is always +2.
+// That is why this needs no seat parameter: the number already encodes whose turn
+// it is, and the two can never disagree.
+export function durationTurnFor(turn: number, whose: 'self' | 'foe'): number {
+  return whose === 'foe' ? turn + 1 : turn + 2
+}
+
+/**
+ * Deterministic identity for a duration, so applying the same printed clause
+ * twice for the same Pokemon in the same window REPLACES rather than stacks.
+ * Without this, re-resolving an attack would double a "-60 damage" modifier.
+ */
+export function durationId(uid: string, effect: DurationEffect): string {
+  const argument = 'amount' in effect ? String(effect.amount) : 'attackName' in effect ? effect.attackName : ''
+  return argument ? `${uid}:${effect.kind}:${argument}` : `${uid}:${effect.kind}`
+}
+
+/**
+ * Add or replace one duration.
+ *
+ * REPLACEMENT is by `id`, and a re-add refreshes `activeTurn` and `sourceName`:
+ * a Pokémon hit by the same clause twice in one window must not end up with two
+ * -60 modifiers, which is the idempotence the plan's gate demands.
+ */
+export function addDuration(
+  state: BattleState,
+  uid: string,
+  effect: DurationEffect,
+  activeTurn: number,
+  sourceName: string,
+): void {
+  const id = durationId(uid, effect)
+  const index = state.durations.findIndex((duration) => duration.id === id)
+  if (index === -1) state.durations.push({ id, uid, effect, activeTurn, sourceName })
+  else state.durations[index] = { id, uid, effect, activeTurn, sourceName }
+}
+
+/**
+ * Drop every duration whose turn has passed, plus any riding a Pokemon that is no
+ * longer in play (Knocked Out, or otherwise gone).
+ *
+ * Called from `applyEndTurn` and nowhere else, so expiry has a single trigger. A
+ * duration for a removed `uid` is inert anyway — every read looks the Pokemon up
+ * by uid and finds nothing — but dropping it keeps the snapshot small and stops a
+ * stale entry from mattering if a uid is ever reused.
+ */
+export function pruneDurations(state: BattleState): void {
+  const inPlay = new Set<string>()
+  if (state.host.active) inPlay.add(state.host.active.uid)
+  for (const pokemon of state.host.bench) inPlay.add(pokemon.uid)
+  if (state.guest.active) inPlay.add(state.guest.active.uid)
+  for (const pokemon of state.guest.bench) inPlay.add(pokemon.uid)
+  state.durations = state.durations.filter(
+    (duration) => duration.activeTurn >= state.turn && inPlay.has(duration.uid),
+  )
+}
+
+/** Every live duration riding one in-play Pokemon, read by uid. */
+export function durationsFor(state: BattleState, uid: string): ActiveDuration[] {
+  return state.durations.filter((duration) => duration.uid === uid && duration.activeTurn >= state.turn)
+}
+
+/**
+ * The single live duration of one kind on one Pokemon, or null.
+ *
+ * `cantAttack` and `preventAllDamage` are answered as a BOOLEAN on purpose: they
+ * are gates, and a gate that summed two entries would be a different rule.
+ */
+export function findDuration(
+  state: BattleState,
+  uid: string,
+  kind: DurationEffect['kind'],
+): ActiveDuration | null {
+  return state.durations.find(
+    (duration) => duration.uid === uid && duration.activeTurn >= state.turn && duration.effect.kind === kind,
+  ) ?? null
+}
+
+/** True when a printed clause forbids `pokemon` from using `attackName` at all. */
+export function isAttackLocked(state: BattleState, uid: string, attackName: string): boolean {
+  if (findDuration(state, uid, 'cantAttack')) return true
+  return state.durations.some(
+    (duration) =>
+      duration.uid === uid &&
+      duration.activeTurn >= state.turn &&
+      duration.effect.kind === 'cantUseAttack' &&
+      duration.effect.attackName === attackName,
+  )
+}
+
+/**
+ * Signed damage adjustment from the `lessDamageTaken` / `moreDamageTaken` families,
+ * in RAW points, applied AFTER Weakness and Resistance exactly as those cards
+ * print. Positive means the Pokemon takes MORE.
+ *
+ * The two are separate effect kinds rather than one signed `amount` because the
+ * printed sentences are asymmetric: 079/107 say "this Pokemon takes N LESS" and
+ * 110 says "the Defending Pokemon takes N MORE". Collapsing them would lose which
+ * Pokemon each rides, which is the whole point — 110's subject is the DEFENDER.
+ */
+export function durationDamageAdjustment(state: BattleState, uid: string): number {
+  let total = 0
+  for (const duration of durationsFor(state, uid)) {
+    if (duration.effect.kind === 'lessDamageTaken') total -= duration.effect.amount
+    else if (duration.effect.kind === 'moreDamageTaken') total += duration.effect.amount
+  }
+  return total
 }
 
 /** Shared precondition: the match is live and it is `actor`'s main phase. */

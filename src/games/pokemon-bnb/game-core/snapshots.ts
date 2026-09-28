@@ -107,6 +107,11 @@ export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
     pendingChoice: state.pendingChoice
       ? { ...state.pendingChoice, targets: state.pendingChoice.targets.map((t) => ({ ...t })) }
       : null,
+    // 04.9 CP5: the FIRST field 04.9 puts on the wire. A duration names a `uid`, an
+    // effect and a turn number — never a card in a hidden zone — so both seats
+    // already know everything it carries and the privacy boundary is unchanged.
+    // Copied so a render-side mutation cannot reach the authoritative list.
+    durations: state.durations.map((duration) => ({ ...duration, effect: { ...duration.effect } })),
     stadium: state.stadium ? structuredClone(state.stadium) : null,
     turnStarted: state.turnStarted,
     setup: structuredClone(state.setup),
@@ -176,6 +181,9 @@ export function applySnapshot(snapshot: Snapshot): BattleState {
     pendingChoice: snapshot.pendingChoice
       ? { ...snapshot.pendingChoice, targets: snapshot.pendingChoice.targets.map((t) => ({ ...t })) }
       : null,
+    // 04.9 CP5: restored so the guest's board shows the same locks the host
+    // enforces. The rebuilt state is `viewOnly`, so only the host expires these.
+    durations: (snapshot.durations ?? []).map((duration) => ({ ...duration, effect: { ...duration.effect } })),
     stadium: snapshot.stadium ? structuredClone(snapshot.stadium) : null,
     turnStarted: snapshot.turnStarted,
     setup: structuredClone(snapshot.setup),

@@ -262,6 +262,9 @@ export function setupBattle(
     pendingPromotion: null,
     promotionQueue: [],
     pendingChoice: null,
+    // 04.9 CP5: no duration is live at setup; the first one is created by an
+    // attack clause.
+    durations: [],
     stadium: null,
     turnStarted: false,
     viewOnly: false,

@@ -247,6 +247,7 @@ flowchart LR
     PPLAYING -->|"pause"| PPAUSED
     PPLAYING -->|"turn timer expiry: host applyTimeout() + broadcast (CP9-C)"| PPLAYING
     PPLAYING -->|"simultaneous KO: ordered promotion queue, next player promotes first; a pending KO blocks every other action (03.2 CP4/CP7)"| PPLAYING
+    PPLAYING -->|"04.9 CP5: applyEndTurn advances turn, THEN pruneDurations drops every duration whose activeTurn has passed — so 'during your/your opponent's next turn' covers exactly one turn. The clause stores an ABSOLUTE turn number (opponent +1, self +2, since the seats alternate) and a Pokemon uid, never a zone index. durations rides the Snapshot so the guest renders the same locks, and it names no hidden zone"| PPLAYING
     PPLAYING -->|"mid-battle disconnect -> joinHost redial -> re-hello -> host replays snapshots (CP9-D)"| PRECONN["connection lost banner (battle state kept)"]
     PRECONN -->|"battle-snapshot received"| PPLAYING
     PPLAYING -->|"rematch accepted: host rolls a fresh seed via lobby-start (CP9-E)"| POPENING

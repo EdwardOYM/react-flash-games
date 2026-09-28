@@ -15,7 +15,7 @@
 import type { BattleState, SideState } from './game-core'
 import type { PlayerSlot } from './net/protocol'
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type AttackDef } from './cards'
-import { MAX_BENCH, canEvolveOnto, canPayCost, inPlayOf } from './game-core'
+import { MAX_BENCH, canEvolveOnto, canPayCost, findDuration, inPlayOf, isAttackLocked } from './game-core'
 
 export type ControlId =
   | 'attachEnergy'
@@ -161,10 +161,15 @@ export function controlStates(
 
 
   const active = side.active
+  // 04.9 CP5: durations are ACTION gates, checked with the same helpers the engine
+  // uses, so the Retreat button reports exactly what `retreatToBench` would say.
+  const retreatLocked = active ? findDuration(state, active.uid, 'cantRetreat') !== null : false
   const retreat = !active
     ? blocked('no-active')
     : active.conditions.asleep || active.conditions.paralyzed
       ? blocked('cannot-retreat')
+      : retreatLocked
+        ? blocked('duration-cant-retreat')
       : side.retreatedThisTurn
         ? blocked('retreat-limit')
         : active.attachedEnergy.length < active.card.retreat
@@ -202,9 +207,15 @@ export function controlStates(
       ? blocked('first-turn-attack')
       : active.conditions.asleep || active.conditions.paralyzed
         ? blocked('cannot-attack')
-        : active.card.attacks.length === 0
-          ? blocked('no-attack')
-          : OK
+        // 04.9 CP5: only the BLANKET `cantAttack` can gate the shared rule, because
+        // this one answer covers every attack at once. A `cantUseAttack` names ONE
+        // attack (106), so gating here would wrongly disable the others; it is
+        // applied per-attack in `attackControl` instead.
+        : findDuration(state, active.uid, 'cantAttack')
+          ? blocked('duration-cant-attack')
+          : active.card.attacks.length === 0
+            ? blocked('no-attack')
+            : OK
   const useAttack = isMain || isAttack ? attackable : attackBlocked
 
   const promote = state.pendingPromotion === actor
@@ -248,8 +259,14 @@ export function controlStates(
 export function attackControl(state: BattleState, actor: PlayerSlot, attack: AttackDef): ControlState {
   const shared = controlStates(state, actor, { handIndex: null, benchIndex: null }).useAttack
   if (!shared.enabled) return shared
+  // 04.9 CP5: a `cantUseAttack` duration names ONE printed attack (106's "Slashing
+  // Strike"), so two attacks on the same card can now differ — this one reports the
+  // lock, the other stays enabled. Asking `isAttackLocked` (not the blanket
+  // `cantAttack`) is what keeps a named lock from disabling everything. Checked
+  // AFTER `no-active`, because there is no Pokemon to lock without one.
   const active = state[actor].active
   if (!active) return blocked('no-active')
+  if (isAttackLocked(state, active.uid, attack.name)) return blocked('duration-cant-attack')
   if (!canPayCost(active.attachedEnergy, attack.cost)) return blocked('insufficient-energy')
   return OK
 }

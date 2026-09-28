@@ -7,7 +7,7 @@
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
-import { canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, failure, inPlayList, inPlayOf, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
+import { canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, failure, findDuration, inPlayList, inPlayOf, isAttackLocked, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState, PendingChoice, SideState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
@@ -230,6 +230,10 @@ export function retreatToBench(state: BattleState, actor: PlayerSlot, benchIndex
   if (!active) return failure(state, 'no-active')
   if (!incoming) return failure(state, 'no-target')
   if (active.conditions.asleep || active.conditions.paralyzed) return failure(state, 'cannot-retreat')
+  // 04.9 CP5: 093's "the Defending Pokemon can't retreat" is a duration, not a
+  // condition, and rides the Active by uid. `controls.ts` asks the same question,
+  // so the Retreat button and the engine cannot disagree.
+  if (findDuration(next, active.uid, 'cantRetreat')) return failure(state, 'duration-cant-retreat')
   if (side.retreatedThisTurn) return failure(state, 'retreat-limit')
   if (active.attachedEnergy.length < active.card.retreat) return failure(state, 'retreat-cost')
 
@@ -308,6 +312,12 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
   const attack = active.card.attacks[attackIndex]
   if (!attack) return failure(state, 'no-attack')
   if (active.conditions.asleep || active.conditions.paralyzed) return failure(state, 'cannot-attack')
+  // 04.9 CP5: a live `cantAttack` / `cantUseAttack` duration (060/106/134/151/157)
+  // is an ACTION gate, not a Special Condition, so it is checked here rather than
+  // folded into `conditions` — the two end differently (this expires with its turn,
+  // Paralysis expires at Between-Turns). `controls.ts` asks the same question via
+  // `isAttackLocked`, so the button and the engine can never disagree.
+  if (isAttackLocked(next, active.uid, attack.name)) return failure(state, 'duration-cant-attack')
   if (state.turn === 1 && state.setup.firstPlayer === actor) return failure(state, 'first-turn-attack')
   if (side.attackedThisTurn) return failure(state, 'already-attacked')
   if (!canPayCost(active.attachedEnergy, attack.cost)) return failure(state, 'insufficient-energy')

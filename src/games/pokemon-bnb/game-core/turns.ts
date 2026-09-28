@@ -7,7 +7,7 @@
 import { prizesForKnockOut } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { BURN_DAMAGE, POISON_DAMAGE } from './constants'
-import { cloneBattleState, drawCards, foeOf, inPlayList, isKnockedOut, logEvent, sideOf } from './helpers'
+import { cloneBattleState, drawCards, foeOf, inPlayList, isKnockedOut, logEvent, pruneDurations, sideOf } from './helpers'
 import type { BattleState, InPlayPokemon } from './types'
 import { flipCoin } from './effects'
 
@@ -21,15 +21,24 @@ export function applyEndTurn(state: BattleState, actor: PlayerSlot): BattleState
   const next = foeOf(actor)
   state.promotionQueue.sort((a, b) => Number(b === next) - Number(a === next))
   state.pendingPromotion = state.promotionQueue[0] ?? null
-  if (state.pendingPromotion) {
-    state.activePlayer = next
-    state.turn += 1
-    state.turnStarted = false
-    return state
-  }
+  // 04.9 CP5: durations expire HERE and nowhere else.
+  //
+  // The ORDER is load-bearing and was wrong at first: this ran BEFORE `turn += 1`,
+  // so it filtered against the turn that was just ending and a clause naming that
+  // turn was still `activeTurn >= state.turn` — nothing ever expired, and the
+  // harness caught it as "the duration outlives its window". Pruning AFTER the
+  // increment is what makes "during your next turn" mean exactly that turn: a
+  // clause naming turn N is dropped the moment the counter reaches N+1.
+  //
+  // It sits above the branch because BOTH paths end the attacker's turn, and the
+  // promotion gate only defers `applyStartOfTurn` — the turn has still advanced.
   state.activePlayer = next
   state.turn += 1
   state.turnStarted = false
+  pruneDurations(state)
+  if (state.pendingPromotion) {
+    return state
+  }
   state.phase = 'draw'
   return applyStartOfTurn(state)
 }

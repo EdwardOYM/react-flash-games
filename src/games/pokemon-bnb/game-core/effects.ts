@@ -14,7 +14,8 @@ import { cardIsEnergy, cardIsPokemon, cardIsStadium, cardIsTrainer, isBasicPokem
 import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
 import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
-import { STATUS_CONDITIONS, type BattleLogEntry, type BattleState, type ChoiceTarget, type InPlayPokemon, type PendingChoice, type StatusCondition } from './types'
+import { addDuration, durationDamageAdjustment, durationTurnFor, findDuration } from './helpers'
+import { STATUS_CONDITIONS, type BattleLogEntry, type BattleState, type ChoiceTarget, type DurationEffect, type InPlayPokemon, type PendingChoice, type StatusCondition } from './types'
 import { applyDeckOutLoss, performBenchKo, performKo, prizesTaken, takePrizeCard } from './turns'
 // -- CP7-C: damage, effects, KO, prizes, victory --
 
@@ -173,6 +174,23 @@ export type ParsedEffect =
   // actually enforced is resolved at park time (see `resolveAttack`), because
   // `Infinity` does not survive the snapshot.
   | { kind: 'searchDeckUpTo'; filter: 'basicPokemon' | 'stadium'; to: 'hand' | 'bench'; max: number }
+  // -- 04.9 CP5: DURATION state. These are the first clauses that do not resolve
+  // immediately — each one installs a time-limited effect that a LATER turn reads.
+  // `whose` names the window in the printed words and is turned into an absolute
+  // turn number by `durationTurnFor`, so "your next turn" and "your opponent's next
+  // turn" are both just a number.
+  //
+  // `subject` is load-bearing and is why these are not one clause: 079/107/060 ride
+  // the ATTACKER ("this Pokemon"), while 110 and 093 ride the DEFENDER ("the
+  // Defending Pokemon"). Collapsing them would attach 110's +30 to the wrong card.
+  | { kind: 'durationCantAttack'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender' }
+  /** 106 — the same lock narrowed to one named attack. */
+  | { kind: 'durationCantUseAttack'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender'; attackName: string }
+  | { kind: 'durationLessDamageTaken'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender'; amount: number }
+  | { kind: 'durationMoreDamageTaken'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender'; amount: number }
+  /** 006/016/044 — "prevent all damage from and effects of attacks done to this Pokemon". */
+  | { kind: 'durationPreventAllDamage'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender' }
+  | { kind: 'durationCantRetreat'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender' }
   // (b) "Place 13 damage counters on 1 of your opponent's Pokemon." Converted to
   //     damage at parse time with 04.5's unit, so no second code path exists for
   //     a counter-denominated amount.
@@ -449,6 +467,87 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
         to: 'hand',
         max: Number(upToStadium[1]),
       })
+      pendingCoin = false
+      continue
+    }
+    // -- 04.9 CP5: the DURATION family. Matched before the families below so no
+    // looser pattern can swallow a clause that installs state for a LATER turn, and
+    // each is anchored end-to-end.
+    //
+    // The trailing `\s*\.?$` is load-bearing, not laziness: `plainCardText` turns
+    // the data's `<em>(after applying Weakness and Resistance)</em>` into a plain
+    // parenthetical, which leaves " ) ." — a space before the full stop. A
+    // `$`-anchored pattern would silently miss 079, 107 and 110, i.e. three real
+    // cards. 04.8 CP1 hit this same spacing artefact on Mewtwo ex and fixed it the
+    // same way.
+    //
+    // `whose`/`subject` are read straight out of the printed words: "this Pokemon"
+    // is the attacker, "the Defending Pokemon" is the defender, "your next turn" is
+    // +2 and "your opponent's next turn" is +1.
+    function durationWindow(raw: string): 'self' | 'foe' {
+      return raw.toLowerCase() === "your opponent's" ? 'foe' : 'self'
+    }
+    function durationSubject(raw: string): 'attacker' | 'defender' {
+      return raw.toLowerCase() === 'this' ? 'attacker' : 'defender'
+    }
+
+    const lessDamage = sentence.match(
+      /^during (your|your opponent's) next turn, (this|the defending) pokemon takes (\d+) less damage from attacks\s*\(after applying weakness and resistance\)\s*\.?$/i,
+    )
+    if (lessDamage) {
+      effects.push({
+        kind: 'durationLessDamageTaken',
+        whose: durationWindow(lessDamage[1]),
+        subject: durationSubject(lessDamage[2]),
+        amount: Number(lessDamage[3]),
+      })
+      pendingCoin = false
+      continue
+    }
+    const moreDamage = sentence.match(
+      /^during (your|your opponent's) next turn, (this|the defending) pokemon takes (\d+) more damage from attacks\s*\(after applying weakness and resistance\)\s*\.?$/i,
+    )
+    if (moreDamage) {
+      effects.push({
+        kind: 'durationMoreDamageTaken',
+        whose: durationWindow(moreDamage[1]),
+        subject: durationSubject(moreDamage[2]),
+        amount: Number(moreDamage[3]),
+      })
+      pendingCoin = false
+      continue
+    }
+    const preventAll = sentence.match(
+      /^if heads, during (your|your opponent's) next turn, prevent all damage from and effects of attacks done to this pokemon\.?$/i,
+    )
+    if (preventAll && pendingCoin) {
+      effects.push({ kind: 'durationPreventAllDamage', whose: durationWindow(preventAll[1]), subject: 'attacker' })
+      pendingCoin = false
+      continue
+    }
+    const lockRetreat = sentence.match(
+      /^if heads, during (your|your opponent's) next turn, the defending pokemon can't retreat\.?$/i,
+    )
+    if (lockRetreat && pendingCoin) {
+      effects.push({ kind: 'durationCantRetreat', whose: durationWindow(lockRetreat[1]), subject: 'defender' })
+      pendingCoin = false
+      continue
+    }
+    // 106 prints "can't use Slashing Strike" — ONE named attack. The same shape with
+    // "attacks" is the blanket lock, so the two are split here rather than being two
+    // patterns over near-identical text.
+    const lockNamed = sentence.match(
+      /^during (your|your opponent's) next turn, (this|the defending) pokemon can't use (.+)\.$/i,
+    )
+    if (lockNamed) {
+      const name = lockNamed[3]
+      const whose = durationWindow(lockNamed[1])
+      const subject = durationSubject(lockNamed[2])
+      effects.push(
+        /^attacks$/i.test(name)
+          ? { kind: 'durationCantAttack', whose, subject }
+          : { kind: 'durationCantUseAttack', whose, subject, attackName: name },
+      )
       pendingCoin = false
       continue
     }
@@ -973,6 +1072,44 @@ export function applyAbilityEffect(
  * log, so card text the engine cannot honour degrades gracefully rather than
  * silently pretending to work.
  */
+/**
+ * 04.9 CP5: install one duration from a parsed clause.
+ *
+ * The window is resolved to an ABSOLUTE turn number here, once, and the Pokemon
+ * the clause rides is resolved by `uid` at the same time. Both are deliberate:
+ *  - a stored relative offset would have to be re-evaluated on every read and could
+ *    disagree with itself across a promotion; a stored turn number cannot.
+ *  - resolving the subject NOW means a later promotion cannot re-point a "+30 to
+ *    the Defending Pokemon" at whichever Pokemon moved into the Active spot.
+ *
+ * The clause is applied even when the window is not this turn's — installing state
+ * for a future turn is the entire point.
+ */
+function applyDuration(
+  state: BattleState,
+  context: EffectContext,
+  whose: 'self' | 'foe',
+  subject: 'attacker' | 'defender',
+  effect: DurationEffect,
+): void {
+  // The subject is resolved to a `uid` NOW, not re-derived on each read, so a later
+  // promotion cannot re-point 110's "+30 to the Defending Pokemon" at whichever
+  // Pokemon moved into the Active spot.
+  //
+  // A clause riding the DEFENDER is skipped when there is no defender. That is not
+  // defensive padding: `EffectContext.defender` is genuinely nullable, and a clause
+  // with no subject has nothing to ride — installing a duration against no Pokemon
+  // would be a silent no-op recorded as if it had applied.
+  const target = subject === 'attacker' ? context.attacker : context.defender
+  if (!target) return
+  addDuration(state, target.uid, effect, durationTurnFor(state.turn, whose), context.attackName)
+  logEvent(state, 'pokemonBnb.log.durationAdded', {
+    player: context.actor,
+    card: target.card.name,
+    source: context.attackName,
+  })
+}
+
 export function applyEffect(
   state: BattleState,
   effect: ParsedEffect,
@@ -1172,6 +1309,27 @@ export function applyEffect(
     // resolveChoice. Reaching here means a mis-classified phase, where doing nothing
     // is the safe answer.
     case 'searchDeckUpTo':
+      break
+    // 04.9 CP5: installed at RESOLUTION time (they take effect on a LATER turn), so
+    // they read `context.attacker` / `context.defender` rather than any zone, and
+    // `whose` becomes an absolute turn number inside `applyDuration`.
+    case 'durationCantAttack':
+      applyDuration(state, context, effect.whose, effect.subject, { kind: 'cantAttack' })
+      break
+    case 'durationCantUseAttack':
+      applyDuration(state, context, effect.whose, effect.subject, { kind: 'cantUseAttack', attackName: effect.attackName })
+      break
+    case 'durationLessDamageTaken':
+      applyDuration(state, context, effect.whose, effect.subject, { kind: 'lessDamageTaken', amount: effect.amount })
+      break
+    case 'durationMoreDamageTaken':
+      applyDuration(state, context, effect.whose, effect.subject, { kind: 'moreDamageTaken', amount: effect.amount })
+      break
+    case 'durationPreventAllDamage':
+      applyDuration(state, context, effect.whose, effect.subject, { kind: 'preventAllDamage' })
+      break
+    case 'durationCantRetreat':
+      applyDuration(state, context, effect.whose, effect.subject, { kind: 'cantRetreat' })
       break
     default:
       break // before-damage clauses are consumed by resolveAttack
@@ -1402,15 +1560,37 @@ export function resolveAttack(
   const outcome = ignoresWeakness
     ? { damage: Math.max(0, base), weakness: 1, resistance: 0 }
     : computeAttackDamage(state, attacker, defender, base)
-  if (outcome.damage > 0) {
-    defender.damage += outcome.damage
+  // 04.9 CP5: durations are read HERE, after Weakness and Resistance, because that
+  // is the order 079/107/110 print ("after applying Weakness and Resistance").
+  // Reading them before the multiplier would silently halve a "-60" against a
+  // Weakness ×2 — a wrong effect, not a rounding quibble.
+  //
+  // `preventAllDamage` (006/016/044) is checked FIRST and is absolute: those cards
+  // prevent "all damage", so a +30 modifier riding alongside cannot leak a point
+  // past it. The printed "and effects of attacks" is NOT claimed here — see the
+  // CP5 entry in the plan for what that would still need.
+  const prevented = findDuration(state, defender.uid, 'preventAllDamage') !== null
+  const adjusted = prevented
+    ? 0
+    : Math.max(0, outcome.damage + durationDamageAdjustment(state, defender.uid))
+  if (adjusted > 0) {
+    defender.damage += adjusted
     logEvent(state, 'pokemonBnb.log.damageDealt', {
       player: actor,
       attack: context.attackName,
       target: defender.card.name,
-      amount: outcome.damage,
+      amount: adjusted,
       weakness: outcome.weakness,
       resistance: outcome.resistance,
+    })
+  } else if (outcome.damage > 0) {
+    // The attack had a real number and something absorbed it. Logged rather than
+    // dropped, so a player can tell a prevented attack from one that dealt 0.
+    logEvent(state, 'pokemonBnb.log.damagePrevented', {
+      player: actor,
+      attack: context.attackName,
+      target: defender.card.name,
+      amount: outcome.damage,
     })
   } else {
     logEvent(state, 'pokemonBnb.log.noDamage', {

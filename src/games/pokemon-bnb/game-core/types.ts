@@ -200,6 +200,13 @@ export type BattleState = {
    * soft-lock the match. CP2-B wires the dialog and the first text together.
    */
   pendingChoice: PendingChoice | null
+  /**
+   * 04.9 CP5: live time-limited effects ("during your next turn…"). This is the
+   * FIRST field 04.9 adds to the wire, and it names no hidden zone — a duration
+   * carries a `uid`, an effect and a turn number, never a card the seat cannot see
+   * — so it discloses nothing the two seats do not already both know.
+   */
+  durations: ActiveDuration[]
   /** True once the current turn's start step (draw + flag reset) has run. */
   turnStarted: boolean
   /**
@@ -252,12 +259,78 @@ export type Snapshot = {
    *  the opponent's hand stay hidden, which is why deck search stays a separate,
    *  still-blocked decision. */
   pendingChoice: PendingChoice | null
+  /**
+   * 04.9 CP5: the same live durations, carried verbatim so the guest's board
+   * renders the same locks and damage modifiers the host applies. Read-only for
+   * the guest: a rebuilt state is `viewOnly`, so only the host ever expires one.
+   */
+  durations: ActiveDuration[]
   stadium: TrainerCardDef | null
   turnStarted: boolean
   setup: SetupPlayerState
   log: BattleLogEntry[]
   host: SnapshotSide
   guest: SnapshotSide
+}
+
+/**
+ * 04.9 CP5: what a time-limited effect DOES while it is live.
+ *
+ * These are deliberately separate from `STATUS_CONDITIONS`: a Special Condition
+ * lives on the Pokemon and is cleared by the engine's own Between-Turns rules,
+ * whereas a duration is a *printed card clause* with an explicit expiry. Folding
+ * one into the other would make "Asleep" (which ends by a coin flip) and
+ * "can't attack this turn" (which ends when the named turn ends) indistinguishable.
+ */
+export type DurationEffect =
+  /** 060/134/064/151/157 — "this Pokemon can't use attacks". */
+  | { kind: 'cantAttack' }
+  /**
+   * 106 — the same lock narrowed to ONE named attack. `attackName` is the printed
+   * attack name, matched verbatim; an unrecognised name is a no-op rather than a
+   * guess, so a typo can never lock a Pokémon out of every attack.
+   */
+  | { kind: 'cantUseAttack'; attackName: string }
+  /** 079/107 — "this Pokemon takes N less damage", applied AFTER Weakness/Resistance. */
+  | { kind: 'lessDamageTaken'; amount: number }
+  /** 110 — "the Defending Pokemon takes N more damage", AFTER Weakness/Resistance. */
+  | { kind: 'moreDamageTaken'; amount: number }
+  /** 006/016/044 — "prevent all damage from and effects of attacks". */
+  | { kind: 'preventAllDamage' }
+  /** 093 — "the Defending Pokemon can't retreat". */
+  | { kind: 'cantRetreat' }
+
+/**
+ * 04.9 CP5: one live time-limited effect, riding a specific in-play Pokemon.
+ *
+ * **`activeTurn` is an ABSOLUTE engine turn number, and that is the whole
+ * expiry mechanism.** The engine's `turn` counter advances by exactly one per
+ * `applyEndTurn`, and the two seats strictly alternate, so "your next turn" and
+ * "your opponent's next turn" are both just a number: from turn T, the opponent's
+ * next turn is T+1 and the actor's own is T+2. Storing the number rather than a
+ * `(seat, relativeOffset)` pair means expiry needs no seat bookkeeping and cannot
+ * drift when the two disagree.
+ *
+ * The Pokemon is named by `uid`, never by a zone index — 04.8 CP2-C established
+ * that a promotion splices the Bench and shifts every later index, so a stored
+ * index would silently come to mean a different Pokémon. A duration on a
+ * Knocked-Out Pokémon simply stops applying, because its uid is no longer in play.
+ */
+export type ActiveDuration = {
+  /**
+   * Deterministic identity: `<uid>:<effectKind>[:<argument>]`. Applying the same
+   * printed clause twice for the same Pokemon in the same window REPLACES rather
+   * than stacks, which is what makes a re-resolved attack idempotent instead of
+   * doubling a "-60 damage" modifier.
+   */
+  id: string
+  /** The in-play Pokemon this rides, by uid. */
+  uid: string
+  effect: DurationEffect
+  /** The engine turn this is live for; pruned once `state.turn` passes it. */
+  activeTurn: number
+  /** Card name that created it, so the log and the UI can name the source. */
+  sourceName: string
 }
 
 export type BattleAction =
