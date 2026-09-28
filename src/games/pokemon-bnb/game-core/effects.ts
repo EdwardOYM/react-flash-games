@@ -424,6 +424,17 @@ export type ParsedEffect =
   | { kind: 'shuffleSelfIntoDeck'; optional: boolean }
   /** 107 — "before doing damage, discard all Pokemon Tools from the opponent's Active". */
   | { kind: 'discardAllToolsOnDefender' }
+  /**
+   * 04.10 CP8b / 115 Ditto: "Flip a coin. If heads, search your deck for a Pokemon and
+   * switch it with this Pokemon… If you switched a Pokemon in this way, put this card
+   * into your deck."
+   *
+   * `coin` carries the gate, exactly as 04.10 CP1's `searchAnyToHand` does, because a
+   * filter cannot express "only on heads" without adding a flag to every caller. The
+   * card is NEVER a card the search moves to hand — it becomes the attacker's new face,
+   * which is why this is its own kind and not `searchDeckUpTo` with a `to`.
+   */
+  | { kind: 'transformSelfFromDeck'; coin: boolean }
   // -- 04.10 CP2: the PER-HEAD effects. A coin count is already tracked by
   // `pendingCoinCount`; what was missing was the effect that runs once per head.
   //
@@ -817,6 +828,10 @@ export function refreshChoiceTargets(state: BattleState, choice: PendingChoice):
   // decides what is pickable — four near-identical lists could disagree, and a wrong
   // target is worse than a missing one.
   const zoneFits = (card: CardDef): boolean => {
+    // 04.10 CP8b / 115: the picked card takes the Active's spot, so only a BASIC is a
+    // legal pick. Re-checked at resolve time, so a forged index cannot smuggle in an
+    // Evolution or a Trainer.
+    if (choice.effect.kind === 'transformFromDeck') return isBasicPokemon(card)
     if (choice.effect.kind === 'searchAttachEnergy') {
       // 04.10 CP4: Basic Energy whose `provides` is the named type. A SPECIAL Energy
       // provides nothing, so `provides !== undefined` is what makes it a "Basic Energy"
@@ -1303,6 +1318,30 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
         kind: 'searchAttachEnergy', from: 'discard',
         max: Number(empower[1]), target: 'oneForAll',
       })
+      pendingCoin = false
+      continue
+    }
+    // 04.10 CP8b / 115: "If heads, search your deck for a Pokemon and switch it with
+    // this Pokemon." COIN-GATED like 081, and it is the FIRST of FOUR sentences — the
+    // splitter cuts after each. The other two rule sentences are CONSEQUENCES of this
+    // one, and are consumed below rather than left to report the attack `unsupported`:
+    // the carry-over ("any attached cards, damage counters, Special Conditions, turns
+    // in play … remain on the new Pokemon") and the return ("put this card into your
+    // deck") are both implemented by `transformFromDeck` keeping the InPlayPokemon
+    // OBJECT and swapping only its `card`, so they are not separate clauses.
+    const transform = sentence.match(
+      /^if heads, search your deck for a pokemon and switch it with this pokemon\.$/i,
+    )
+    if (transform) {
+      effects.push({ kind: 'transformSelfFromDeck', coin: true })
+      pendingCoin = false
+      continue
+    }
+    if (/^any attached cards, damage counters, special conditions, turns in play, and any other effects remain on the new pokemon\.$/i.test(sentence)) {
+      pendingCoin = false
+      continue
+    }
+    if (/^if you switched a pokemon in this way, put this card into your deck\.$/i.test(sentence)) {
       pendingCoin = false
       continue
     }
@@ -2136,6 +2175,9 @@ export function applyEffect(
   // group rather than growing a case that can never run.
   case 'searchAttachEnergy':
   case 'shuffleSelfIntoDeck':
+    // 04.10 CP8b / 115: likewise a FLAG — `resolveAttack` parks the deck pick, and the
+    // applier has nothing left to run once the card swap happens at pick time.
+    case 'transformSelfFromDeck':
       break
     // 04.9 CP5: installed at RESOLUTION time (they take effect on a LATER turn), so
     // they read `context.attacker` / `context.defender` rather than any zone, and
@@ -2882,6 +2924,32 @@ export function resolveAttack(
         attackName: context.attackName,
       }
       logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: 1 })
+    }
+  }
+
+  // 04.10 CP8b / 115: park the deck pick. The coin is resolved HERE, at resolution, so
+  // a tails result simply does not park — the same shape as `searchAnyToHand`'s gate.
+  const transform = effects.find((effect) => effect.kind === 'transformSelfFromDeck')
+  if (transform && transform.kind === 'transformSelfFromDeck') {
+    if (transform.coin && !flipCoin(state)) {
+      logEvent(state, 'pokemonBnb.log.coinTails', { player: actor })
+    } else {
+      const probe: PendingChoice = {
+        actor,
+        targets: [],
+        remaining: 1,
+        source: 'deck',
+        effect: { kind: 'transformFromDeck' },
+        attackName: context.attackName,
+      }
+      const available = refreshChoiceTargets(state, probe)
+      if (available.length === 0) {
+        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Basic Pokemon in deck' })
+      } else {
+        probe.targets = available
+        state.pendingChoice = probe
+        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: available.length })
+      }
     }
   }
 

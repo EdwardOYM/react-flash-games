@@ -482,6 +482,7 @@
     "abilityCounter": "特性在 {player} 的战斗宝可梦身上放置了 {count} 个伤害指示物。",
     "effectKnockOutAttacker": "{player} 的 {card} 被特性击倒。",
     "effectDiscardTool": "{target} 的 {card} 在造成伤害前被弃掉。",
+    "effectTransform": "{player} 的 {from} 变成了 {to}，并保留场上原有的一切。",
     "trainerIntercepted": "{player} 的 {card} 被弃掉而没有使用。",
     "trainerInterceptHeads": "{player} 仍然使用了 {card}，尽管对手宝可梦试图阻止。",
       "abilityUnsupported": "该特性尚未实现：{text}",

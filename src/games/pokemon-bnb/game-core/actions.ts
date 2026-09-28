@@ -683,6 +683,36 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closedShuffle, log: tailLog(closedShuffle, logStart) }
   }
 
+  // 04.10 CP8b / 115 Ditto: the transform. The picked card becomes the attacker's new
+  // FACE while every piece of the attacker's own state stays put — attached Energy, the
+  // Tool, damage counters, Special Conditions, and `enteredTurn`. That is the printed
+  // "any attached cards, damage counters, Special Conditions, turns in play … remain on
+  // the new Pokemon", and it is why this KEEPS the InPlayPokemon object and swaps only
+  // `.card`. The old card goes back to the deck, which is the second half of the text.
+  if (choice.effect.kind === 'transformFromDeck') {
+    if (target.zone !== 'deck') return failure(state, 'no-target')
+    const ownSide = sideOf(next, actor)
+    const found = ownSide.deck[target.deckIndex]
+    if (!found || found.id !== target.cardId) return failure(state, 'no-target')
+    // The card takes a Basic's spot, so only a Basic is a legal pick. Checked again at
+    // RESOLVE time because a forged index could name any card in the Deck.
+    if (!isBasicPokemon(found)) return failure(state, 'not-basic')
+    const attacker = ownSide.active
+    if (!attacker) return failure(state, 'no-target')
+    ownSide.deck.splice(target.deckIndex, 1)
+    const replaced = attacker.card
+    // `found` is a `CardDef` narrowed to a Basic by the check above; the cast records
+    // that narrowing for the compiler, which `isBasicPokemon` does not do by itself.
+    attacker.card = found as PokemonCardDef
+    ownSide.deck.push(replaced)
+    logEvent(next, 'pokemonBnb.log.effectTransform', {
+      player: actor, from: replaced.name, to: found.name,
+    })
+    next.pendingChoice = null
+    const closedTransform = next.over ? next : applyEndTurn(next, actor)
+    return { state: closedTransform, log: tailLog(closedTransform, logStart) }
+  }
+
   // 04.10 CP4: STAGE ONE — lift a Basic Energy card out of its zone. Where it GOES is
   // not decided here, because the three printed destination rules differ:
   //  - 'attacker'  042 attaches immediately and never parks a second picker.

@@ -482,6 +482,7 @@
     "abilityCounter": "{player} meletakkan {count} Exactly kerosakan pada Pokemon Aktif mereka melalui Kemahiran.",
     "effectKnockOutAttacker": "{card} milik {player} telah dikocok oleh sebuah Kemahiran.",
     "effectDiscardTool": "{card} milik {target} telah dibuang sebelum kerosakan.",
+    "effectTransform": "{from} milik {player} bertukar menjadi {to}, sambil mengekalkan segala yang ada di mediators.",
     "trainerIntercepted": "{card} milik {player} telah dibuang dan bukannya digunakan.",
     "trainerInterceptHeads": "{player} menggunakan {card} walaupun Pokemon lawan menentangnya.",
       "abilityUnsupported": "Kemahiran belum diimplementasikan: {text}",

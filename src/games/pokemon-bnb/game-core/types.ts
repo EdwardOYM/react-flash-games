@@ -217,20 +217,16 @@ export type PendingChoice = {
     // resolved number is what goes into `remaining` — never a stale or invented cap.
     | SearchAttachEnergyClause
     /**
-     * 04.10 CP4: the SECOND stage of a two-stage pick — choose which of your Pokemon
-     * the already-chosen Energy attaches to.
+     * 04.10 CP8b / 115 Ditto: the second stage of a transform — the actor picks the
+     * Basic Pokemon that REPLACES the attacker's card.
      *
-     * It is a choice effect rather than a flag on `searchAttachEnergy` because it is a
-     * genuinely different question with a genuinely different target list (in-play
-     * Pokemon, not cards in a pile), and the pending cards live on the choice itself
-     * `parent` is the clause this stage was split out of, and it is NOT optional. The
-     * first implementation dropped it, and 007 immediately broke in a way no parser
-     * test could see: with the parent gone, stage two had no idea the remaining
-     * `remaining` belonged to a per-card sequence, so it closed the turn after the
-     * FIRST card and 007 could only ever attach one. Carrying the parent is what lets
-     * 'perCard' re-park the pile and 'oneForAll' close.
+     * It is a choice rather than a flag because the destination is the whole point: the
+     * picked card becomes the Active's new face while the attacker's OWN state
+     * (attachments, damage, Special Conditions, turns in play) stays exactly where it
+     * is. That INVERTS `applySwitchInPlace`, which moves an object along with its own
+     * state, so it cannot be reused and needs its own kind.
      */
-    | { kind: 'attachStaged'; parent: SearchAttachEnergyClause }
+    | { kind: 'transformFromDeck' }
     /**
      * 04.10 CP5 / 073-136: "You may shuffle this Pokemon and all attached cards into your
      * deck."

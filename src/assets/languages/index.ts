@@ -502,6 +502,9 @@ type PkmBnbLogTranslationKey =
   // lines because it has two outcomes — the card is discarded on tails and used on
   // heads — and a single line would have to lie about one of them.
   | 'effectDiscardTool'
+  // 04.10 CP8b / 115: the transform names BOTH cards, because the interesting part is
+  // the swap — "{from} became a {to}" is the whole event.
+  | 'effectTransform'
   | 'trainerIntercepted'
   | 'trainerInterceptHeads'
   | 'abilityUnsupported'
