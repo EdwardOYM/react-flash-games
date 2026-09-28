@@ -43,6 +43,11 @@ export type ChoiceTarget =
   // card out of the Deck while `pendingChoice` blocks every other action — and
   // `cardId` is re-checked on resolve as a guard against any future change.
   | { side: PlayerSlot; zone: 'deck'; deckIndex: number; cardId: string }
+  // 04.9 CP3: a card in a SIDE'S DISCARD PILE. Same reasoning as the deck variant —
+  // a Deck may hold duplicates, so `cardId` is re-checked and the index is the
+  // lookup. The discard is a PUBLIC zone, so the acting seat can already see it
+  // (04.8 CP6's invariant, asserted in the harness).
+  | { side: PlayerSlot; zone: 'discard'; index: number; cardId: string }
 
 /**
  * 04.8 CP2: an effect that the printed text hands to the player to resolve.
@@ -71,6 +76,10 @@ export type PendingChoice = {
     // "heal all damage", kept distinct from a number so a cap can never be
     // mistaken for a full heal.
     | { kind: 'healChosen'; amount: number | 'all' }
+    // 04.9 CP3: move the chosen card from a SIDE'S DISCARD PILE somewhere else.
+    // `to` is deliberately open: 'hand' and 'deck' land here, and a future 'bench'
+    // needs no new effect kind, only a new target rule.
+    | { kind: 'pickFromDiscard'; to: 'hand' | 'deck' }
   /** Printed attack that asked for the choice, for the log line. */
   attackName: string
 }

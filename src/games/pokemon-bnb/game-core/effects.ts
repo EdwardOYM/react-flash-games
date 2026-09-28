@@ -138,6 +138,14 @@ export type ParsedEffect =
   | { kind: 'opponentShufflesHandAndDraws'; count: number }
   | { kind: 'drawUntilHandSize'; count: number }
   | { kind: 'clearSpecialConditions' }
+  // 04.9 CP3: "Discard the top 3 cards of your deck and put 1 of them into your
+  // hand." Two phases in one clause — it discards first, THEN parks a pick over
+  // the cards it just discarded. Split across two sentences would need
+  // cross-sentence state, which the parser deliberately does not keep.
+  | { kind: 'discardTopForPick'; count: number }
+  // 04.9 CP3: "Place damage counters on your opponent's Active Pokemon until its
+  // remaining HP is 50." Not a choice at all — a threshold, which floors at 0.
+  | { kind: 'setDamageToRemainingHp'; hp: number }
   // "If you have exactly 30 cards in your hand, take 2 Prize cards. If you do,
   // shuffle your hand into your deck." One clause, not two: the second sentence
   // only fires if the first did, and threading that across sentences would need
@@ -350,6 +358,27 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     // -- 04.9 CP1: the pure slice, matched FIRST so no looser pattern below can
     // swallow one. Every pattern is anchored end-to-end; the near-miss suite in
     // the CP1 harness is what proves that.
+    // 04.9 CP3: "Discard the top 3 cards of your deck and put 1 of them into your
+    // hand." Matched BEFORE 04.9 CP1's plain `discardTopOfDeck`, which would
+    // otherwise read this as a bare "discard the top 3" and drop the pick half.
+    const discardForPick = sentence.match(
+      /^discard the top (\d+) cards of your deck and put 1 of them into your hand\.$/i,
+    )
+    if (discardForPick) {
+      effects.push({ kind: 'discardTopForPick', count: Number(discardForPick[1]) })
+      pendingCoin = false
+      continue
+    }
+    // 04.9 CP3: "Place damage counters on your opponent's Active Pokemon until its
+    // remaining HP is 50."
+    const toRemainingHp = sentence.match(
+      /^place damage counters on your opponent's active pokemon until its remaining hp is (\d+)\.$/i,
+    )
+    if (toRemainingHp) {
+      effects.push({ kind: 'setDamageToRemainingHp', hp: Number(toRemainingHp[1]) })
+      pendingCoin = false
+      continue
+    }
     // 04.9 CP2: "Heal 80 damage from 1 of your Benched Pokemon." / "Heal all damage
     // from 1 of your Benched Pokemon." Anchored, and matched BEFORE the older
     // `^heal (\d+) damage from this` clause below — that one heals the ATTACKER and
@@ -923,6 +952,28 @@ export function applyEffect(
       logEvent(state, 'pokemonBnb.log.effectShuffleHand', { player: context.actor })
       break
     }
+    // 04.9 CP3: "Place damage counters … until its remaining HP is N." Applied to
+    // the DEFENDER, and floored at 0 so a Pokemon that is already below the
+    // threshold takes nothing rather than being healed by a "place counters" clause.
+    case 'setDamageToRemainingHp': {
+      const defender = context.defender
+      if (!defender) break
+      const wanted = Math.max(0, defender.card.hp - effect.hp)
+      const placed = Math.max(0, wanted - defender.damage)
+      if (placed > 0) {
+        defender.damage += placed
+        logEvent(state, 'pokemonBnb.log.damageDealt', {
+          player: context.actor,
+          attack: context.attackName,
+          target: defender.card.name,
+          amount: placed,
+        })
+      }
+      break
+    }
+    // 04.9 CP3: consumed by resolveAttack (it parks a pick instead).
+    case 'discardTopForPick':
+      break
     // 04.9 CP1: consumed by resolveAttack (the bonuses, the flag, the recoil).
     case 'bonusDamageIfDefenderDamaged':
     case 'bonusDamageIfHasTool':
@@ -1405,6 +1456,38 @@ export function resolveAttack(
       logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no matching card in deck' })
+    }
+  }
+
+  // 6b. 04.9 CP3: "Discard the top N of your deck and put 1 of them into your
+  // hand." TWO phases in one clause: the discard happens immediately, then a pick
+  // is parked over exactly the cards it just discarded. Their indices are
+  // `discard.length - N .. discard.length`, so no search is needed and nothing can
+  // have shifted them (a pending choice blocks every other action).
+  const forPick = effects.find((effect) => effect.kind === 'discardTopForPick')
+  if (forPick && forPick.kind === 'discardTopForPick') {
+    const ownSide = sideOf(state, actor)
+    const moved = ownSide.deck.splice(0, forPick.count)
+    ownSide.discard.push(...moved)
+    const firstIndex = ownSide.discard.length - moved.length
+    const targets = moved.map((card, offset) => ({
+      side: actor,
+      zone: 'discard' as const,
+      index: firstIndex + offset,
+      cardId: card.id,
+    }))
+    // A short deck discards fewer than N; if that left nothing, there is no pick
+    // to offer and the attack simply ends the turn.
+    if (targets.length > 0) {
+      state.pendingChoice = {
+        actor,
+        targets,
+        effect: { kind: 'pickFromDiscard', to: 'hand' },
+        attackName: context.attackName,
+      }
+      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
+    } else {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no cards to choose from' })
     }
   }
 

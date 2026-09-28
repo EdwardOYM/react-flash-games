@@ -1975,13 +1975,20 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                   // 04.8 CP3-B: a deck-search target is a card in the ACTOR'S OWN
                   // deck, not an in-play Pokemon. `zone: 'deck'` narrows the union,
                   // so the Active/Bench lookup below never sees it.
+                  // 04.9 CP3: a discard-pile target is a CARD, not an in-play
+                  // Pokemon and not a deck entry. `zone: 'discard'` narrows the
+                  // union, so the deck/bench lookups below never see it.
+                  const discardCard = choiceTarget.zone === 'discard'
+                    ? battle[choiceTarget.side].discard[choiceTarget.index]
+                    : null
                   const deckCard = choiceTarget.zone === 'deck'
                     ? battle[choiceTarget.side].deck[choiceTarget.deckIndex]
                     : null
-                  if (choiceTarget.zone === 'deck' && !deckCard) return null
+                  const looseCard = discardCard ?? deckCard
+                  if (choiceTarget.zone !== 'active' && choiceTarget.zone !== 'deck' && !looseCard) return null
                   const side = battle[choiceTarget.side]
                   const victim = choiceTarget.zone === 'active' ? side.active : side.bench[choiceTarget.zone as number]
-                  const name = deckCard ? deckCard.name : victim?.card.name
+                  const name = looseCard ? looseCard.name : victim?.card.name
                   if (!name) return null
                   return (
                     <button
@@ -1989,7 +1996,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                       type="button"
                       onClick={() => runBattleAction(battle.pendingChoice!.actor, { type: 'chooseTarget', targetIndex: index })}
                     >
-                      {deckCard
+                      {looseCard
                         ? name
                         : battle.pendingChoice!.effect.kind === 'healChosen'
                           // 04.9 CP2: a heal has no `{amount}` in the printed sense

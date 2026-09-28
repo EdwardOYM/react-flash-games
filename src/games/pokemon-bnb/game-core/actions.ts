@@ -471,6 +471,24 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   const next = cloneBattleState(state)
   const logStart = next.log.length
 
+  // 04.9 CP3: move the chosen card out of a side's DISCARD PILE. Resolved before
+  // the deck search, because both are card movements and only the source differs.
+  // The index is re-validated against the card id — a discard pile can hold
+  // duplicates, so an id alone would not identify a card.
+  if (choice.effect.kind === 'pickFromDiscard') {
+    if (target.zone !== 'discard') return failure(state, 'no-target')
+    const pile = sideOf(next, target.side).discard
+    const found = pile[target.index]
+    if (!found || found.id !== target.cardId) return failure(state, 'no-target')
+    pile.splice(target.index, 1)
+    if (choice.effect.to === 'hand') sideOf(next, target.side).hand.push(found)
+    else sideOf(next, target.side).deck.push(found)
+    next.pendingChoice = null
+    logEvent(next, 'pokemonBnb.log.effectSearchDeck', { player: actor, card: found.name })
+    const closedPick = next.over ? next : applyEndTurn(next, actor)
+    return { state: closedPick, log: tailLog(closedPick, logStart) }
+  }
+
   // 04.9 CP2: a heal is resolved BEFORE the deck search and the damage paths,
   // because it is its own effect kind rather than a variant of them. The cap is
   // applied against the damage actually on the target, so "heal 80" on a
@@ -478,7 +496,8 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   // like every other in-play target, so a promotion cannot make it mean a
   // different Pokemon.
   if (choice.effect.kind === 'healChosen') {
-    if (target.zone === 'deck') return failure(state, 'no-target')
+    // Explicit narrowing: a deck or discard target is not an in-play Pokemon.
+    if (target.zone === 'deck' || target.zone === 'discard') return failure(state, 'no-target')
     const patient = inPlayList(sideOf(next, target.side)).find((pokemon) => pokemon.uid === target.uid)
     if (!patient) return failure(state, 'no-target')
     const healed = Math.min(choice.effect.amount === 'all' ? patient.damage : choice.effect.amount, patient.damage)
@@ -508,8 +527,9 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     const closedDeck = next.over ? next : applyEndTurn(next, actor)
     return { state: closedDeck, log: tailLog(closedDeck, logStart) }
   }
-  // Everything below works on an in-play Pokemon, so a deck target is invalid here.
-  if (target.zone === 'deck') return failure(state, 'no-target')
+  // Everything below works on an in-play Pokemon, so a deck or discard target is
+  // invalid here.
+  if (target.zone === 'deck' || target.zone === 'discard') return failure(state, 'no-target')
 
   const targetSide = sideOf(next, target.side)
   // Looked up by `uid` across the whole side, NOT by the stored `zone` index. A KO
