@@ -9,12 +9,12 @@
 // Part of the game-core module split (CP7-E-a); see ./index.ts for the full
 // engine header and the re-export barrel.
 
-import { DAMAGE_PER_COUNTER } from './constants'
-import { cardIsEnergy, cardIsPokemon, cardIsTrainer, type AttackDef, type CardDef, type EnergyCardDef } from '../cards'
+import { DAMAGE_PER_COUNTER, MAX_BENCH } from './constants'
+import { cardIsEnergy, cardIsPokemon, cardIsStadium, cardIsTrainer, isBasicPokemon, type AttackDef, type CardDef, type EnergyCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
 import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
-import { STATUS_CONDITIONS, type BattleLogEntry, type BattleState, type InPlayPokemon, type StatusCondition } from './types'
+import { STATUS_CONDITIONS, type BattleLogEntry, type BattleState, type ChoiceTarget, type InPlayPokemon, type PendingChoice, type StatusCondition } from './types'
 import { applyDeckOutLoss, performBenchKo, performKo, prizesTaken, takePrizeCard } from './turns'
 // -- CP7-C: damage, effects, KO, prizes, victory --
 
@@ -157,6 +157,22 @@ export type ParsedEffect =
   // ("heal ALL damage"), so the printed "all" is preserved rather than being
   // flattened to a number at parse time.
   | { kind: 'healChosenTarget'; amount: number | 'all' }
+  // 04.9 CP4: "Search your deck for up to 2 Basic Pokemon and put them onto your
+  // Bench. Then, shuffle your deck." (013 Victini) / "…any number of Basic
+  // Pokemon…" (053/149 Pikachu ex) / "…up to 2 Stadium cards, reveal them, and put
+  // them into your hand." (076 Xerneas).
+  //
+  // `filter` is deliberately BASIC-specific and STADIUM-specific rather than the
+  // coarse 'pokemon'/'trainer' the single-card search uses: 013 says "up to 2 BASIC
+  // Pokemon" and only a Basic may legally sit on the Bench, while 076 says "up to 2
+  // STADIUM cards" and an Item or Supporter is not a Stadium. The coarser filters
+  // would offer cards the printed text does not allow — a wrong effect, which this
+  // engine treats as worse than a missing one.
+  //
+  // `max` is the PRINTED cap and is `Infinity` for "any number"; the finite cap
+  // actually enforced is resolved at park time (see `resolveAttack`), because
+  // `Infinity` does not survive the snapshot.
+  | { kind: 'searchDeckUpTo'; filter: 'basicPokemon' | 'stadium'; to: 'hand' | 'bench'; max: number }
   // (b) "Place 13 damage counters on 1 of your opponent's Pokemon." Converted to
   //     damage at parse time with 04.5's unit, so no second code path exists for
   //     a counter-denominated amount.
@@ -334,6 +350,51 @@ function nameMatches(cardName: string, names: string[]): boolean {
   })
 }
 
+/**
+ * 04.9 CP4: rebuild a multi-pick's target list from the LIVE zone.
+ *
+ * **Stored indices cannot be reused across picks** — a pick moves a card out of
+ * the zone and shifts everything after it, so a stored index would come to mean a
+ * different card by the second pick. Re-deriving from the live zone is the only
+ * stable approach.
+ *
+ * There is deliberately **no `taken` set to subtract**. The pick already SPLICES
+ * the card out of the zone, so the live zone is authoritative: a Deck holding two
+ * copies of a card still has one after the pick, and that remaining copy stays
+ * pickable. An earlier draft of this checkpoint also filtered by a per-id count,
+ * which double-counted the removal and hid a legitimate second copy — the exact
+ * "wrong effect" failure this engine treats as worse than a missing one.
+ */
+export function refreshChoiceTargets(state: BattleState, choice: PendingChoice): ChoiceTarget[] {
+  // A deck pick is filtered by the effect's own rule. `searchDeckUpTo` narrows to
+  // Basic Pokemon or Stadium SPECIFICALLY; the single-card `searchDeck` keeps the
+  // coarse pokemon/trainer/energy families it always had.
+  const deckFits = (card: CardDef): boolean => {
+    if (choice.effect.kind === 'searchDeckUpTo') {
+      return choice.effect.filter === 'basicPokemon' ? isBasicPokemon(card) : cardIsStadium(card)
+    }
+    if (choice.effect.kind !== 'searchDeck') return true
+    return choice.effect.filter === 'pokemon'
+      ? cardIsPokemon(card)
+      : choice.effect.filter === 'energy'
+        ? cardIsEnergy(card)
+        : cardIsTrainer(card)
+  }
+  if (choice.source === 'discard') {
+    return sideOf(state, choice.actor).discard
+      .map((card, index) => ({ side: choice.actor, zone: 'discard' as const, index, cardId: card.id }))
+  }
+  if (choice.source === 'deck') {
+    const deck = sideOf(state, choice.actor).deck
+    return deck
+      .map((card, deckIndex) => ({ side: choice.actor, zone: 'deck' as const, deckIndex, cardId: card.id }))
+      .filter((entry) => deckFits(deck[entry.deckIndex]))
+  }
+  // In-play targets are identified by `uid`, which no pick invalidates, so there is
+  // nothing to re-derive: the stored list stays authoritative.
+  return choice.targets
+}
+
 /** Parse one attack's verbatim text into ordered effect clauses. */
 export function parseAttackEffects(text: string): ParsedEffect[] {
   // 04.8 CP1: strip the spread caveat before splitting into sentences, or the
@@ -358,6 +419,39 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     // -- 04.9 CP1: the pure slice, matched FIRST so no looser pattern below can
     // swallow one. Every pattern is anchored end-to-end; the near-miss suite in
     // the CP1 harness is what proves that.
+    // 04.9 CP4: the "up to N" searches. Matched BEFORE 04.8 CP3-B's `a/an` search,
+    // which would otherwise read "up to 2" as a single card. `up to (\d+)` and the
+    // "any number of" wording are the only two forms in 30c, and both are anchored
+    // end-to-end so a neighbouring shape cannot fall in.
+    const upToBench = sentence.match(
+      /^search your deck for (?:up to (\d+)|any number of) basic pokemon and put them onto your bench\.$/i,
+    )
+    if (upToBench) {
+      effects.push({
+        kind: 'searchDeckUpTo',
+        // BASIC, not "any Pokemon": only a Basic may legally sit on the Bench, and
+        // 013/053/149 both print the word.
+        filter: 'basicPokemon',
+        to: 'bench',
+        max: upToBench[1] ? Number(upToBench[1]) : Number.POSITIVE_INFINITY,
+      })
+      pendingCoin = false
+      continue
+    }
+    const upToStadium = sentence.match(
+      /^search your deck for up to (\d+) stadium cards?, reveal them, and put them into your hand\.$/i,
+    )
+    if (upToStadium) {
+      effects.push({
+        kind: 'searchDeckUpTo',
+        // STADIUM, not "any Trainer": an Item or Supporter is not a legal pick.
+        filter: 'stadium',
+        to: 'hand',
+        max: Number(upToStadium[1]),
+      })
+      pendingCoin = false
+      continue
+    }
     // 04.9 CP3: "Discard the top 3 cards of your deck and put 1 of them into your
     // hand." Matched BEFORE 04.9 CP1's plain `discardTopOfDeck`, which would
     // otherwise read this as a bare "discard the top 3" and drop the pick half.
@@ -1074,6 +1168,11 @@ export function applyEffect(
     // 04.9 CP2: parked by resolveAttack, applied by resolveChoice.
     case 'healChosenTarget':
       break
+    // 04.9 CP4: parked by resolveAttack as a multi-pick, applied pick-by-pick by
+    // resolveChoice. Reaching here means a mis-classified phase, where doing nothing
+    // is the safe answer.
+    case 'searchDeckUpTo':
+      break
     default:
       break // before-damage clauses are consumed by resolveAttack
   }
@@ -1412,6 +1511,13 @@ export function resolveAttack(
       state.pendingChoice = {
         actor,
         targets: bench,
+        // 04.9 CP4: a single mandatory pick over in-play Pokemon, so `remaining` is 1
+        // and `source: 'inPlay'` — a uid survives any pick, so the list is never
+        // rebuilt. Making the fields explicit is what keeps them required: an
+        // omitted field would silently reintroduce the one-shot assumption this
+        // checkpoint is removing.
+        remaining: 1,
+        source: 'inPlay',
         effect:
           flat.kind === 'damageChosenTarget'
             ? { kind: 'damage', amount: flat.amount }
@@ -1450,6 +1556,11 @@ export function resolveAttack(
       state.pendingChoice = {
         actor,
         targets,
+        // 04.9 CP4: one mandatory card, out of the actor's own deck. `source: 'deck'`
+        // so the list can be re-derived from the live deck if a future variant ever
+        // takes more than one.
+        remaining: 1,
+        source: 'deck',
         effect: { kind: 'searchDeck', filter: search.filter },
         attackName: context.attackName,
       }
@@ -1482,6 +1593,11 @@ export function resolveAttack(
       state.pendingChoice = {
         actor,
         targets,
+        // 04.9 CP4: one mandatory card out of the discard pile it just filled.
+        // `source: 'discard'` is what lets the list be re-derived from the live pile
+        // rather than trusted as a stored index list.
+        remaining: 1,
+        source: 'discard',
         effect: { kind: 'pickFromDiscard', to: 'hand' },
         attackName: context.attackName,
       }
@@ -1505,12 +1621,59 @@ export function resolveAttack(
       state.pendingChoice = {
         actor,
         targets: bench,
+        // 04.9 CP4: a heal is a single mandatory pick — `remaining` 1, and
+        // `source: 'inPlay'` because a uid survives every pick and the list is
+        // never rebuilt.
+        remaining: 1,
+        source: 'inPlay',
         effect: { kind: 'healChosen', amount: healTarget.amount },
         attackName: context.attackName,
       }
       logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: bench.length })
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Benched Pokemon to heal' })
+    }
+  }
+
+  // 8. 04.9 CP4: the "up to N" deck searches — the one place the 04.8 seam has to
+  // bend, because it resolves ONCE and closes the turn while "up to 2" may need
+  // two resolutions and may be declined outright.
+  //
+  // `remaining` is FINISHED here, at park time, and never left as `Infinity`:
+  // the printed cap is intersected with what the deck and the Bench can actually
+  // hold. `JSON.stringify(Infinity)` is `null`, so an unbounded `remaining` would
+  // silently break the snapshot round trip 04.8 CP6 established — and the honest
+  // cap for "any number of Basic Pokemon onto your Bench" is the Bench room anyway.
+  //
+  // A full Bench (or an empty, unfiltered deck) parks NOTHING rather than an empty
+  // picker. An empty picker would refuse every action with nothing to tap, which is
+  // exactly the soft-lock rule CP3-B and CP2 both used.
+  const upTo = effects.find((effect) => effect.kind === 'searchDeckUpTo')
+  if (upTo && upTo.kind === 'searchDeckUpTo') {
+    const side = sideOf(state, actor)
+    const benchRoom = upTo.to === 'bench' ? Math.max(0, MAX_BENCH - side.bench.length) : side.deck.length
+    // `side.deck.length` bounds the hand case: you cannot take more cards than the
+    // deck holds, so an over-large cap costs nothing and stays finite either way.
+    const cap = Math.min(upTo.max, benchRoom)
+    if (cap <= 0) {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no room to take any card' })
+    } else {
+      const probe: PendingChoice = {
+        actor,
+        targets: [],
+        remaining: cap,
+        source: 'deck',
+        effect: upTo,
+        attackName: context.attackName,
+      }
+      const targets = refreshChoiceTargets(state, probe)
+      if (targets.length === 0) {
+        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no matching card in deck' })
+      } else {
+        probe.targets = targets
+        state.pendingChoice = probe
+        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
+      }
     }
   }
 }

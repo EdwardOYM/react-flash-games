@@ -163,6 +163,15 @@
 .bnb-choice-list button { flex: 1 1 12rem; min-width: 0; padding: 10px 12px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
 .bnb-choice-list button:hover, .bnb-choice-list button:focus-visible { border-color: #ffc857; color: #ffc857; }
 
+/*
+ * 04.9 CP4: the "take nothing more" button. Reuses the picker's own button shape
+ * (it is a sibling `.bnb-choice-list`, so the rule above already sizes it) and is
+ * distinguished only by colour, so it reads as a way out rather than a target.
+ * Gold is this file's existing action accent; the dashed-gold frame above is what
+ * already marks the dialog as open, so no new colour is introduced.
+ */
+.bnb-choice-list .bnb-choice-finish { flex: 0 0 auto; border-style: dashed; border-color: #ffc857; color: #ffc857; }
+
 /* Mobile landscape: fixed 100dvh page, stage fits the shorter dimension. */
 @media (orientation: landscape) and (max-height: 600px) {
   .bnb-page { height: 100dvh; min-height: 0; padding: max(10px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); overflow: hidden; }

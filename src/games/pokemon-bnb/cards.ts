@@ -125,6 +125,19 @@ export function isBasicPokemon(card: CardDef): boolean {
 }
 
 /**
+ * 04.9 CP4: a Stadium card specifically, not "any Trainer".
+ *
+ * 076 Xerneas reads "Search your deck for up to 2 **Stadium** cards", so an Item
+ * or a Supporter is not a legal pick. `cardIsTrainer` is deliberately NOT enough
+ * here: 30C trainer data carries `trainerType` as free text from the upstream API,
+ * so the value is trimmed and lower-cased before comparing rather than compared
+ * raw — the same defensive read `playTrainer` already uses for its own gate.
+ */
+export function cardIsStadium(card: CardDef): boolean {
+  return cardIsTrainer(card) && card.trainerType.trim().toLowerCase() === 'stadium'
+}
+
+/**
  * How many Prize cards the opponent takes when this Pokemon is knocked out.
  *
  * Rulebook: a Pokemon carrying an `EX` rule box is worth **two** Prize cards;

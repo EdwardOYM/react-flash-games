@@ -1965,11 +1965,30 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
           {battle.pendingChoice !== null && !battle.over && (
             <div className="bnb-choice-gate" role="dialog" aria-modal="false" aria-label={t('pokemonBnb.chooseTargetTitle')}>
               <p className="bnb-choice-title">
-                {battle.pendingChoice.effect.kind === 'searchDeck'
-                  ? t('pokemonBnb.chooseDeckTitle')
-                  : t('pokemonBnb.chooseTargetTitle')}
+                {battle.pendingChoice.effect.kind === 'searchDeckUpTo'
+                  // 04.9 CP4: the cap is part of the instruction, so it rides the
+                  // title rather than being buried in a button label.
+                  ? substituteParams(t('pokemonBnb.chooseDeckUpToTitle'), {
+                      count: String(battle.pendingChoice.remaining),
+                    })
+                  : battle.pendingChoice.effect.kind === 'searchDeck'
+                    ? t('pokemonBnb.chooseDeckTitle')
+                    : t('pokemonBnb.chooseTargetTitle')}
               </p>
               <p className="bnb-hint">{battleErrorCopy('must-choose-target')}</p>
+              {/*
+               * 04.9 CP4: "up to N" is a permission, so the dialog must offer a way to
+               * stop — including after one pick of two, which is a legal resolution.
+               * Gated on the effect kind only, mirroring `finishChoice`'s own guard
+               * exactly, so the dialog can never offer a move the engine refuses.
+               */}
+              {battle.pendingChoice.effect.kind === 'searchDeckUpTo' && (
+                <p className="bnb-hint">
+                  {substituteParams(t('pokemonBnb.chooseDeckUpToRemaining'), {
+                    count: String(battle.pendingChoice.remaining),
+                  })}
+                </p>
+              )}
               <div className="bnb-choice-list">
                 {battle.pendingChoice.targets.map((choiceTarget, index) => {
                   // 04.8 CP3-B: a deck-search target is a card in the ACTOR'S OWN
@@ -2026,6 +2045,23 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                   )
                 })}
               </div>
+              {/*
+               * 04.9 CP4: the "take nothing more" affordance, under the list so it
+               * never reads as one more target. Same `remaining > 1` gate as the hint
+               * above and the engine's own guard, so the dialog can only ever offer a
+               * move `processAction` will accept.
+               */}
+              {battle.pendingChoice.effect.kind === 'searchDeckUpTo' && (
+                <div className="bnb-choice-list">
+                  <button
+                    className="bnb-choice-finish"
+                    type="button"
+                    onClick={() => runBattleAction(battle.pendingChoice!.actor, { type: 'finishChoice' })}
+                  >
+                    {t('pokemonBnb.chooseFinishAction')}
+                  </button>
+                </div>
+              )}
             </div>
           )}
           {battle.pendingPromotion === null && battle.pendingChoice === null && (() => {

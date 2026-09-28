@@ -64,6 +64,20 @@ export type PendingChoice = {
   /** Legal targets, in a stable order. Stored, not recomputed, so the list a
    *  player saw cannot drift from the list the engine validates against. */
   targets: ChoiceTarget[]
+  /**
+   * 04.9 CP4: how many MORE picks are allowed. **1** for every choice before this
+   * checkpoint, which is why none of them had to change. "up to 2" sets 2, and a
+   * player may stop early with `finishChoice` — "up to" is permissive, not a quota.
+   *
+   * Always a FINITE number, even for the printed "any number of" (053/149). The
+   * cap is resolved at park time against what the deck and the Bench can actually
+   * hold, which is what keeps `Infinity` off the wire: `JSON.stringify(Infinity)`
+   * is `null`, so an unbounded `remaining` would silently fail the snapshot round
+   * trip that 04.8 CP6 established.
+   */
+  remaining: number
+  /** Which zone `targets` lives in, so the list can be re-derived after a pick. */
+  source: 'deck' | 'discard' | 'inPlay'
   /** What happens to the chosen target. */
   effect:
     | { kind: 'damage'; amount: number }
@@ -80,6 +94,15 @@ export type PendingChoice = {
     // `to` is deliberately open: 'hand' and 'deck' land here, and a future 'bench'
     // needs no new effect kind, only a new target rule.
     | { kind: 'pickFromDiscard'; to: 'hand' | 'deck' }
+    // 04.9 CP4: take up to N cards from the actor's own Deck, resolving ONCE PER
+    // PICK. This is the only effect kind that re-parks its own choice: `remaining`
+    // counts down and the target list is rebuilt between picks, or `finishChoice`
+    // closes it early because "up to" is permissive rather than a quota.
+    //
+    // `max` is the PRINTED cap and may be `Infinity` ("any number of"). It is never
+    // the number enforced: `remaining` is resolved to a FINITE cap at park time,
+    // because `JSON.stringify(Infinity)` is `null` and would break the round trip.
+    | { kind: 'searchDeckUpTo'; filter: 'basicPokemon' | 'stadium'; to: 'hand' | 'bench'; max: number }
   /** Printed attack that asked for the choice, for the log line. */
   attackName: string
 }
@@ -257,5 +280,8 @@ export type BattleAction =
   /** 04.8 CP2: resolve the pending choice by INDEX into its stored target list,
    *  never a forged zone — the engine re-validates the entry it already agreed. */
   | { type: 'chooseTarget'; targetIndex: number }
+  /** 04.9 CP4: stop a multi-pick early. "Up to 2" is permissive, so declining the
+   *  second pick is a legal outcome and not a way to skip the effect. */
+  | { type: 'finishChoice' }
 
 export type ActionResult = { state: BattleState; log: BattleLogEntry[]; error?: string }

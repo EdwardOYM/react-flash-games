@@ -4,12 +4,12 @@
 // Part of the game-core module split (CP7-E-a); see ./index.ts for the full
 // engine header and the re-export barrel.
 
-import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type PokemonCardDef } from '../cards'
+import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
-import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN } from './constants'
+import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
 import { canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, failure, inPlayList, inPlayOf, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
-import type { ActionResult, BattleAction, BattleState } from './types'
-import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, resolveAttack } from './effects'
+import type { ActionResult, BattleAction, BattleState, PendingChoice, SideState } from './types'
+import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
 import { applyEndTurn, applyStartOfTurn, checkVictory, performBenchKo, performKo } from './turns'
 
@@ -411,6 +411,13 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
     if (action.type === 'chooseTarget' && actor === state.pendingChoice.actor) {
       return resolveChoice(state, actor, action.targetIndex)
     }
+    // 04.9 CP4: "up to N" is permissive, so declining the remaining picks is a legal
+    // outcome and not a way to dodge the effect. Gated on `remaining > 1` below in
+    // `finishChoice` — a choice with one pick left is mandatory, and allowing an
+    // early exit there would let a player skip a printed effect entirely.
+    if (action.type === 'finishChoice' && actor === state.pendingChoice.actor) {
+      return finishChoice(state, actor)
+    }
     return failure(state, 'must-choose-target')
   }
   switch (action.type) {
@@ -443,6 +450,9 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
     case 'promoteActive':
       return failure(state, 'no-promotion-pending')
     case 'chooseTarget':
+      return failure(state, 'no-choice-pending')
+    // 04.9 CP4: nothing is parked, so there is nothing to finish.
+    case 'finishChoice':
       return failure(state, 'no-choice-pending')
     default:
       return failure(state, 'unknown-action')
@@ -508,6 +518,71 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closedHeal, log: tailLog(closedHeal, logStart) }
   }
 
+  // 04.9 CP4: the "up to N" deck search is the ONE effect that resolves more than
+  // once. It runs BEFORE the single-card search below, because both move a card out
+  // of the Deck and only the cap differs. After a pick it re-parks itself with a
+  // REBUILT target list rather than closing the turn, and only the last pick (or an
+  // explicit `finishChoice`) closes it.
+  if (choice.effect.kind === 'searchDeckUpTo') {
+    // Narrow the union explicitly. A ternary does NOT keep its narrowing past the
+    // expression, so the deck fields are read only after this guard.
+    if (target.zone !== 'deck') return failure(state, 'no-target')
+    const ownDeck = sideOf(next, target.side).deck
+    const found = ownDeck[target.deckIndex]
+    // Re-validated against the card id, because a Deck holds DUPLICATES and an id
+    // alone would not identify a card.
+    if (!found || found.id !== target.cardId) return failure(state, 'no-target')
+    ownDeck.splice(target.deckIndex, 1)
+    const ownSide = sideOf(next, actor)
+    if (choice.effect.to === 'hand') {
+      ownSide.hand.push(found)
+    } else {
+      // 'bench': the picked card was already filtered to Basic-only at park time, so
+      // this is the same object shape `playBasic` builds. The uid must be UNIQUE
+      // within the side: it is the authority for every later target pick, and the
+      // `${id}#${turn}` form `playBasic` uses collides when two copies of one card
+      // arrive on the same turn — which is exactly what "up to 2 Basic Pokemon" does.
+      ownSide.bench.push({
+        uid: uniqueBenchUid(ownSide, found, next.turn),
+        card: found as PokemonCardDef,
+        damage: 0,
+        attachedEnergy: [],
+        attachedTool: null,
+        conditions: { asleep: false, paralyzed: false, confused: false, poisoned: false, burned: false },
+        enteredTurn: next.turn,
+        evolvedTurn: 0,
+        energyAttachedTurn: 0,
+        retreatedTurn: 0,
+        abilityUsedTurn: 0,
+      })
+    }
+    logEvent(next, 'pokemonBnb.log.effectSearchDeck', { player: actor, card: found.name })
+
+    // Re-derive the list from the LIVE deck. A stored index cannot be reused: the
+    // pick above spliced a card out, so every later index shifted. Nothing else has
+    // to be subtracted — the splice IS the record of what was taken, which is what
+    // keeps a second copy of the same card pickable.
+    // `toBench` is read out of the narrowed effect ONCE and kept as a plain boolean:
+    // spreading `choice` into a new object widens `effect` back to the whole union,
+    // and TS does not carry the narrowing across that spread.
+    const toBench = choice.effect.to === 'bench'
+    const after: PendingChoice = { ...choice, remaining: choice.remaining - 1, targets: [] }
+    // The Bench may have just filled up, which can end an "up to 2" search early
+    // even though picks remain — the printed cap is an upper bound, not a quota.
+    const roomLeft = toBench ? Math.max(0, MAX_BENCH - ownSide.bench.length) : Number.POSITIVE_INFINITY
+    const targets = refreshChoiceTargets(next, after)
+    if (after.remaining > 0 && roomLeft > 0 && targets.length > 0) {
+      after.targets = targets
+      next.pendingChoice = after
+      logEvent(next, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
+      return { state: next, log: tailLog(next, logStart) }
+    }
+    // Nothing more can be taken, so the search is over and the turn closes.
+    next.pendingChoice = null
+    const closedUpTo = next.over ? next : applyEndTurn(next, actor)
+    return { state: closedUpTo, log: tailLog(closedUpTo, logStart) }
+  }
+
   // 04.8 CP3-B: a deck search moves the chosen card out of the actor's own Deck
   // and into hand. It is NOT a damage effect, so it short-circuits before any
   // Weakness/Resistance or Knock-Out maths. The deck index is re-validated
@@ -568,6 +643,56 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   }
   const closed = next.over ? next : applyEndTurn(next, actor)
   return { state: closed, log: tailLog(closed, logStart) }
+}
+
+/**
+ * 04.9 CP4: decline the remaining picks of a multi-pick and close the turn.
+ *
+ * Legal only for the `searchDeckUpTo` effect, which is the one whose printed cap
+ * is a permission. "Search your deck for up to 2 Basic Pokemon" allows 0, 1 or 2,
+ * so a player who wants just one must be able to stop here — gating this on
+ * `remaining > 1` would have quietly turned "up to 2" into "0 or 2", which is a
+ * WRONG effect rather than a stricter one.
+ *
+ * Every other choice effect is a single mandatory pick ("Heal 80 damage from 1 of
+ * your Benched Pokemon"), and this refuses it outright: an early exit there would
+ * be a way to skip a printed effect, the engine's forbidden failure.
+ */
+export function finishChoice(state: BattleState, actor: PlayerSlot): ActionResult {
+  if (state.over) return failure(state, 'match-over')
+  const choice = state.pendingChoice
+  if (!choice) return failure(state, 'no-choice-pending')
+  if (choice.actor !== actor) return failure(state, 'not-your-turn')
+  if (choice.effect.kind !== 'searchDeckUpTo') return failure(state, 'choice-not-optional')
+
+  const next = cloneBattleState(state)
+  const logStart = next.log.length
+  // Whatever was already taken STAYS taken; only the chance to take more is declined.
+  next.pendingChoice = null
+  const closed = next.over ? next : applyEndTurn(next, actor)
+  return { state: closed, log: tailLog(closed, logStart) }
+}
+
+/**
+ * 04.9 CP4: a Bench uid that is unique within the side.
+ *
+ * `playBasic` builds `${card.id}#${turn}`, which collides when two copies of the
+ * same card enter play on the same turn. That is not hypothetical here: "Search your
+ * deck for up to 2 Basic Pokemon and put them onto your Bench" can put two Victini
+ * on the Bench in one resolution, and a `uid` is the authority every later target
+ * pick resolves by — two Pokémon sharing one would make a pick ambiguous.
+ *
+ * A numeric suffix is appended only on collision, so the common case keeps the
+ * existing readable form and nothing that persisted changes shape.
+ */
+function uniqueBenchUid(side: SideState, card: CardDef, turn: number): string {
+  const taken = new Set(inPlayList(side).map((pokemon) => pokemon.uid))
+  const base = `${card.id}#${turn}`
+  if (!taken.has(base)) return base
+  for (let suffix = 2; ; suffix += 1) {
+    const candidate = `${base}#${suffix}`
+    if (!taken.has(candidate)) return candidate
+  }
 }
 
 /**
