@@ -400,6 +400,11 @@ export function durationDamageAdjustment(state: BattleState, uid: string): numbe
   let total = 0
   for (const duration of durationsFor(state, uid)) {
     if (duration.effect.kind === 'lessDamageTaken') total -= duration.effect.amount
+    // 04.10 CP2 / 087. It is NEGATIVE here for a different reason than the line
+    // above: `lessDamageTaken` means "this Pokemon takes less", while `lessDamageDealt`
+    // means "this Pokemon's ATTACKS deal less". Both reduce an amount, so they share
+    // the sign, and `activeDealtReduction` negates it when reading the attacking side.
+    else if (duration.effect.kind === 'lessDamageDealt') total -= duration.effect.amount
     else if (duration.effect.kind === 'moreDamageTaken') total += duration.effect.amount
   }
   return total

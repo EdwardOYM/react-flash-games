@@ -46,7 +46,11 @@ export function computeAttackDamage(
   // prints "(before applying Weakness and Resistance)" — so it is subtracted from
   // `baseDamage` HERE, ahead of the multiplier. Applying it afterwards would let a
   // Weakness ×2 quietly restore the 20 points the Ability removed.
-  const reducedBase = Math.max(0, baseDamage - passiveAttackerReduction(state, defender))
+  //
+  // 04.10 CP2 / 087 is the MIRROR and reduces what the ATTACKER deals, by the same
+  // "before the multiplier" rule. Both land on `baseDamage` and both happen before
+  // `weakness` is read, which is exactly what the printed riders ask for.
+  const reducedBase = Math.max(0, baseDamage - passiveAttackerReduction(state, defender) - activeDealtReduction(state, attacker))
   const attackerTypes = attacker.card.types
   const weaknessEntry = defender.card.weaknesses.find((entry) => attackerTypes.includes(entry.type))
   const resistanceEntry = defender.card.resistances.find((entry) => attackerTypes.includes(entry.type))
@@ -88,6 +92,21 @@ export function passiveAttackerReduction(state: BattleState, defender: InPlayPok
     if (passive && passive.id === 'lessDamageTakenWhileActive') reduction += passive.amount
   }
   return reduction
+}
+
+/**
+ * 04.10 CP2 / 087: raw points removed from what `attacker` DEALS because of a
+ * duration riding it.
+ *
+ * The mirror of `passiveAttackerReduction`, and the position test is the same — the
+ * clause only bites while its subject is the ACTIVE, which is the one that attacks.
+ * The DURATION itself rides the opponent's Active (see the parser comment), so this
+ * is read on whichever Pokémon is currently attacking.
+ */
+export function activeDealtReduction(state: BattleState, attacker: InPlayPokemon): number {
+  const slot = slotOwning(state, attacker)
+  if (!slot || sideOf(state, slot).active !== attacker) return 0
+  return -durationDamageAdjustment(state, attacker.uid)
 }
 
 /** Which seat a given in-play Pokémon belongs to, or null when it is not in play. */
@@ -258,6 +277,11 @@ export type ParsedEffect =
   /** 106 — the same lock narrowed to one named attack. */
   | { kind: 'durationCantUseAttack'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender'; attackName: string }
   | { kind: 'durationLessDamageTaken'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender'; amount: number }
+  // 04.10 CP2 / 087: the MIRROR. 04.9 CP5's clause reduces what the holder TAKES; this
+  // one reduces what it DEALS, so it is a separate kind rather than a flag — one is
+  // read on the defender, one on the attacker, and a single field would let the two
+  // directions be confused.
+  | { kind: 'durationLessDamageDealt'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender'; amount: number }
   | { kind: 'durationMoreDamageTaken'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender'; amount: number }
   /** 006/016/044 — "prevent all damage from and effects of attacks done to this Pokemon". */
   | { kind: 'durationPreventAllDamage'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender' }
@@ -271,6 +295,15 @@ export type ParsedEffect =
   // after damage like the other post-damage clauses.
   | { kind: 'extraPrizeOnKo'; amount: number }
   | { kind: 'noDamageOnTails' }
+  // -- 04.10 CP2: the PER-HEAD effects. A coin count is already tracked by
+  // `pendingCoinCount`; what was missing was the effect that runs once per head.
+  //
+  // 099's count is PRINTED ("Flip 3 coins"), so `flips` is the literal number. 125/146's
+  // is DYNAMIC ("flip a coin for each Maushold you have in play"), so the clause stores
+  // the card NAME and resolution counts the board — a number cannot be frozen at parse
+  // time without being wrong the moment the board changes.
+  | { kind: 'discardEnergyPerHead'; flips: number }
+  | { kind: 'discardOpponentTopPerHead'; countPerHead: number; perOwnName: string }
   | { kind: 'draw'; amount: number }
   | { kind: 'heal'; amount: number }
   | { kind: 'discardEnergy'; amount: number | 'all'; energyTypes?: string[] }
@@ -400,6 +433,15 @@ export type PassiveAbility =
   | { id: 'hpBonusForEnergy'; energyType: string; count: number; hp: number }
   /** 028 Pikachu — the opponent's Active attacks do N less while this is Active. */
   | { id: 'lessDamageTakenWhileActive'; amount: number }
+  /**
+   * 087 Nidoran — the MIRROR of 028. This one changes what the *holder's* attacks
+   * DEAL, not what it takes, so it is a genuinely separate effect rather than a
+   * variant: 028 is a defence, 087 is an offence. "attacks used by the Defending
+   * Pokemon do 30 less damage" — the holder is the one attacking, and the printed
+   * "(before applying Weakness and Resistance)" puts it ahead of the multiplier,
+   * exactly as 028's rider does.
+   */
+  | { id: 'lessDamageDealtWhileActive'; amount: number }
   /** 033 Pikachu — all damage prevented while this sits on the Bench. */
   | { id: 'preventDamageWhileBenched' }
   /** 096 Zoroark — the holder's Active Retreat Cost is N less. */
@@ -431,6 +473,16 @@ const PASSIVE_EFFECTS: { match: RegExp; build: (plain: string) => PassiveAbility
     match: /^as long as this pokemon is in the active spot, attacks used by your opponent's active pokemon do (\d+) less damage \(before applying weakness and resistance\)\.$/i,
     build: (plain) => ({
       id: 'lessDamageTakenWhileActive',
+      amount: Number(plain.match(/do (\d+) less damage/i)?.[1] ?? 0),
+    }),
+  },
+  {
+    // 087. The mirror of 028, and anchored on the same rider for the same reason: the
+    // "(before applying Weakness and Resistance)" placement is the whole rule, so a
+    // differently-worded reduction must not be silently read as this one.
+    match: /^during your opponent's next turn, attacks used by the defending pokemon do (\d+) less damage \(before applying weakness and resistance\) \.$/i,
+    build: (plain) => ({
+      id: 'lessDamageDealtWhileActive',
       amount: Number(plain.match(/do (\d+) less damage/i)?.[1] ?? 0),
     }),
   },
@@ -625,6 +677,10 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
   const sentences = plain.split(/(?<=\.)\s+/).filter((sentence) => sentence.trim().length > 0)
   let pendingCoin = false
   let pendingCoinCount = 0
+  // 04.10 CP2 / 125-146: the card name from "flip a coin for each X you have in
+  // play". A NAME rather than a count, because the count depends on the board and is
+  // therefore only knowable at resolution.
+  let pendingHeadsPerOwnName = ''
   let pendingUntilTails = false
 
   for (const [sentenceIndex, sentence] of sentences.entries()) {
@@ -706,6 +762,59 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     if (/^switch this pokemon with 1 of your benched pokemon\.$/i.test(sentence) && isLastSentence) {
       effects.push({ kind: 'switchWithBenched', optional: false, foe: false })
       pendingCoin = false
+      continue
+    }
+    // 04.10 CP2 / 087: "During your opponent's next turn, attacks used by the Defending
+    // Pokemon do 30 less damage." `subject` is 'defender' — NOT 'attacker' — and that
+    // is the whole reading of the card. Growl is 0 damage, so the "Defending Pokemon"
+    // it refers to is simply the opponent's Active at the moment it resolves. The
+    // effect therefore SLOWS THE OPPONENT's Active, which is why its window is
+    // "+1": the opponent's next turn is when that Active gets to attack. Reading it
+    // as 'attacker' would have made the Nidoran attack less while it is benched and
+    // unable to attack at all — a rule that could never fire, which is the quietest
+    // possible wrong effect.
+    const lessDealt = sentence.match(
+      /^during your opponent's next turn, attacks used by the defending pokemon do (\d+) less damage\s*\(before applying weakness and resistance\)\s*\.?$/i,
+    )
+    if (lessDealt) {
+      effects.push({ kind: 'durationLessDamageDealt', whose: 'foe', subject: 'defender', amount: Number(lessDealt[1]) })
+      pendingCoin = false
+      continue
+    }
+    // 04.10 CP2 / 099: "Flip 3 coins. For each heads, discard an Energy from your
+    // opponent's Active Pokemon." `pendingCoinCount` already carries the count from
+    // "Flip 3 coins"; only the PER-HEAD EFFECT was missing, which is why 04.8 CP1
+    // deliberately let this text fall through as unsupported.
+    const perHeadsDiscardEnergy = sentence.match(
+      /^for each heads, discard an energy from your opponent's active pokemon\.?$/i,
+    )
+    if (perHeadsDiscardEnergy && pendingCoinCount > 0) {
+      effects.push({ kind: 'discardEnergyPerHead', flips: pendingCoinCount })
+      pendingCoinCount = 0
+      continue
+    }
+    // 04.10 CP2 / 125-146 Maushold: "Flip a coin FOR EACH Maushold you have in play.
+    // For each heads, discard the top 2 cards of your opponent's deck." The count is
+    // DYNAMIC — it depends on the board — so the sentence records how to compute it
+    // rather than a number, and resolution reads the count then.
+    const flipPerOwnName = sentence.match(
+      /^flip a coin for each (\w+) you have in play\.?$/i,
+    )
+    if (flipPerOwnName) {
+      pendingHeadsPerOwnName = flipPerOwnName[1]
+      pendingCoin = false
+      continue
+    }
+    const perHeadsDiscardTop = sentence.match(
+      /^for each heads, discard the top (\d+) cards? of your opponent's deck\.?$/i,
+    )
+    if (perHeadsDiscardTop && pendingHeadsPerOwnName) {
+      effects.push({
+        kind: 'discardOpponentTopPerHead',
+        countPerHead: Number(perHeadsDiscardTop[1]),
+        perOwnName: pendingHeadsPerOwnName,
+      })
+      pendingHeadsPerOwnName = ''
       continue
     }
     // -- 04.9 CP5: the DURATION family. Matched before the families below so no
@@ -1628,6 +1737,56 @@ export function applyEffect(
     case 'durationCantRetreat':
       applyDuration(state, context, effect.whose, effect.subject, { kind: 'cantRetreat' })
       break
+    // 04.10 CP2 / 087: the mirror of 04.9 CP5's `lessDamageTaken`.
+    case 'durationLessDamageDealt':
+      applyDuration(state, context, effect.whose, effect.subject, { kind: 'lessDamageDealt', amount: effect.amount })
+      break
+    // 04.10 CP2 / 099: one Energy discarded from the OPPONENT's Active per head.
+    //
+    // Bounded by BOTH the flip count and what is actually attached, so a run of
+    // three heads against a defender holding one Energy discards one rather than
+    // reporting two misses. The discard never cascades: an Energy that has no
+    // `provides` is still a card and is still discarded.
+    case 'discardEnergyPerHead': {
+      const foeSlot = foeOf(context.actor)
+      const victim = sideOf(state, foeSlot).active
+      if (!victim) break
+      let heads = 0
+      for (let flip = 0; flip < effect.flips; flip += 1) if (flipCoin(state)) heads += 1
+      const discarded = Math.min(heads, victim.attachedEnergy.length)
+      for (let i = 0; i < discarded; i += 1) {
+        const card = victim.attachedEnergy.pop()
+        if (card) sideOf(state, foeSlot).discard.push(card)
+      }
+      if (discarded > 0) {
+        logEvent(state, 'pokemonBnb.log.effectDiscardEnergy', { player: foeSlot, count: discarded })
+      }
+      break
+    }
+    // 04.10 CP2 / 125-146: the top N of the OPPONENT's deck per head, where the number
+    // of flips is the number of matching Pokemon the attacker has in play.
+    case 'discardOpponentTopPerHead': {
+      const own = ownInPlay(state, context.actor)
+      const matching = own.filter((pokemon) => nameMatches(pokemon.card.name, [effect.perOwnName])).length
+      if (matching === 0) break
+      let heads = 0
+      // Bounded by the count found, so the loop cannot run away on a large board.
+      for (let flip = 0; flip < matching; flip += 1) if (flipCoin(state)) heads += 1
+      const foeSide = sideOf(state, foeOf(context.actor))
+      let discarded = 0
+      for (let i = 0; i < heads; i += 1) {
+        const batch = foeSide.deck.splice(0, effect.countPerHead)
+        if (batch.length === 0) break
+        foeSide.discard.push(...batch)
+        discarded += batch.length
+        // A short deck simply ends the loop; a partial batch is NOT padded, because
+        // discarding cards that do not exist would be a wrong effect.
+      }
+      if (discarded > 0) {
+        logEvent(state, 'pokemonBnb.log.effectDiscardEnergy', { player: foeOf(context.actor), count: discarded })
+      }
+      break
+    }
     // 04.10 CP1 / 081: parked by resolveAttack behind a coin flip, applied by
     // resolveChoice. Every deck card qualifies, so there is no filter to apply.
     case 'searchAnyToHand':

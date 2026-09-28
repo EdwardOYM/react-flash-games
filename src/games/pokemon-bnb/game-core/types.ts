@@ -319,6 +319,14 @@ export type DurationEffect =
   | { kind: 'cantUseAttack'; attackName: string }
   /** 079/107 — "this Pokemon takes N less damage", applied AFTER Weakness/Resistance. */
   | { kind: 'lessDamageTaken'; amount: number }
+  /**
+   * 04.10 CP2 / 087 Nidoran — the MIRROR of `lessDamageTaken`, and the reason a
+   * SECOND effect kind is needed rather than a flag on the first. 028 reduces what
+   * the holder TAKES (read on the defender); this reduces what the holder DEALS
+   * (read on the attacker). One signed field would let the two directions be
+   * confused, which is a wrong effect rather than a stricter one.
+   */
+  | { kind: 'lessDamageDealt'; amount: number }
   /** 110 — "the Defending Pokemon takes N more damage", AFTER Weakness/Resistance. */
   | { kind: 'moreDamageTaken'; amount: number }
   /** 006/016/044 — "prevent all damage from and effects of attacks". */
