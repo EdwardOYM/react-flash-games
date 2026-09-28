@@ -51,8 +51,22 @@ export function computeAttackDamage(
   // "before the multiplier" rule. Both land on `baseDamage` and both happen before
   // `weakness` is read, which is exactly what the printed riders ask for.
   const reducedBase = Math.max(0, baseDamage - passiveAttackerReduction(state, defender) - activeDealtReduction(state, attacker))
+  // 04.10 CP8 / 040: a live `weaknessChange` REPLACES the defender's printed Weakness
+  // table for the window. It is read BEFORE the table lookup, not applied to its
+  // result: "the Weakness is now Lightning" replaces the TYPE, so a defender with no
+  // printed Fire weakness gains one, and one whose printed weakness is a different
+  // type loses it. Applying it to the result instead would only ever multiply.
+  const mutated = liveWeaknessChange(state, defender)
   const attackerTypes = attacker.card.types
-  const weaknessEntry = defender.card.weaknesses.find((entry) => attackerTypes.includes(entry.type))
+  // The mutated type is still matched against the ATTACKER, exactly as a printed entry
+  // is. Skipping that test would give EVERY attack x2 for the whole window, which is
+  // not "the Weakness is now Lightning" but "everything is weak to everything" — and it
+  // is invisible in a test that only uses a Lightning attacker.
+  const weaknessEntry = mutated
+    ? (attackerTypes.includes(mutated.type as CardType)
+      ? { type: mutated.type, value: `×${mutated.multiplier}` }
+      : undefined)
+    : defender.card.weaknesses.find((entry) => attackerTypes.includes(entry.type))
   const resistanceEntry = defender.card.resistances.find((entry) => attackerTypes.includes(entry.type))
 
   let weakness = 1
@@ -150,6 +164,22 @@ export function damageTakenLastTurn(state: BattleState, pokemon: InPlayPokemon):
  */
 export function koByAttackLastTurn(state: BattleState, slot: PlayerSlot): boolean {
   return sideOf(state, slot).koByAttackTurn === state.turn - 1
+}
+
+/**
+ * 04.10 CP8 / 040: the live `weaknessChange` on `defender`, or null.
+ *
+ * `findDuration` is by uid and is the same read every other duration uses, so a
+ * promotion cannot re-point the mutation: the duration was installed against a
+ * specific Pokemon and travels with it.
+ */
+export function liveWeaknessChange(
+  state: BattleState,
+  defender: InPlayPokemon,
+): { type: string; multiplier: number } | null {
+  const duration = findDuration(state, defender.uid, 'weaknessChange')
+  if (!duration || duration.effect.kind !== 'weaknessChange') return null
+  return { type: duration.effect.type, multiplier: duration.effect.multiplier }
 }
 
 /**
@@ -362,6 +392,16 @@ export type ParsedEffect =
   /** 006/016/044 — "prevent all damage from and effects of attacks done to this Pokemon". */
   | { kind: 'durationPreventAllDamage'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender' }
   | { kind: 'durationCantRetreat'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender' }
+  /** 04.10 CP8 / 040 — the Weakness MUTATION window, read in `computeAttackDamage`. */
+  | {
+    kind: 'durationWeaknessChange'
+    whose: 'self' | 'foe'
+    subject: 'attacker' | 'defender'
+    type: string
+    multiplier: number
+  }
+  /** 04.10 CP8 / 084 — gates the OPPONENT's Trainer play for one turn. */
+  | { kind: 'durationInterceptTrainer'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender' }
   // (b) "Place 13 damage counters on 1 of your opponent's Pokemon." Converted to
   //     damage at parse time with 04.5's unit, so no second code path exists for
   //     a counter-denominated amount.
@@ -382,6 +422,8 @@ export type ParsedEffect =
   // so it falls into the shared no-op group. It is still a clause because that is the
   // only channel by which a parsed sentence can reach `resolveAttack`.
   | { kind: 'shuffleSelfIntoDeck'; optional: boolean }
+  /** 107 — "before doing damage, discard all Pokemon Tools from the opponent's Active". */
+  | { kind: 'discardAllToolsOnDefender' }
   // -- 04.10 CP2: the PER-HEAD effects. A coin count is already tracked by
   // `pendingCoinCount`; what was missing was the effect that runs once per head.
   //
@@ -401,7 +443,11 @@ export type EffectTiming = 'beforeDamage' | 'afterDamage'
 
 /** Damage-modifying clauses resolve before damage; the rest afterwards. */
 export function effectTiming(kind: ParsedEffect['kind']): EffectTiming {
-  if (kind === 'bonusDamage' || kind === 'bonusDamagePerPrize' || kind === 'noDamageOnTails') {
+  // 04.10 CP8 / 107: "Before doing damage, discard all Pokemon Tools from your
+  // opponent's Active Pokemon." The ONLY before-damage clause in the set, and the
+  // ordering is the whole card — the Tool must be gone before the damage lands, not
+  // after, so it is resolved ahead of the Weakness/Resistance maths.
+  if (kind === 'bonusDamage' || kind === 'bonusDamagePerPrize' || kind === 'noDamageOnTails' || kind === 'discardAllToolsOnDefender') {
     return 'beforeDamage'
   }
   return 'afterDamage'
@@ -841,6 +887,11 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     /\(\s*don't apply weakness and resistance for benched pokemon\.?\s*\)/gi,
     ' ',
   )
+    // 04.10 CP8 / 040: "(Apply Weakness as ×2.)" is a REMINDER, not an effect, and
+    // `plainCardText` strips the `<em>` TAGS but keeps the words, so it arrives as its
+    // own sentence and reported the whole attack `unsupported`. The multiplier is
+    // carried on the clause instead, so nothing is lost by dropping the text.
+    .replace(/\(\s*apply weakness as\s*.?\d+\.?\s*\)/gi, ' ')
   if (!plain.trim()) return []
   const effects: ParsedEffect[] = []
   // An empty sentence would become an `unsupported` clause with no text, and the
@@ -1252,6 +1303,56 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
         kind: 'searchAttachEnergy', from: 'discard',
         max: Number(empower[1]), target: 'oneForAll',
       })
+      pendingCoin = false
+      continue
+    }
+    // 04.10 CP8 / 040: "The Defending Pokemon's Weakness is now Lightning until the end
+    // of your next turn. (Apply Weakness as x2.)"
+    //
+    // The `<em>` rider is stripped by `plainCardText` before splitting, so the second
+    // sentence here is the bare "until the end of your next turn" and the printed
+    // multiplier is NOT in the text at all — it is only in the stripped rider. So the
+    // type is read from the first sentence and the multiplier is the card's own x2,
+    // recorded explicitly on the clause so a future x3 is a data change, not a code one.
+    const weakens = sentence.match(
+      /^the defending pokemon's weakness is now (\w+) until the end of your next turn\.$/i,
+    )
+    if (weakens) {
+      effects.push({ kind: 'durationWeaknessChange', whose: 'foe', subject: 'defender', type: weakens[1].toLowerCase(), multiplier: 2 })
+      pendingCoin = false
+      continue
+    }
+    // 04.10 CP8 / 084: "During your opponent's next turn, whenever they try to use a
+    // Trainer card from their hand, they flip a coin. If tails, your opponent discards
+    // that Trainer card instead of using it." It rides the ATTACKER (this Seismitoad),
+    // because the ACTION it blocks belongs to the opponent.
+    //
+    // This is TWO sentences, not one: the splitter cuts at "they flip a coin." So the
+    // clause is raised by the FIRST half and the SECOND half is consumed as its
+    // consequence. Matching only the first and letting the second fall through would
+    // report the whole attack `unsupported` — the failure the first harness run hit.
+    const intercept = sentence.match(
+      /^during your opponent's next turn, whenever they try to use a trainer card from their hand, they flip a coin\.$/i,
+    )
+    if (intercept) {
+      effects.push({ kind: 'durationInterceptTrainer', whose: 'foe', subject: 'attacker' })
+      pendingCoin = false
+      continue
+    }
+    if (/^if tails, your opponent discards that trainer card instead of using it\.$/i.test(sentence)) {
+      // The consequence of the flip already recorded above. It is consumed rather than
+      // pushed so the attack does not report `unsupported`; the discard is applied by
+      // `playTrainer` at play time, not here.
+      pendingCoin = false
+      continue
+    }
+    // 04.10 CP8 / 107: "Before doing damage, discard all Pokemon Tools from your
+    // opponent's Active Pokemon."
+    const dropTools = sentence.match(
+      /^before doing damage, discard all pokemon tools from your opponent's active pokemon\.$/i,
+    )
+    if (dropTools) {
+      effects.push({ kind: 'discardAllToolsOnDefender' })
       pendingCoin = false
       continue
     }
@@ -2057,6 +2158,27 @@ export function applyEffect(
     case 'durationCantRetreat':
       applyDuration(state, context, effect.whose, effect.subject, { kind: 'cantRetreat' })
       break
+    // 04.10 CP8 / 040: install the Weakness mutation on the DEFENDER. The subject is the
+    // defender, so a later promotion cannot re-point the new Weakness at whichever Pokemon
+    // moved into the Active spot — `applyDuration` resolves the uid NOW for that reason.
+    case 'durationWeaknessChange':
+      applyDuration(state, context, effect.whose, effect.subject, { kind: 'weaknessChange', type: effect.type, multiplier: effect.multiplier })
+      break
+    // 04.10 CP8 / 084: the window opens on the ATTACKER (this Seismitoad) and is READ
+    // by `playTrainer` from the acting seat, because the play it blocks is the opponent's.
+    case 'durationInterceptTrainer':
+      applyDuration(state, context, effect.whose, effect.subject, { kind: 'interceptTrainer' })
+      break
+    // 04.10 CP8 / 107: the Tool leaves the DEFENDER's Active before the damage lands.
+    case 'discardAllToolsOnDefender': {
+      const victim = context.defender
+      if (!victim || !victim.attachedTool) break
+      const tool = victim.attachedTool
+      victim.attachedTool = null
+      sideOf(state, slotOwning(state, victim) ?? context.actor).discard.push(tool)
+      logEvent(state, 'pokemonBnb.log.effectDiscardTool', { card: tool.name, target: victim.card.name })
+      break
+    }
     // 04.10 CP2 / 087: the mirror of 04.9 CP5's `lessDamageTaken`.
     case 'durationLessDamageDealt':
       applyDuration(state, context, effect.whose, effect.subject, { kind: 'lessDamageDealt', amount: effect.amount })
@@ -2455,6 +2577,16 @@ export function resolveAttack(
   // `selfDamage`, resolved in 3b below).
   for (const effect of effects) {
     if (effectTiming(effect.kind) === 'afterDamage') applyEffect(state, effect, context)
+  }
+
+  // 3a. 04.10 CP8 / 107: BEFORE-damage clauses. `effectTiming` has always classified
+  // these but NOTHING applied them — 107 is the first card in the set to print one, so
+  // the half of the split had no execution path and the clause was silently dead. They
+  // run here, after step 2 has already decided the amount but BEFORE the damage is
+  // written, which is what "before doing damage, discard all Pokemon Tools" needs: the
+  // Tool has to be gone from the board the damage was computed against.
+  for (const effect of effects) {
+    if (effectTiming(effect.kind) === 'beforeDamage') applyEffect(state, effect, context)
   }
 
   // 3b. 04.9 CP1: secondary damage that can Knock Out. These sit HERE rather than in

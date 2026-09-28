@@ -498,6 +498,12 @@ type PkmBnbLogTranslationKey =
   // the opposite end of the board from where the Ability's holder sits.
   | 'abilityCounter'
   | 'effectKnockOutAttacker'
+  // 04.10 CP8: 107's pre-damage Tool discard, and 084's Trainer gate. The gate has TWO
+  // lines because it has two outcomes — the card is discarded on tails and used on
+  // heads — and a single line would have to lie about one of them.
+  | 'effectDiscardTool'
+  | 'trainerIntercepted'
+  | 'trainerInterceptHeads'
   | 'abilityUnsupported'
   | 'evolve'
   | 'retreat'

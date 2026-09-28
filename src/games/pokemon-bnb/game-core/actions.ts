@@ -60,6 +60,20 @@ export function attachEnergy(
  * mini format). Reading the card text is the effect library's job (CP7-C), so
  * this sub-phase owns only the hand -> discard move and the turn restrictions.
  */
+/**
+ * 04.10 CP8 / 084: is a live `interceptTrainer` riding the OPPOSITOR's Pokemon?
+ *
+ * The duration rides the Seismitoad, so this walks the OPPONENT's board rather than
+ * looking at the acting seat's — the two are deliberately different, and a version
+ * that read the actor's own Pokemon would be permanently false and look harmless.
+ */
+function trainerIntercepted(state: BattleState, actor: PlayerSlot): boolean {
+  for (const pokemon of inPlayList(sideOf(state, foeOf(actor)))) {
+    if (findDuration(state, pokemon.uid, 'interceptTrainer')) return true
+  }
+  return false
+}
+
 export function playTrainer(state: BattleState, actor: PlayerSlot, handIndex: number): ActionResult {
   const blocked = checkTurn(state, actor)
   if (blocked) return failure(state, blocked)
@@ -69,6 +83,21 @@ export function playTrainer(state: BattleState, actor: PlayerSlot, handIndex: nu
   if (!card || !cardIsTrainer(card)) return failure(state, 'not-trainer')
   const trainerType = card.trainerType.trim().toLowerCase()
   if (trainerType === 'tool') return failure(state, 'not-trainer')
+  // 04.10 CP8 / 084 Seismitoad: the opponent's Trainer play is gated for one turn. The
+  // flip happens HERE, on the play, and tails DISCARDS the card instead of using it —
+  // so the card is spent either way and the turn is not consumed, which is what makes
+  // this a gate rather than a replacement effect. `findDuration` matches by uid, and the
+  // uid is the Seismitoad's, not the acting seat's, so the two can never be confused.
+  if (trainerIntercepted(next, actor)) {
+    const interceptLogStart = next.log.length
+    if (flipCoin(next)) {
+      side.hand.splice(handIndex, 1)
+      side.discard.push(card)
+      logEvent(next, 'pokemonBnb.log.trainerIntercepted', { player: actor, card: card.name })
+      return { state: next, log: tailLog(next, interceptLogStart) }
+    }
+    logEvent(next, 'pokemonBnb.log.trainerInterceptHeads', { player: actor, card: card.name })
+  }
   if (trainerType === 'supporter' && side.supporterPlayedTurn) return failure(state, 'supporter-limit')
   if (trainerType === 'supporter' && state.turn === 1 && state.setup.firstPlayer === actor) return failure(state, 'first-turn-supporter')
   if (trainerType === 'stadium' && next.stadium?.name === card.name) return failure(state, 'same-stadium')

@@ -502,6 +502,28 @@ export type DurationEffect =
   | { kind: 'preventAllDamage' }
   /** 093 — "the Defending Pokemon can't retreat". */
   | { kind: 'cantRetreat' }
+  /**
+   * 04.10 CP8 / 040 Pikachu: "The Defending Pokemon's Weakness is now Lightning until
+   * the end of your next turn. (Apply Weakness as x2.)"
+   *
+   * A Weakness MUTATION, not a damage modifier, which is why it is a duration riding
+   * the DEFENDER rather than a `reducedBase` term: the printed Weakness TABLE is
+   * replaced for the whole window, so anything reading the defender's weaknesses — not
+   * only this one attack — sees Lightning. `multiplier` carries the printed "as x2" so
+   * a card printing another value is read rather than assumed.
+   */
+  | { kind: 'weaknessChange'; type: string; multiplier: number }
+  /**
+   * 04.10 CP8 / 084 Seismitoad: "whenever they try to use a Trainer card from their
+   * hand, they flip a coin. If tails, your opponent discards that Trainer card
+   * instead of using it."
+   *
+   * It rides the HOLDER (the Seismitoad), not the opponent: the action it intercepts
+   * is the OPPONENT's, so the gate is read from whichever seat is acting. Tails
+   * DISCARDS the card and the play does not happen, which is different from a play that
+   * failed to resolve — the card is spent either way, and the discard is what changes.
+   */
+  | { kind: 'interceptTrainer' }
 
 /**
  * 04.9 CP5: one live time-limited effect, riding a specific in-play Pokemon.
