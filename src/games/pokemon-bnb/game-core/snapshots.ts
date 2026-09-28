@@ -76,6 +76,12 @@ function snapshotSide(side: SideState, isViewer: boolean, prizeTotal: number): S
     setupBenchCount: side.setupBench.length,
     setupPenaltyCards: side.setupPenaltyCards,
     setupReady: side.setupReady,
+    // 04.10 CP3: the side-wide "opponent's last turn" KO flag. Public (both players
+    // saw the KO), and it names no hidden zone. The PER-Pokemon half of the memory
+    // needs no line here: `cloneInPlay` is a JSON deep copy, so `lastTurnAttacked*`
+    // rides along inside every active and benched Pokemon automatically — which is
+    // the same reason that half needs no explicit restore either.
+    koByAttackTurn: side.koByAttackTurn,
   }
 }
 
@@ -153,6 +159,11 @@ function snapshotSideToState(snapshot: SnapshotSide): SideState {
     setupBench: fillHidden(snapshot.setupBenchCount) as SideState['setupBench'],
     setupPenaltyCards: snapshot.setupPenaltyCards,
     setupReady: snapshot.setupReady,
+    // 04.10 CP3: restored so a rebuilt state answers 005/091 the same way the host
+    // does. The `?? -1` keeps a snapshot written by an older host (which has no such
+    // field) from rebuilding to `undefined`, which would compare false against
+    // `turn - 1` for the rest of the match and silently disable the card.
+    koByAttackTurn: snapshot.koByAttackTurn ?? -1,
   }
 }
 

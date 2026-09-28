@@ -30,6 +30,12 @@ function makeInPlay(card: PokemonCardDef, enteredTurn: number): InPlayPokemon {
     energyAttachedTurn: 0,
     retreatedTurn: 0,
     abilityUsedTurn: 0,
+    // 04.10 CP3: no attack has landed yet, so the memory starts stamped with a turn
+    // that can never equal a real `turn - 1`. -1 is used rather than 0 precisely
+    // because turn 1 is a real turn: a 0 stamp would satisfy the `turn - 1` test on
+    // turn 1 and invent a "last turn" that does not exist.
+    lastTurnAttackedTurn: -1,
+    lastTurnAttackedAmount: 0,
   }
 }
 
@@ -65,6 +71,10 @@ export function sideEmpty(): SideState {
     setupBench: [],
     setupPenaltyCards: 0,
     setupReady: false,
+    // 04.10 CP3: no Pokemon of this side has been Knocked Out by an attack yet. -1 can
+    // never equal a real `turn - 1` (the smallest is 0), so the flag is false on turn
+    // 1 without a special case — the same reason the per-Pokemon memory starts at -1.
+    koByAttackTurn: -1,
   }
 }
 

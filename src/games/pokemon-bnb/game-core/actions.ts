@@ -9,7 +9,7 @@ import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
 import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, inPlayList, inPlayOf, isAttackLocked, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState, PendingChoice, SideState } from './types'
-import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, refreshChoiceTargets, resolveAttack } from './effects'
+import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, recordAttackDamageOn, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
 import { applyEndTurn, applyStartOfTurn, checkVictory, performBenchKo, performKo } from './turns'
 
@@ -109,6 +109,10 @@ export function playBasic(state: BattleState, actor: PlayerSlot, handIndex: numb
     energyAttachedTurn: 0,
     retreatedTurn: 0,
     abilityUsedTurn: 0,
+    // 04.10 CP3: a Pokemon entering play has taken no attack damage, so its memory
+    // starts stamped -1 and reads as 0 forever until an attack actually lands.
+    lastTurnAttackedTurn: -1,
+    lastTurnAttackedAmount: 0,
   })
   logEvent(next, 'pokemonBnb.log.playBasic', { player: actor, card: card.name })
   return { state: next, log: tailLog(next, logStart) }
@@ -592,6 +596,9 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
         energyAttachedTurn: 0,
         retreatedTurn: 0,
         abilityUsedTurn: 0,
+        // 04.10 CP3: as in `playBasic` — a searched-in Pokemon has no attack memory.
+        lastTurnAttackedTurn: -1,
+        lastTurnAttackedAmount: 0,
       })
     }
     logEvent(next, 'pokemonBnb.log.effectSearchDeck', { player: actor, card: found.name })
@@ -708,6 +715,11 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
         : choice.effect.amount)
   if (amount > 0) {
     victim.damage += amount
+    // 04.10 CP3: damage dealt by an ATTACK's effect is still "damage from an
+    // attack", so 085/138 remembers it, and a KO here sets 005/091's side flag. Both
+    // are recorded at the effect site rather than in `performKo`, so a Between-Turns
+    // poison KO — which never reaches this code — cannot satisfy either card.
+    recordAttackDamageOn(victim, next.turn, amount)
     logEvent(next, 'pokemonBnb.log.damageDealt', {
       player: actor,
       attack: choice.attackName,
@@ -718,6 +730,9 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   next.pendingChoice = null
 
   if (isKnockedOut(victim)) {
+    // 04.10 CP3: as above — the flag is set here, at the attack's own damage effect,
+    // and not inside `performKo`, so a poison or Burn KO stays excluded.
+    sideOf(next, target.side).koByAttackTurn = next.turn
     if (hitsActive) performKo(next, target.side)
     else performBenchKo(next, target.side, victim)
   }

@@ -148,6 +148,21 @@ export type InPlayPokemon = {
   retreatedTurn: number
   /** Turn number this copy last used its Ability. */
   abilityUsedTurn: number
+  /**
+   * 04.10 CP3: attack damage this Pokemon took, stamped with the TURN it happened on
+   * (`lastTurnAttackedTurn`) and the amount for that turn. Read by 085/138 Lycanroc's
+   * "if this Pokemon was damaged by an attack during your opponent's last turn, this
+   * attack does that much more damage".
+   *
+   * Stored as a TURN NUMBER, not as a counter to clear, and that is the whole trick.
+   * The read is `lastTurnAttackedTurn === state.turn - 1`, so a hit from two turns ago
+   * can never be mistaken for a hit last turn and there is no "forgot to reset" bug to
+   * have. Clearing a counter instead would need a correct reset on EVERY path that ends
+   * a turn, and 04.9 already found `applyEndTurn` has more than one exit.
+   */
+  lastTurnAttackedTurn: number
+  /** Attack damage dealt to this Pokemon on `lastTurnAttackedTurn`. */
+  lastTurnAttackedAmount: number
 }
 
 export type SideState = {
@@ -190,6 +205,30 @@ export type SideState = {
   setupPenaltyCards: number
   /** True after this side's Active/Bench/Prize selection is locked. */
   setupReady: boolean
+  /**
+   * 04.10 CP3: the turn on which one of THIS side's Pokemon was Knocked Out BY AN
+   * ATTACK, or -1 when none has. Read by 005 Tropius / 091 Umbreon's "if any of your
+   * Pokemon were Knocked Out by damage from an attack during your opponent's last
+   * turn, this attack does N more damage".
+   *
+   * Deliberately a SIDE field, not a per-Pokemon one, for a decisive reason: a
+   * knocked-out Pokemon's `InPlayPokemon` object is destroyed by `discardKnockedOut`,
+   * which keeps only the `CardDef`. A flag on the Pokemon would therefore be gone
+   * exactly when the clause needs it, and the clause is side-wide ("any of your
+   * Pokemon") anyway, so the side is the only place the memory can live.
+   *
+   * Stamped with a TURN rather than cleared, for the same anti-compounding reason as
+   * `InPlayPokemon.lastTurnAttackedTurn`: the read is `=== state.turn - 1`, so an old
+   * KO ages out on its own. This also means `applyEndTurn` needs no reset step — which
+   * matters because 04.9 found it has more than one exit, and a flag that had to be
+   * cleared on each would eventually be missed.
+   *
+   * Recorded ONLY for damage from an attack. Poison and Burn KOs run through the same
+   * `performKo`, so the flag is set at the attack sites and never inside `performKo`
+   * itself — 04.10's text is specific about "by damage from an attack", and a
+   * Between-Turns poison KO satisfying it would be a wrong effect.
+   */
+  koByAttackTurn: number
 }
 
 /**
@@ -267,6 +306,14 @@ export type SnapshotSide = {
   setupBenchCount: number
   setupPenaltyCards: number
   setupReady: boolean
+  /**
+   * 04.10 CP3: the SIDE half of the "opponent's last turn" memory, carried verbatim
+   * like `durations`. It is public information — both players watched the Knock Out
+   * happen — and the rebuilt state is `viewOnly`, so it exists purely so a rebuilt
+   * state reads the same 005/091 answer the host computes. It names no hidden zone,
+   * so the privacy boundary is unchanged.
+   */
+  koByAttackTurn: number
 }
 
 export type Snapshot = {

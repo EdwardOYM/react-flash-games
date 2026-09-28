@@ -109,6 +109,44 @@ export function activeDealtReduction(state: BattleState, attacker: InPlayPokemon
   return -durationDamageAdjustment(state, attacker.uid)
 }
 
+/**
+ * 04.10 CP3: remember that an ATTACK put `amount` damage on `pokemon`, for 085/138's
+ * "damaged by an attack during your opponent's last turn".
+ *
+ * Re-records rather than accumulates, which is what makes a SECOND hit on a later turn
+ * replace the first instead of summing with it. Without that, a Pokemon hit for 20 on
+ * turn 4 and 30 on turn 6 would answer 50 on turn 7 — reading damage from two turns
+ * back as if it were "last turn". The turn stamp is the authority; the amount is only
+ * ever the value belonging to the stamped turn.
+ */
+export function recordAttackDamageOn(pokemon: InPlayPokemon, turn: number, amount: number): void {
+  if (pokemon.lastTurnAttackedTurn !== turn) {
+    pokemon.lastTurnAttackedTurn = turn
+    pokemon.lastTurnAttackedAmount = 0
+  }
+  pokemon.lastTurnAttackedAmount += amount
+}
+
+/**
+ * 04.10 CP3: how much ATTACK damage `pokemon` took during the opponent's LAST turn,
+ * or 0. The single read point for 085/138, and the only place the `turn - 1` test
+ * lives, so the two Lycanrocs cannot drift apart.
+ */
+export function damageTakenLastTurn(state: BattleState, pokemon: InPlayPokemon): number {
+  return pokemon.lastTurnAttackedTurn === state.turn - 1 ? pokemon.lastTurnAttackedAmount : 0
+}
+
+/**
+ * 04.10 CP3: whether one of `slot`'s Pokemon was Knocked Out by an attack during the
+ * opponent's last turn — the read for 005/091.
+ *
+ * The `turn - 1` test is the same anti-compounding device as `damageTakenLastTurn`: a
+ * KO from two turns ago is simply not "last turn", with nothing to clear.
+ */
+export function koByAttackLastTurn(state: BattleState, slot: PlayerSlot): boolean {
+  return sideOf(state, slot).koByAttackTurn === state.turn - 1
+}
+
 /** Which seat a given in-play Pokémon belongs to, or null when it is not in play. */
 export function slotOwning(state: BattleState, pokemon: InPlayPokemon): PlayerSlot | null {
   for (const slot of ['host', 'guest'] as const) {
@@ -181,6 +219,14 @@ export type ParsedEffect =
   //
   // Damage modifiers (folded into `base` in resolveAttack):
   | { kind: 'bonusDamageIfDefenderDamaged'; amount: number }
+  // -- 04.10 CP3: the "opponent's LAST turn" family. Both read a per-turn MEMORY
+  // rather than live state, which is why they are two kinds and not one flag:
+  // 005/091 is side-wide and a fixed amount; 085/138 is per-Pokemon and the amount is
+  // whatever was taken. Neither amount is known at parse time in 085/138's case.
+  /** 005 Tropius / 091 Umbreon: fixed bonus if a KO by attack happened last turn. */
+  | { kind: 'bonusDamageIfKoByAttackLastTurn'; amount: number }
+  /** 085/138 Lycanroc: bonus EQUALS the attack damage this Pokemon took last turn. */
+  | { kind: 'bonusDamagePerDamageTakenLastTurn' }
   | { kind: 'bonusDamageIfHasTool'; amount: number }
   | { kind: 'bonusDamagePerHandCard'; amount: number }
   | { kind: 'bonusDamagePerBenchWithHp'; amount: number; hp: number }
@@ -1009,6 +1055,31 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.10 CP3 / 005-091: "If any of your Pokemon were Knocked Out by damage from an
+    // attack during your opponent's last turn, this attack does N more damage." The
+    // "by damage from an attack" rider is load-bearing and is carried by the clause
+    // below; anchoring on the WHOLE sentence is what stops a "were Knocked Out during
+    // your last turn" that says nothing about attacks from matching it.
+    const koLastTurn = sentence.match(
+      /^if any of your pokemon were knocked out by damage from an attack during your opponent's last turn, this attack does (\d+) more damage\.$/i,
+    )
+    if (koLastTurn) {
+      effects.push({ kind: 'bonusDamageIfKoByAttackLastTurn', amount: Number(koLastTurn[1]) })
+      pendingCoin = false
+      continue
+    }
+    // 04.10 CP3 / 085-138: "If this Pokemon was damaged by an attack during your
+    // opponent's last turn, this attack does that much more damage." There is NO
+    // printed number — "that much" is the remembered damage — so the clause carries no
+    // `amount` at all and resolution reads it off the Pokemon's own memory.
+    const tookDamageLastTurn = sentence.match(
+      /^if this pokemon was damaged by an attack during your opponent's last turn, this attack does that much more damage\.$/i,
+    )
+    if (tookDamageLastTurn) {
+      effects.push({ kind: 'bonusDamagePerDamageTakenLastTurn' })
+      pendingCoin = false
+      continue
+    }
     const defenderHurt = sentence.match(
       /^if your opponent's active pokemon already has any damage counters on it, this attack does (\d+) more damage\.$/i,
     )
@@ -1609,6 +1680,8 @@ export function applyEffect(
       break
     // 04.9 CP1: consumed by resolveAttack (the bonuses, the flag, the recoil).
     case 'bonusDamageIfDefenderDamaged':
+    case 'bonusDamageIfKoByAttackLastTurn':
+    case 'bonusDamagePerDamageTakenLastTurn':
     case 'bonusDamageIfHasTool':
     case 'bonusDamagePerHandCard':
     case 'bonusDamagePerBenchWithHp':
@@ -1834,6 +1907,10 @@ function resolveSpreadAttack(
     const outcome = computeAttackDamage(state, attacker, active, effect.amount)
     if (outcome.damage > 0) {
       active.damage += outcome.damage
+      // 04.10 CP3: a spread hit is still "damage from an attack", so 085/138 must
+      // remember it. Omitting this would make a benched-then-promoted Lycanrock answer
+      // 0 after being hit by a spread — a wrong effect, not a missing one.
+      recordAttackDamageOn(active, state.turn, outcome.damage)
       logEvent(state, 'pokemonBnb.log.damageDealt', {
         player: actor,
         attack: attack.name,
@@ -1852,6 +1929,8 @@ function resolveSpreadAttack(
   }
   for (const target of bench) {
     target.damage += effect.amount
+    // 04.10 CP3: as above — a spread bench hit is attack damage too.
+    recordAttackDamageOn(target, state.turn, effect.amount)
     logEvent(state, 'pokemonBnb.log.damageDealt', {
       player: actor,
       attack: attack.name,
@@ -1864,10 +1943,17 @@ function resolveSpreadAttack(
 
   for (const target of bench) {
     if (!isKnockedOut(target)) continue
+    // 04.10 CP3: a spread KOs the BENCH too, and 005/091 says "any of your Pokemon",
+    // so a bench knockout has to set the same side flag the Active path sets.
+    sideOf(state, defenderSlot).koByAttackTurn = state.turn
     performBenchKo(state, defenderSlot, target)
     if (state.over) return
   }
-  if (active && matches(active) && isKnockedOut(active)) performKo(state, defenderSlot)
+  if (active && matches(active) && isKnockedOut(active)) {
+    // 04.10 CP3: as above, for the Active half of a spread.
+    sideOf(state, defenderSlot).koByAttackTurn = state.turn
+    performKo(state, defenderSlot)
+  }
 }
 
 /**
@@ -1981,6 +2067,20 @@ export function resolveAttack(
       const bonus = effect.amount * heads
       base += bonus
       logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamageIfKoByAttackLastTurn') {
+      // 04.10 CP3 / 005-091. The bonus lands in `base` like any other printed
+      // bonus, so the defender's Weakness and Resistance still apply to it.
+      const bonus = koByAttackLastTurn(state, actor) ? effect.amount : 0
+      base += bonus
+      if (bonus > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamagePerDamageTakenLastTurn') {
+      // 04.10 CP3 / 085-138. The printed "that much" is the attack damage the
+      // ATTACKER itself took last turn, read off its own memory — not the
+      // defender's, and not its current damage counters. A Lycanrock that was hit
+      // for 60 and then healed back to zero still deals the remembered 60.
+      const bonus = damageTakenLastTurn(state, attacker)
+      base += bonus
+      if (bonus > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
     } else if (effect.kind === 'bonusDamageIfDefenderDamaged') {
       // 04.9 CP1: "already has any damage counters on it". `damage > 0` is the
       // whole test — and it is the same raw number `isKnockedOut` reads, so a
@@ -2050,6 +2150,11 @@ export function resolveAttack(
     : Math.max(0, outcome.damage + durationDamageAdjustment(state, defender.uid))
   if (adjusted > 0) {
     defender.damage += adjusted
+    // 04.10 CP3: an ATTACK hit is exactly what 085/138 remembers. This is the ONE
+    // place main attack damage is recorded, and it sits after `preventAllDamage` has
+    // already forced `adjusted` to 0, so a prevented hit leaves no memory — recording
+    // it before that test would let a shielded Pokemon "remember" a hit it never took.
+    recordAttackDamageOn(defender, state.turn, adjusted)
     logEvent(state, 'pokemonBnb.log.damageDealt', {
       player: actor,
       attack: context.attackName,
@@ -2124,6 +2229,13 @@ export function resolveAttack(
 
   // 4. Knock Out of the defender.
   if (!spread && isKnockedOut(defender)) {
+    // 04.10 CP3: record the KO against the LOSING side, stamped with the current turn.
+    // It is stamped rather than set, so a second KO later the same turn cannot be
+    // missed and an older turn's KO cannot leak forward — the read compares the stamp
+    // to `turn - 1`. This is the site that makes 005/091 true, and it is deliberately
+    // NOT inside `performKo`, which also serves Between-Turns poison and Burn KOs that
+    // the card's "by damage from an attack" explicitly excludes.
+    sideOf(state, defenderSlot).koByAttackTurn = state.turn
     performKo(state, defenderSlot)
     // 04.7: "If your opponent's Pokémon is Knocked Out by damage from this
     // attack, take 1 more Prize card." The bonus is a plain extra take, not a
