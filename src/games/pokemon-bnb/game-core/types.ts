@@ -94,15 +94,36 @@ export type PendingChoice = {
     // `to` is deliberately open: 'hand' and 'deck' land here, and a future 'bench'
     // needs no new effect kind, only a new target rule.
     | { kind: 'pickFromDiscard'; to: 'hand' | 'deck' }
-    // 04.9 CP4: take up to N cards from the actor's own Deck, resolving ONCE PER
-    // PICK. This is the only effect kind that re-parks its own choice: `remaining`
-    // counts down and the target list is rebuilt between picks, or `finishChoice`
-    // closes it early because "up to" is permissive rather than a quota.
+    // 04.9 CP4: take up to N cards from a ZONE, resolving ONCE PER PICK. This is the
+    // only effect kind that re-parks its own choice: `remaining` counts down and the
+    // target list is rebuilt between picks, or `finishChoice` closes it early because
+    // "up to" is permissive rather than a quota.
     //
     // `max` is the PRINTED cap and may be `Infinity` ("any number of"). It is never
     // the number enforced: `remaining` is resolved to a FINITE cap at park time,
     // because `JSON.stringify(Infinity)` is `null` and would break the round trip.
-    | { kind: 'searchDeckUpTo'; filter: 'basicPokemon' | 'stadium'; to: 'hand' | 'bench'; max: number }
+    //
+    // 04.10 CP1 widened this from "the Deck" to "a zone, filtered". The three discard
+    // families (048 energy→hand, 103 pokemon+energy→deck, 109/156 pokemon→Bench) differ
+    // from 013/053/076 only in WHICH zone is read and WHICH cards qualify — a target
+    // rule, not a new mechanism, which is exactly what 04.9 CP3 predicted when it left
+    // `pickFromDiscard`'s `to` open for exactly this. A separate `searchDiscardUpTo`
+    // would have been four near-identical kinds that can drift apart.
+    | {
+        kind: 'searchDeckUpTo'
+        filter: 'basicPokemon' | 'stadium' | 'basicEnergy' | 'pokemon' | 'pokemonOrEnergy'
+        to: 'hand' | 'bench' | 'deck'
+        max: number
+        /** Which zone the cards are taken FROM. 04.10 CP1; `'deck'` was the only value. */
+        from: 'deck' | 'discard'
+        /**
+         * 04.10 CP1 / 109-156: put the picked Pokemon on the Bench. A Basic whose
+         * printed type does not include the required type is not a legal target, and
+         * the Bench cap (`MAX_BENCH`) still applies.
+         */
+        requireType?: string
+      }
+    | { kind: 'searchAnyToHand'; coin: boolean }
     // 04.9 CP7: swap the chosen Pokemon with the current Active of that side. The whole
     // `InPlayPokemon` object moves, so Energy, damage, conditions and the uid travel
     // with it — see `applySwitchInPlace`. `optional` is 066/152/158's printed "You may",

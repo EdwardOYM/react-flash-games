@@ -10,7 +10,7 @@
 // engine header and the re-export barrel.
 
 import { DAMAGE_PER_COUNTER, MAX_BENCH } from './constants'
-import { cardIsEnergy, cardIsPokemon, cardIsStadium, cardIsTrainer, isBasicPokemon, type AttackDef, type CardDef, type EnergyCardDef } from '../cards'
+import { cardIsEnergy, cardIsPokemon, cardIsStadium, cardIsTrainer, isBasicPokemon, type AttackDef, type CardDef, type CardType, type EnergyCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
 import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
@@ -210,7 +210,30 @@ export type ParsedEffect =
   // `max` is the PRINTED cap and is `Infinity` for "any number"; the finite cap
   // actually enforced is resolved at park time (see `resolveAttack`), because
   // `Infinity` does not survive the snapshot.
-  | { kind: 'searchDeckUpTo'; filter: 'basicPokemon' | 'stadium'; to: 'hand' | 'bench'; max: number }
+  // 04.9 CP4: take up to N cards from a ZONE, resolving ONCE PER PICK — the only
+  // effect kind that re-parks its own choice, because `remaining` counts down and the
+  // target list is rebuilt between picks (or `finishChoice` closes it early, since
+  // "up to" is a permission rather than a quota).
+  //
+  // 04.10 CP1 widened this from "the Deck" to "a zone, filtered". The three discard
+  // families (048 energy→hand, 103 pokemon+energy→deck, 109/156 pokemon→Bench) differ
+  // from 013/053/076 only in WHICH zone is read and WHICH cards qualify — a target
+  // rule, not a new mechanism, which is what 04.9 CP3 predicted when it left
+  // `pickFromDiscard`'s `to` open for exactly this. A separate `searchDiscardUpTo`
+  // would have been a fourth near-identical kind that can drift from this one.
+  //
+  // `max` is the PRINTED cap and may be `Infinity` ("any number of"); it is never the
+  // number enforced, because `JSON.stringify(Infinity)` is `null` and would break the
+  // snapshot round trip. `remaining` is resolved to a FINITE cap at park time.
+  | {
+      kind: 'searchDeckUpTo'
+      filter: 'basicPokemon' | 'stadium' | 'basicEnergy' | 'pokemon' | 'pokemonOrEnergy'
+      to: 'hand' | 'bench' | 'deck'
+      max: number
+      from: 'deck' | 'discard'
+      /** 109/156: the picked Pokemon must carry this printed type to be a legal target. */
+      requireType?: string
+    }
   // -- 04.9 CP5: DURATION state. These are the first clauses that do not resolve
   // immediately — each one installs a time-limited effect that a LATER turn reads.
   // `whose` names the window in the printed words and is turned into an absolute
@@ -227,6 +250,11 @@ export type ParsedEffect =
   // Benched Pokemon. The mechanics are identical either way, so they are one kind
   // with data rather than four near-identical kinds.
   | { kind: 'switchWithBenched'; optional: boolean; foe: boolean }
+  // 04.10 CP1 / 081 Gimmighoul — "search your deck for a CARD and put it into your
+  // hand", behind a coin flip. A separate kind rather than a `searchDeck` filter
+  // because it is COIN-GATED, and `searchDeck` is deliberately unconditioned: a
+  // filter cannot express "only on heads" without adding a flag to every caller.
+  | { kind: 'searchAnyToHand'; coin: boolean }
   /** 106 — the same lock narrowed to one named attack. */
   | { kind: 'durationCantUseAttack'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender'; attackName: string }
   | { kind: 'durationLessDamageTaken'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender'; amount: number }
@@ -530,29 +558,49 @@ function nameMatches(cardName: string, names: string[]): boolean {
  * "wrong effect" failure this engine treats as worse than a missing one.
  */
 export function refreshChoiceTargets(state: BattleState, choice: PendingChoice): ChoiceTarget[] {
-  // A deck pick is filtered by the effect's own rule. `searchDeckUpTo` narrows to
-  // Basic Pokemon or Stadium SPECIFICALLY; the single-card `searchDeck` keeps the
-  // coarse pokemon/trainer/energy families it always had.
-  const deckFits = (card: CardDef): boolean => {
-    if (choice.effect.kind === 'searchDeckUpTo') {
-      return choice.effect.filter === 'basicPokemon' ? isBasicPokemon(card) : cardIsStadium(card)
+  // A zone pick is filtered by the effect's own rule. 04.10 CP1 added the discard
+  // families here rather than in a second list, so there is exactly ONE place that
+  // decides what is pickable — four near-identical lists could disagree, and a wrong
+  // target is worse than a missing one.
+  const zoneFits = (card: CardDef): boolean => {
+    if (choice.effect.kind !== 'searchDeckUpTo') return true
+    const { filter, requireType } = choice.effect
+    const typeOk = requireType
+      ? cardIsPokemon(card) && card.types.includes(requireType as CardType)
+      : true
+    if (!typeOk) return false
+    switch (filter) {
+      // 013/053/076: only a Basic may legally sit on the Bench, and only a Stadium is
+      // a Stadium. The coarse families are the 04.8 CP3-B single-card search.
+      case 'basicPokemon':
+        return isBasicPokemon(card)
+      case 'stadium':
+        return cardIsStadium(card)
+      // 048/063: "Basic Energy cards" — Energy whose `provides` is set, since special
+      // Energy is not a "Basic Energy" in the printed sense.
+      case 'basicEnergy':
+        return cardIsEnergy(card) && card.provides !== undefined
+      // 109/156: "Dragon Pokemon from your discard pile onto your Bench" — a Basic,
+      // because only a Basic may sit on the Bench. `requireType` adds the Dragon test.
+      case 'pokemon':
+        return isBasicPokemon(card)
+      // 103: "in any combination of Pokemon and Basic Energy cards".
+      case 'pokemonOrEnergy':
+        return isBasicPokemon(card) || (cardIsEnergy(card) && card.provides !== undefined)
+      default:
+        return true
     }
-    if (choice.effect.kind !== 'searchDeck') return true
-    return choice.effect.filter === 'pokemon'
-      ? cardIsPokemon(card)
-      : choice.effect.filter === 'energy'
-        ? cardIsEnergy(card)
-        : cardIsTrainer(card)
   }
   if (choice.source === 'discard') {
     return sideOf(state, choice.actor).discard
       .map((card, index) => ({ side: choice.actor, zone: 'discard' as const, index, cardId: card.id }))
+      .filter((entry) => zoneFits(sideOf(state, choice.actor).discard[entry.index]))
   }
   if (choice.source === 'deck') {
     const deck = sideOf(state, choice.actor).deck
     return deck
       .map((card, deckIndex) => ({ side: choice.actor, zone: 'deck' as const, deckIndex, cardId: card.id }))
-      .filter((entry) => deckFits(deck[entry.deckIndex]))
+      .filter((entry) => zoneFits(deck[entry.deckIndex]))
   }
   // In-play targets are identified by `uid`, which no pick invalidates, so there is
   // nothing to re-derive: the stored list stays authoritative.
@@ -605,6 +653,8 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
         filter: 'basicPokemon',
         to: 'bench',
         max: upToBench[1] ? Number(upToBench[1]) : Number.POSITIVE_INFINITY,
+        // 04.10 CP1 made the source zone explicit; the 04.9 deck texts read `'deck'`.
+        from: 'deck',
       })
       pendingCoin = false
       continue
@@ -619,6 +669,7 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
         filter: 'stadium',
         to: 'hand',
         max: Number(upToStadium[1]),
+        from: 'deck',
       })
       pendingCoin = false
       continue
@@ -735,6 +786,61 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
           ? { kind: 'durationCantAttack', whose, subject }
           : { kind: 'durationCantUseAttack', whose, subject, attackName: name },
       )
+      pendingCoin = false
+      continue
+    }
+    // -- 04.10 CP1: the ZONE searches. These differ from 013/053/076 only in which
+    // zone is read and which cards qualify — the seam already exists from 04.9 CP4, so
+    // each is a target rule rather than a new mechanism. Matched BEFORE the deck-only
+    // patterns below so a discard text can never be read as a deck search.
+    //
+    // 048: "Put up to 2 Basic Energy cards from your discard pile into your hand."
+    const discardEnergyToHand = sentence.match(
+      /^put up to (\d+) basic energy cards? from your discard pile into your hand\.$/i,
+    )
+    if (discardEnergyToHand) {
+      effects.push({
+        kind: 'searchDeckUpTo', filter: 'basicEnergy', to: 'hand',
+        max: Number(discardEnergyToHand[1]), from: 'discard',
+      })
+      pendingCoin = false
+      continue
+    }
+    // 103: "Shuffle up to 3 in any combination of Pokemon and Basic Energy cards from
+    // your discard pile into your deck." `any combination` is why the filter is the
+    // union `pokemonOrEnergy` rather than two separate clauses.
+    const discardMixedToDeck = sentence.match(
+      /^shuffle up to (\d+) in any combination of pokemon and basic energy cards? from your discard pile into your deck\.$/i,
+    )
+    if (discardMixedToDeck) {
+      effects.push({
+        kind: 'searchDeckUpTo', filter: 'pokemonOrEnergy', to: 'deck',
+        max: Number(discardMixedToDeck[1]), from: 'discard',
+      })
+      pendingCoin = false
+      continue
+    }
+    // 109/156: "Put up to 3 Dragon Pokemon from your discard pile onto your Bench."
+    // The TYPE is part of the target rule, so it is captured rather than assumed.
+    const discardTypedToBench = sentence.match(
+      /^put up to (\d+) (\w+) pokemon from your discard pile onto your bench\.$/i,
+    )
+    if (discardTypedToBench) {
+      effects.push({
+        kind: 'searchDeckUpTo', filter: 'pokemon', to: 'bench',
+        max: Number(discardTypedToBench[1]), from: 'discard',
+        // Card text capitalises the type; `types` is lowercase, so fold it here.
+        requireType: discardTypedToBench[2].toLowerCase(),
+      })
+      pendingCoin = false
+      continue
+    }
+    // 081: "Flip a coin. If heads, search your deck for a card and put it into your
+    // hand." The existing `searchDeck` only matches a TYPED search ("a Pokemon", "an
+    // Energy card"); "a card" is any card, which is the whole clause here.
+    const searchAnyCard = sentence.match(/^if heads, search your deck for a card and put it into your hand\.$/i)
+    if (searchAnyCard && pendingCoin) {
+      effects.push({ kind: 'searchAnyToHand', coin: true })
       pendingCoin = false
       continue
     }
@@ -1522,6 +1628,10 @@ export function applyEffect(
     case 'durationCantRetreat':
       applyDuration(state, context, effect.whose, effect.subject, { kind: 'cantRetreat' })
       break
+    // 04.10 CP1 / 081: parked by resolveAttack behind a coin flip, applied by
+    // resolveChoice. Every deck card qualifies, so there is no filter to apply.
+    case 'searchAnyToHand':
+      break
     // 04.9 CP7: parked by resolveAttack as a board switch, applied by resolveChoice.
     case 'switchWithBenched':
       break
@@ -2037,9 +2147,13 @@ export function resolveAttack(
   const upTo = effects.find((effect) => effect.kind === 'searchDeckUpTo')
   if (upTo && upTo.kind === 'searchDeckUpTo') {
     const side = sideOf(state, actor)
-    const benchRoom = upTo.to === 'bench' ? Math.max(0, MAX_BENCH - side.bench.length) : side.deck.length
-    // `side.deck.length` bounds the hand case: you cannot take more cards than the
-    // deck holds, so an over-large cap costs nothing and stays finite either way.
+    // 04.10 CP1: the source zone is part of the clause, so the cap is measured against
+    // THAT zone's eligible cards — a full Bench still bounds a Bench-bound search, and
+    // a two-card discard bounds a "up to 3" to two.
+    const source = upTo.from === 'discard' ? side.discard : side.deck
+    const benchRoom = upTo.to === 'bench' ? Math.max(0, MAX_BENCH - side.bench.length) : source.length
+    // `source.length` bounds the hand/deck cases: you cannot take more cards than the
+    // zone holds, so an over-large cap costs nothing and stays finite either way.
     const cap = Math.min(upTo.max, benchRoom)
     if (cap <= 0) {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no room to take any card' })
@@ -2048,17 +2162,46 @@ export function resolveAttack(
         actor,
         targets: [],
         remaining: cap,
-        source: 'deck',
+        source: upTo.from,
         effect: upTo,
         attackName: context.attackName,
       }
-      const targets = refreshChoiceTargets(state, probe)
-      if (targets.length === 0) {
-        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no matching card in deck' })
+      // Count only ELIGIBLE cards, so "up to 3" over a discard holding one Dragon is a
+      // cap of 1 rather than a picker that offers nothing on the second pick.
+      const eligible = refreshChoiceTargets(state, probe).length
+      if (eligible === 0) {
+        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no matching card in the zone' })
       } else {
-        probe.targets = targets
+        probe.remaining = Math.min(cap, eligible)
+        probe.targets = refreshChoiceTargets(state, probe)
         state.pendingChoice = probe
-        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
+        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: probe.targets.length })
+      }
+    }
+  }
+
+  // 10. 04.10 CP1 / 081: a coin-gated "search for a CARD". The flip is resolved HERE,
+  // at resolution, so a tails result simply does not park — there is nothing to
+  // decline, the same shape as `bonusDamage`'s coin gate. An empty deck also parks
+  // nothing, for the soft-lock reason every other pick in this file uses.
+  const anyCard = effects.find((effect) => effect.kind === 'searchAnyToHand')
+  if (anyCard && anyCard.kind === 'searchAnyToHand') {
+    if (anyCard.coin && !flipCoin(state)) {
+      logEvent(state, 'pokemonBnb.log.coinTails', { player: actor })
+    } else {
+      const deck = sideOf(state, actor).deck
+      if (deck.length === 0) {
+        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no cards in deck' })
+      } else {
+        state.pendingChoice = {
+          actor,
+          targets: deck.map((card, deckIndex) => ({ side: actor, zone: 'deck' as const, deckIndex, cardId: card.id })),
+          remaining: 1,
+          source: 'deck',
+          effect: { kind: 'searchAnyToHand', coin: anyCard.coin },
+          attackName: context.attackName,
+        }
+        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: deck.length })
       }
     }
   }

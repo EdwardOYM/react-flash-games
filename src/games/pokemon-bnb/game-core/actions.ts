@@ -541,24 +541,39 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closedHeal, log: tailLog(closedHeal, logStart) }
   }
 
-  // 04.9 CP4: the "up to N" deck search is the ONE effect that resolves more than
+  // 04.9 CP4: the "up to N" ZONE search is the ONE effect that resolves more than
   // once. It runs BEFORE the single-card search below, because both move a card out
-  // of the Deck and only the cap differs. After a pick it re-parks itself with a
+  // of a zone and only the cap differs. After a pick it re-parks itself with a
   // REBUILT target list rather than closing the turn, and only the last pick (or an
   // explicit `finishChoice`) closes it.
   if (choice.effect.kind === 'searchDeckUpTo') {
-    // Narrow the union explicitly. A ternary does NOT keep its narrowing past the
-    // expression, so the deck fields are read only after this guard.
-    if (target.zone !== 'deck') return failure(state, 'no-target')
-    const ownDeck = sideOf(next, target.side).deck
-    const found = ownDeck[target.deckIndex]
-    // Re-validated against the card id, because a Deck holds DUPLICATES and an id
-    // alone would not identify a card.
-    if (!found || found.id !== target.cardId) return failure(state, 'no-target')
-    ownDeck.splice(target.deckIndex, 1)
+    // 04.10 CP1: the SOURCE ZONE is part of the clause, so the pile is chosen here
+    // rather than assumed. The index is re-validated against the live pile on every
+    // pick — an id alone would not identify a card, because both a Deck and a discard
+    // pile hold DUPLICATES.
+    const fromDiscard = choice.effect.from === 'discard'
     const ownSide = sideOf(next, actor)
+    // The pile is chosen by the CLAUSE's source, and the target must actually be an
+    // entry of that pile. Checking the clause rather than trusting the target is what
+    // stops a forged `zone` from naming a card in the other pile.
+    if (fromDiscard !== (target.zone === 'discard')) return failure(state, 'no-target')
+    const pile = fromDiscard ? ownSide.discard : ownSide.deck
+    const index = fromDiscard
+      ? (target.zone === 'discard' ? target.index : -1)
+      : (target.zone === 'deck' ? target.deckIndex : -1)
+    if (index < 0) return failure(state, 'no-target')
+    const cardId = 'cardId' in target ? target.cardId : null
+    const found = cardId ? pile[index] : undefined
+    if (!found || found.id !== cardId) return failure(state, 'no-target')
+    pile.splice(index, 1)
     if (choice.effect.to === 'hand') {
       ownSide.hand.push(found)
+    } else if (choice.effect.to === 'deck') {
+      // 103: "Shuffle up to 3 … from your discard pile into your deck." The card returns
+      // to the TOP. The printed shuffle is a known fidelity gap (04.8 CP3-B): the order
+      // is deterministic rather than random, which both peers agree on because they run
+      // identical code over an identical state.
+      ownSide.deck.unshift(found)
     } else {
       // 'bench': the picked card was already filtered to Basic-only at park time, so
       // this is the same object shape `playBasic` builds. The uid must be UNIQUE
@@ -630,6 +645,22 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     })
     const closedSwitch = next.over ? next : applyEndTurn(next, actor)
     return { state: closedSwitch, log: tailLog(closedSwitch, logStart) }
+  }
+
+  // 04.10 CP1 / 081: the coin-gated "search for a CARD". Any card in the actor's own
+  // deck qualifies, so there is no filter to apply — which is the whole difference
+  // from `searchDeck`, and why it is a separate kind.
+  if (choice.effect.kind === 'searchAnyToHand') {
+    if (target.zone !== 'deck') return failure(state, 'no-target')
+    const ownDeck = sideOf(next, target.side).deck
+    const found = ownDeck[target.deckIndex]
+    if (!found || found.id !== target.cardId) return failure(state, 'no-target')
+    ownDeck.splice(target.deckIndex, 1)
+    sideOf(next, target.side).hand.push(found)
+    next.pendingChoice = null
+    logEvent(next, 'pokemonBnb.log.effectSearchDeck', { player: actor, card: found.name })
+    const closedAny = next.over ? next : applyEndTurn(next, actor)
+    return { state: closedAny, log: tailLog(closedAny, logStart) }
   }
 
   // 04.8 CP3-B: a deck search moves the chosen card out of the actor's own Deck
