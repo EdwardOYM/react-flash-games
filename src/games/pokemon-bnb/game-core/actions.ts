@@ -470,6 +470,29 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
 
   const next = cloneBattleState(state)
   const logStart = next.log.length
+
+  // 04.8 CP3-B: a deck search moves the chosen card out of the actor's own Deck
+  // and into hand. It is NOT a damage effect, so it short-circuits before any
+  // Weakness/Resistance or Knock-Out maths. The deck index is re-validated
+  // against the card id, because a Deck may hold duplicates and an id alone
+  // would not identify a card.
+  if (choice.effect.kind === 'searchDeck') {
+    // Narrow the target union explicitly. A ternary does NOT keep its narrowing
+    // past the expression, so the deck fields are read only after this guard.
+    if (target.zone !== 'deck') return failure(state, 'no-target')
+    const ownDeck = sideOf(next, target.side).deck
+    const found = ownDeck[target.deckIndex]
+    if (!found || found.id !== target.cardId) return failure(state, 'no-target')
+    ownDeck.splice(target.deckIndex, 1)
+    sideOf(next, target.side).hand.push(found)
+    next.pendingChoice = null
+    logEvent(next, 'pokemonBnb.log.effectSearchDeck', { player: actor, card: found.name })
+    const closedDeck = next.over ? next : applyEndTurn(next, actor)
+    return { state: closedDeck, log: tailLog(closedDeck, logStart) }
+  }
+  // Everything below works on an in-play Pokemon, so a deck target is invalid here.
+  if (target.zone === 'deck') return failure(state, 'no-target')
+
   const targetSide = sideOf(next, target.side)
   // Looked up by `uid` across the whole side, NOT by the stored `zone` index. A KO
   // outranks a choice, so the player can promote BETWEEN the choice being offered

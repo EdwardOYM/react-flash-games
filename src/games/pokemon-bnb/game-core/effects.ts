@@ -10,7 +10,7 @@
 // engine header and the re-export barrel.
 
 import { DAMAGE_PER_COUNTER } from './constants'
-import { cardIsEnergy, cardIsPokemon, type AttackDef, type CardDef, type EnergyCardDef } from '../cards'
+import { cardIsEnergy, cardIsPokemon, cardIsTrainer, type AttackDef, type CardDef, type EnergyCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
 import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
@@ -111,6 +111,14 @@ export type ParsedEffect =
   //     takes that and only the Bench is offered — that is what `benchedOnly` buys.
   | { kind: 'damageChosenTarget'; amount: number; benchedOnly: boolean }
   | { kind: 'damageChosenPerCounter'; amountPerCounter: number }
+  // 04.8 CP3-B: the trailing "Then, shuffle your deck." on every search text.
+  // Recognised as an explicit NO-OP rather than left to fall through as
+  // `unsupported` — otherwise the all-or-nothing guard would throw away the whole
+  // search. See the note on `shuffleDeck` below for why a no-op is safe.
+  | { kind: 'shuffleDeck' }
+  // 04.8 CP3-B: the search itself, parked by resolveAttack and applied by
+  // resolveChoice. `filter` mirrors the existing `searchToHand` Ability filter.
+  | { kind: 'searchDeck'; filter: 'pokemon' | 'trainer' | 'energy' }
   // (b) "Place 13 damage counters on 1 of your opponent's Pokemon." Converted to
   //     damage at parse time with 04.5's unit, so no second code path exists for
   //     a counter-denominated amount.
@@ -321,6 +329,29 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
         kind: 'spreadDamage',
         amount: Number(spread[1]),
         exOnly: Boolean(spread[2]),
+      })
+      pendingCoin = false
+      continue
+    }
+    // 04.8 CP3-B: the trailing "Then, shuffle your deck." Recognised so it does
+    // not become an `unsupported` sentence and take the whole search down with it.
+    if (/^then, shuffle your deck\.$/i.test(sentence)) {
+      effects.push({ kind: 'shuffleDeck' })
+      pendingCoin = false
+      continue
+    }
+    // 04.8 CP3-B: "Search your deck for a Pokemon, reveal it, and put it into your
+    // hand." Anchored, and the `a`/`an` article decides pokemon-vs-energy so the
+    // two one-card searches cannot be confused. The multi-card variants ("up to 2",
+    // "any number") are deliberately NOT matched — a count is a different feature.
+    const searchOne = sentence.match(
+      /^search your deck for an? (pokemon|energy card|supporter card|stadium card), reveal it, and put it into your hand\.$/i,
+    )
+    if (searchOne) {
+      const kind = searchOne[1].toLowerCase()
+      effects.push({
+        kind: 'searchDeck',
+        filter: kind === 'pokemon' ? 'pokemon' : kind === 'energy card' ? 'energy' : 'trainer',
       })
       pendingCoin = false
       continue
@@ -772,6 +803,8 @@ export function applyEffect(
     // nothing is the safe answer.
     case 'damageChosenTarget':
     case 'damageChosenPerCounter':
+    // 04.8 CP3-B: `searchDeck` is resolved by resolveChoice from a parked choice.
+    case 'shuffleDeck':
       break
     default:
       break // before-damage clauses are consumed by resolveAttack
@@ -1041,6 +1074,41 @@ export function resolveAttack(
       logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: bench.length })
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no legal target' })
+    }
+  }
+
+  // 6. 04.8 CP3-B: a deck search parks a choice over the ACTOR'S OWN deck. Only
+  // the actor's deck is ever offered — the opponent's is not in scope for a search
+  // and, before CP3-A, was not even in the actor's snapshot.
+  const search = effects.find((effect) => effect.kind === 'searchDeck')
+  if (search && search.kind === 'searchDeck') {
+    const fits = (card: CardDef) =>
+      search.filter === 'pokemon'
+        ? cardIsPokemon(card)
+        : search.filter === 'energy'
+          ? cardIsEnergy(card)
+          : cardIsTrainer(card)
+    // One pass, not filter-then-`includes`: a Deck may legally hold DUPLICATES, so
+    // matching by object identity against a pre-filtered list is both O(n^2) and
+    // needlessly indirect. The deck index is carried instead of a card id for the
+    // same reason — see `ChoiceTarget`.
+    const targets = sideOf(state, actor).deck
+      .map((card, deckIndex) => ({ side: actor, zone: 'deck' as const, deckIndex, cardId: card.id }))
+      .filter((entry) => fits(sideOf(state, actor).deck[entry.deckIndex]))
+    // A failed search is a LEGAL no-op, not a soft-lock: the rulebook lets a
+    // "search your deck for…" come up empty, and it simply ends the turn. The
+    // clause is logged rather than swallowed, and NO choice is parked — parking
+    // an empty picker would refuse every action with nothing to tap.
+    if (targets.length > 0) {
+      state.pendingChoice = {
+        actor,
+        targets,
+        effect: { kind: 'searchDeck', filter: search.filter },
+        attackName: context.attackName,
+      }
+      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
+    } else {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no matching card in deck' })
     }
   }
 }

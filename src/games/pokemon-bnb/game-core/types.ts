@@ -35,7 +35,14 @@ export type SpecialConditionState = Record<StatusCondition, boolean>
  * Pokémon by the time the pick is made. Resolving by `uid` is immune to that,
  * and costs one opaque string on the wire.
  */
-export type ChoiceTarget = { side: PlayerSlot; zone: 'active' | number; uid: string }
+export type ChoiceTarget =
+  | { side: PlayerSlot; zone: 'active' | number; uid: string }
+  // 04.8 CP3-B: a deck card has no `uid` (uids belong to in-play Pokemon) and a
+  // Deck can legally hold duplicates, so a card id would be ambiguous. A DECK
+  // INDEX is stable for the whole life of the choice — nothing else can move a
+  // card out of the Deck while `pendingChoice` blocks every other action — and
+  // `cardId` is re-checked on resolve as a guard against any future change.
+  | { side: PlayerSlot; zone: 'deck'; deckIndex: number; cardId: string }
 
 /**
  * 04.8 CP2: an effect that the printed text hands to the player to resolve.
@@ -58,6 +65,8 @@ export type PendingChoice = {
     // 04.8 CP2-C: "…for each damage counter on that Pokémon" — the amount is not
     // known until the target is picked, so it cannot be a flat number.
     | { kind: 'damagePerCounter'; amountPerCounter: number }
+    // 04.8 CP3-B: move the chosen card out of the actor's own Deck.
+    | { kind: 'searchDeck'; filter: 'pokemon' | 'trainer' | 'energy' }
   /** Printed attack that asked for the choice, for the log line. */
   attackName: string
 }

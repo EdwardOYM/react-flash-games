@@ -1964,35 +1964,51 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
            */}
           {battle.pendingChoice !== null && !battle.over && (
             <div className="bnb-choice-gate" role="dialog" aria-modal="false" aria-label={t('pokemonBnb.chooseTargetTitle')}>
-              <p className="bnb-choice-title">{t('pokemonBnb.chooseTargetTitle')}</p>
+              <p className="bnb-choice-title">
+                {battle.pendingChoice.effect.kind === 'searchDeck'
+                  ? t('pokemonBnb.chooseDeckTitle')
+                  : t('pokemonBnb.chooseTargetTitle')}
+              </p>
               <p className="bnb-hint">{battleErrorCopy('must-choose-target')}</p>
               <div className="bnb-choice-list">
                 {battle.pendingChoice.targets.map((choiceTarget, index) => {
+                  // 04.8 CP3-B: a deck-search target is a card in the ACTOR'S OWN
+                  // deck, not an in-play Pokemon. `zone: 'deck'` narrows the union,
+                  // so the Active/Bench lookup below never sees it.
+                  const deckCard = choiceTarget.zone === 'deck'
+                    ? battle[choiceTarget.side].deck[choiceTarget.deckIndex]
+                    : null
+                  if (choiceTarget.zone === 'deck' && !deckCard) return null
                   const side = battle[choiceTarget.side]
-                  const victim = choiceTarget.zone === 'active' ? side.active : side.bench[choiceTarget.zone]
-                  if (!victim) return null
+                  const victim = choiceTarget.zone === 'active' ? side.active : side.bench[choiceTarget.zone as number]
+                  const name = deckCard ? deckCard.name : victim?.card.name
+                  if (!name) return null
                   return (
                     <button
-                      key={`${choiceTarget.side}-${choiceTarget.zone}`}
+                      key={`${choiceTarget.side}-${choiceTarget.zone}-${index}`}
                       type="button"
                       onClick={() => runBattleAction(battle.pendingChoice!.actor, { type: 'chooseTarget', targetIndex: index })}
                     >
-                      {substituteParams(
-                        // 04.8 CP2-C: a per-counter clause has no flat amount, so it
-                        // gets its own template and {amount} stays a bare number —
-                        // never an English unit glued into JSX.
-                        battle.pendingChoice!.effect.kind === 'damage'
-                          ? t('pokemonBnb.chooseTargetAction')
-                          : t('pokemonBnb.chooseTargetPerCounterAction'),
-                        {
-                          amount: String(
+                      {deckCard
+                        ? name
+                        : substituteParams(
+                            // 04.8 CP2-C: a per-counter clause has no flat amount, so it
+                            // gets its own template and {amount} stays a bare number —
+                            // never an English unit glued into JSX.
                             battle.pendingChoice!.effect.kind === 'damage'
-                              ? battle.pendingChoice!.effect.amount
-                              : battle.pendingChoice!.effect.amountPerCounter,
-                          ),
-                          name: victim.card.name,
-                        },
-                      )}
+                              ? t('pokemonBnb.chooseTargetAction')
+                              : t('pokemonBnb.chooseTargetPerCounterAction'),
+                            {
+                              amount: String(
+                                battle.pendingChoice!.effect.kind === 'damage'
+                                  ? battle.pendingChoice!.effect.amount
+                                  : battle.pendingChoice!.effect.kind === 'damagePerCounter'
+                                    ? battle.pendingChoice!.effect.amountPerCounter
+                                    : 0,
+                              ),
+                              name,
+                            },
+                          )}
                     </button>
                   )
                 })}
