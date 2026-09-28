@@ -8,6 +8,7 @@
 import type { CardDef, CardType, EnergyCardDef, PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { DAMAGE_PER_COUNTER } from './constants'
+import { classifyPassiveAbility, type PassiveAbility } from './effects'
 import type { ActionResult, ActiveDuration, BattleLogEntry, BattleState, DurationEffect, InPlayPokemon, SideState } from './types'
 
 // -- Pure helpers --
@@ -59,8 +60,127 @@ export function effectiveHp(pokemon: InPlayPokemon): number {
   return pokemon.card.hp
 }
 
+/**
+ * 04.9 CP6: total HP bonus a Pokémon's own PASSIVE Abilities grant, in raw points.
+ *
+ * **Additive and self-contained on purpose.** 002/129 reads only the holder's OWN
+ * attached Energy, so this needs no board state and no other Pokémon — which is what
+ * lets `effectiveHp` stay a one-argument pure function that every existing caller
+ * (`isKnockedOut`, `hpCounters`, `remainingCounters`, the vitals readout) keeps
+ * using unchanged. A bonus that needed a sibling in play could not be folded in here
+ * without changing that signature, which is why 004 ("if you have Volbeat in play")
+ * is NOT modelled here and is recorded as deferred.
+ *
+ * The bonus is added to the RAW printed HP, never to a counter count, so
+ * `isKnockedOut`'s `damage >= effectiveHp` comparison stays the single authority.
+ */
+export function passiveHpBonus(pokemon: InPlayPokemon): number {
+  let bonus = 0
+  for (const ability of pokemon.card.abilities) {
+    const passive = classifyPassiveAbility(ability.text)
+    if (!passive || passive.id !== 'hpBonusForEnergy') continue
+    // Count attached Energy that actually PROVIDES the printed type. Special Energy
+    // has no `provides` and can never satisfy a typed requirement, so it is excluded
+    // rather than counted as a wildcard.
+    const matching = pokemon.attachedEnergy.filter((card) => card.provides === passive.energyType).length
+    if (matching >= passive.count) bonus += passive.hp
+  }
+  return bonus
+}
+
+// -- 04.9 CP6: the PASSIVE hook --
+//
+// One function answers "which passives are live right now?" for the whole board, so
+// each call site reads a derived fact instead of re-scanning cards and re-matching
+// printed text. That matters for correctness, not just speed: a rule that lives in
+// two places can disagree with itself, and the engine's standard is that a wrong
+// effect is worse than a missing one.
+
+/** Every Pokémon a side has in play, Active first. */
+function inPlayOfSide(state: BattleState, slot: PlayerSlot): InPlayPokemon[] {
+  const side = sideOf(state, slot)
+  return side.active ? [side.active, ...side.bench] : [...side.bench]
+}
+
+/** Every supported passive rule currently live on the board, with its holder. */
+export type LivePassive = { holder: InPlayPokemon; holderSlot: PlayerSlot; rule: Exclude<PassiveAbility, { id: 'unsupported' }> }
+
+/**
+ * 04.9 CP6: every SUPPORTED passive rule that is in force on the board right now.
+ *
+ * A rule is live when its holder is in play; some rules additionally depend on WHERE
+ * that holder sits (028 and 033 print "as long as this Pokemon is in the Active Spot"
+ * / "on your Bench"), and that condition is checked by the CONSUMER, not here. Keeping
+ * the hook dumb and the rules honest is what makes a misread obvious at the call site
+ * instead of hidden in a shared predicate.
+ */
+export function passiveAbilitiesInPlay(state: BattleState): LivePassive[] {
+  const live: LivePassive[] = []
+  for (const slot of ['host', 'guest'] as const) {
+    for (const holder of inPlayOfSide(state, slot)) {
+      for (const ability of holder.card.abilities) {
+        const passive = classifyPassiveAbility(ability.text)
+        // `null` is a player-triggered text, which has its own registry; `unsupported`
+        // is a passive this checkpoint deliberately did not model.
+        if (!passive || passive.id === 'unsupported') continue
+        live.push({ holder, holderSlot: slot, rule: passive })
+      }
+    }
+  }
+  return live
+}
+
+/** True when a Pokémon carries a given supported passive rule. */
+export function hasPassive(pokemon: InPlayPokemon, id: PassiveAbility['id']): boolean {
+  return pokemon.card.abilities.some((ability) => {
+    const passive = classifyPassiveAbility(ability.text)
+    return passive !== null && passive.id === id
+  })
+}
+
+/**
+ * 04.9 CP6 / 096: the Retreat Cost actually payable by `slot`'s Active, after any
+ * Benched passive reduction.
+ *
+ * **Floored at 0** so a "-2" on a Retreat Cost of 1 gives a free retreat rather than
+ * a negative cost the engine would have to special-case. Read by BOTH `retreatToBench`
+ * and `controls.ts`, so the button's `retreat-cost` reason and the engine's refusal
+ * can never disagree.
+ */
+export function effectiveRetreatCost(state: BattleState, slot: PlayerSlot): number {
+  const active = sideOf(state, slot).active
+  if (!active) return 0
+  let reduction = 0
+  const side = sideOf(state, slot)
+  // 096 is a Benched ability of the holder's OWN side, so the Bench is scanned
+  // directly rather than through the whole-board hook.
+  for (const benched of side.bench) {
+    for (const ability of benched.card.abilities) {
+      const passive = classifyPassiveAbility(ability.text)
+      if (passive && passive.id === 'retreatCostReduction') reduction += passive.amount
+    }
+  }
+  return Math.max(0, active.card.retreat - reduction)
+}
+
+/**
+ * 04.9 CP6 / 100: true when `targetSlot`'s Active is shielded from healing.
+ *
+ * 100 is the HOLDER's own passive and protects the holder's OPPONENT's Active, so the
+ * scan is over the opposing side. Returns false when there is no Active to protect.
+ */
+export function activeIsUnhealable(state: BattleState, targetSlot: PlayerSlot): boolean {
+  const target = sideOf(state, targetSlot).active
+  if (!target) return false
+  const foeSlot = foeOf(targetSlot)
+  for (const holder of inPlayOfSide(state, foeSlot)) {
+    if (hasPassive(holder, 'opponentCannotHeal')) return true
+  }
+  return false
+}
+
 export function isKnockedOut(pokemon: InPlayPokemon): boolean {
-  return pokemon.damage >= effectiveHp(pokemon)
+  return pokemon.damage >= effectiveHp(pokemon) + passiveHpBonus(pokemon)
 }
 
 // -- Damage counters (display unit; the engine stays in raw damage points) --

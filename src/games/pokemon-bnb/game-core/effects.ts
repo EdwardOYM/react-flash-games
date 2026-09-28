@@ -14,7 +14,7 @@ import { cardIsEnergy, cardIsPokemon, cardIsStadium, cardIsTrainer, isBasicPokem
 import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
 import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
-import { addDuration, durationDamageAdjustment, durationTurnFor, findDuration } from './helpers'
+import { addDuration, durationDamageAdjustment, durationTurnFor, findDuration, hasPassive } from './helpers'
 import { STATUS_CONDITIONS, type BattleLogEntry, type BattleState, type ChoiceTarget, type DurationEffect, type InPlayPokemon, type PendingChoice, type StatusCondition } from './types'
 import { applyDeckOutLoss, performBenchKo, performKo, prizesTaken, takePrizeCard } from './turns'
 // -- CP7-C: damage, effects, KO, prizes, victory --
@@ -42,6 +42,11 @@ export function computeAttackDamage(
   baseDamage: number,
 ): { damage: number; weakness: number; resistance: number } {
   if (baseDamage <= 0) return { damage: 0, weakness: 1, resistance: 0 }
+  // 04.9 CP6 / 028: the DEFENDER's own passive reduces the incoming hit, and the card
+  // prints "(before applying Weakness and Resistance)" — so it is subtracted from
+  // `baseDamage` HERE, ahead of the multiplier. Applying it afterwards would let a
+  // Weakness ×2 quietly restore the 20 points the Ability removed.
+  const reducedBase = Math.max(0, baseDamage - passiveAttackerReduction(state, defender))
   const attackerTypes = attacker.card.types
   const weaknessEntry = defender.card.weaknesses.find((entry) => attackerTypes.includes(entry.type))
   const resistanceEntry = defender.card.resistances.find((entry) => attackerTypes.includes(entry.type))
@@ -60,7 +65,39 @@ export function computeAttackDamage(
     }
     resistance = parseResistanceValue(resistanceEntry.value).reduction
   }
-  return { damage: Math.max(0, baseDamage * weakness - resistance), weakness, resistance }
+  return { damage: Math.max(0, reducedBase * weakness - resistance), weakness, resistance }
+}
+
+/**
+ * 04.9 CP6 / 028: raw points removed from an attack against `defender` by its own
+ * "Lonely Gaze" passive.
+ *
+ * The card's condition is "**as long as this Pokemon is in the Active Spot**", so the
+ * position is part of the rule and not an incidental detail: benched, the Ability does
+ * nothing. Checked here rather than in the registry because the registry classifies
+ * TEXT and this needs the BOARD.
+ */
+export function passiveAttackerReduction(state: BattleState, defender: InPlayPokemon): number {
+  const defenderSlot = slotOwning(state, defender)
+  // Only the Active qualifies, and only while it is genuinely the Active — a
+  // `zone: 0` bench read is not the same thing.
+  if (!defenderSlot || sideOf(state, defenderSlot).active !== defender) return 0
+  let reduction = 0
+  for (const ability of defender.card.abilities) {
+    const passive = classifyPassiveAbility(ability.text)
+    if (passive && passive.id === 'lessDamageTakenWhileActive') reduction += passive.amount
+  }
+  return reduction
+}
+
+/** Which seat a given in-play Pokémon belongs to, or null when it is not in play. */
+export function slotOwning(state: BattleState, pokemon: InPlayPokemon): PlayerSlot | null {
+  for (const slot of ['host', 'guest'] as const) {
+    const side = sideOf(state, slot)
+    if (side.active === pokemon) return slot
+    if (side.bench.includes(pokemon)) return slot
+  }
+  return null
 }
 
 /**
@@ -306,6 +343,102 @@ export function isPlayerTriggeredAbility(text: string): boolean {
   return /^once during your turn/i.test(plainCardText(text))
 }
 
+// -- 04.9 CP6: PASSIVE Ability registry --
+//
+// The player-triggered registry above answers "what does pressing this button do?".
+// A passive answers a different question: "what is true about the board RIGHT NOW?",
+// so it has no activation, no once-per-turn marker and no log line of its own.
+//
+// 30C carries **10 unique passive texts across 14 cards** (measured, not estimated).
+// They are recognised from the printed text, exactly like the attack clauses, and
+// every pattern is anchored end-to-end: a neighbouring shape falls through to
+// `unsupported` and is reported rather than guessed at.
+
+/**
+ * One passive rule, as printed.
+ *
+ * Each carries only what the hook needs to evaluate it — no board state is baked in
+ * here, because a passive must be re-evaluated on every read (Energy can be attached
+ * or knocked out between two calls).
+ */
+export type PassiveAbility =
+  /** 002/129 Exeggutor — "+250 HP" once N of a type is attached. */
+  | { id: 'hpBonusForEnergy'; energyType: string; count: number; hp: number }
+  /** 028 Pikachu — the opponent's Active attacks do N less while this is Active. */
+  | { id: 'lessDamageTakenWhileActive'; amount: number }
+  /** 033 Pikachu — all damage prevented while this sits on the Bench. */
+  | { id: 'preventDamageWhileBenched' }
+  /** 096 Zoroark — the holder's Active Retreat Cost is N less. */
+  | { id: 'retreatCostReduction'; amount: number }
+  /** 100 Yveltal — the opponent's Active cannot be healed. */
+  | { id: 'opponentCannotHeal' }
+  | { id: 'unsupported'; text: string }
+
+const PASSIVE_EFFECTS: { match: RegExp; build: (plain: string) => PassiveAbility }[] = [
+  // 002/129. The energy type and count are read from the printed text rather than
+  // hard-coded, so a sibling card printing a different type still works.
+  {
+    match: /^if this pokemon has (\d+) or more (\w+) energy attached, it gets \+(\d+) hp\.$/i,
+    build: (plain) => {
+      const match = plain.match(/if this pokemon has (\d+) or more (\w+) energy attached, it gets \+(\d+) hp\./i)
+      return {
+        id: 'hpBonusForEnergy',
+        // Card text capitalises the type ("Grass Energy"); energy data uses
+        // lowercase `provides`, so fold it here or the count silently never matches.
+        energyType: (match?.[2] ?? '').toLowerCase(),
+        count: Number(match?.[1] ?? 0),
+        hp: Number(match?.[3] ?? 0),
+      }
+    },
+  },
+  // 028. Anchored including the trailing rider so a differently-worded reduction
+  // cannot be silently read as this one.
+  {
+    match: /^as long as this pokemon is in the active spot, attacks used by your opponent's active pokemon do (\d+) less damage \(before applying weakness and resistance\)\.$/i,
+    build: (plain) => ({
+      id: 'lessDamageTakenWhileActive',
+      amount: Number(plain.match(/do (\d+) less damage/i)?.[1] ?? 0),
+    }),
+  },
+  {
+    match: /^as long as this pokemon is on your bench, prevent all damage from and effects of attacks from your opponent's pokemon done to this pokemon\.$/i,
+    build: () => ({ id: 'preventDamageWhileBenched' }),
+  },
+  {
+    // 096 prints the two Colourless symbols as the word "ColorlessColorless" once
+    // the energy-symbol markup is stripped, so the pattern counts THEM, not a number.
+    match: /^as long as this pokemon is on your bench, your active pokemon's retreat cost is (colorless)+ less\.$/i,
+    build: (plain) => ({
+      id: 'retreatCostReduction',
+      amount: (plain.match(/(colorless)/gi) ?? []).length,
+    }),
+  },
+  {
+    match: /^your opponent's active pokemon can't be healed\.$/i,
+    build: () => ({ id: 'opponentCannotHeal' }),
+  },
+]
+
+/**
+ * Classify ONE printed Ability as passive, or report it unsupported.
+ *
+ * Returns `null` for a player-triggered text, so a caller scanning a whole board can
+ * skip those without matching them twice.
+ */
+export function classifyPassiveAbility(text: string): PassiveAbility | null {
+  const plain = plainCardText(text)
+  for (const entry of PASSIVE_EFFECTS) {
+    if (entry.match.test(plain)) return entry.build(plain)
+  }
+  return null
+}
+
+/** True when the printed text is a passive rule the engine understands. */
+export function isSupportedPassiveAbility(text: string): boolean {
+  const passive = classifyPassiveAbility(text)
+  return passive !== null && passive.id !== 'unsupported'
+}
+
 export type AbilityCoverage = { supported: string[]; passive: string[]; unsupported: string[] }
 
 /**
@@ -319,7 +452,14 @@ export function abilityCoverageReport(abilities: { name: string; text: string }[
   for (const ability of abilities) {
     if (seen.has(ability.text)) continue
     seen.add(ability.text)
-    if (!isPlayerTriggeredAbility(ability.text)) coverage.passive.push(ability.text)
+    if (!isPlayerTriggeredAbility(ability.text)) {
+      // 04.9 CP6: a passive is no longer a blanket "unsupported" bucket. It is
+      // `supported` when the registry recognises it, and only the ones the hook does
+      // not model yet (004/022/090/119/066) fall through to `unsupported` — so this
+      // report keeps the remaining gap VISIBLE instead of claiming passives are done.
+      if (isSupportedPassiveAbility(ability.text)) coverage.supported.push(ability.text)
+      else coverage.unsupported.push(ability.text)
+    }
     else if (classifyAbility(ability.text).id === 'unsupported') coverage.unsupported.push(ability.text)
     else coverage.supported.push(ability.text)
   }
@@ -1215,6 +1355,10 @@ export function applyEffect(
     case 'spreadOwnBench':
       break
     case 'heal': {
+      // 04.9 CP6 / 100: Yveltal's "your opponent's Active Pokemon can't be healed".
+      // The printed scope is the OPPONENT'S ACTIVE, so this heals the attacker (its
+      // own Pokemon, and therefore its controller's own Active) and is never blocked.
+      // The gate therefore belongs on the paths that heal someone ELSE's Active.
       const healed = Math.min(effect.amount, context.attacker.damage)
       context.attacker.damage -= healed
       logEvent(state, 'pokemonBnb.log.effectHeal', { player: context.actor, amount: healed })
@@ -1569,7 +1713,19 @@ export function resolveAttack(
   // prevent "all damage", so a +30 modifier riding alongside cannot leak a point
   // past it. The printed "and effects of attacks" is NOT claimed here — see the
   // CP5 entry in the plan for what that would still need.
-  const prevented = findDuration(state, defender.uid, 'preventAllDamage') !== null
+  // 04.9 CP6 / 033: a Benched "Keep Hidden" prevents ALL damage. `isBenched` is the
+  // whole rule — the card reads "as long as this Pokemon is **on your Bench**", so an
+  // Active copy of the same card gets nothing. `slotOwning` answers "is it benched?"
+  // directly instead of testing two sides with `includes`, which would be true for an
+  // ACTIVE too and silently disable the Ability everywhere.
+  //
+  // Checked alongside CP5's `preventAllDamage` duration because both mean "no damage
+  // lands" — the order cannot change the outcome, and the log line is emitted once.
+  const defenderSlot = slotOwning(state, defender)
+  const benchedShield = defenderSlot
+    ? sideOf(state, defenderSlot).bench.includes(defender) && hasPassive(defender, 'preventDamageWhileBenched')
+    : false
+  const prevented = benchedShield || findDuration(state, defender.uid, 'preventAllDamage') !== null
   const adjusted = prevented
     ? 0
     : Math.max(0, outcome.damage + durationDamageAdjustment(state, defender.uid))

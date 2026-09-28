@@ -558,6 +558,7 @@
       "cannotAttack": "An Asleep or Paralyzed Pokemon cannot attack.",
       "durationCantAttack": "That Pokemon cannot use its attacks this turn.",
       "durationCantRetreat": "That Pokemon cannot retreat this turn.",
+      "targetCannotBeHealed": "That Pokemon cannot be healed while Yveltal is in play.",
       "alreadyAttacked": "Your Active Pokemon already attacked this turn.",
       "insufficientEnergy": "Not enough Energy is attached to pay the attack cost.",
       "noAttack": "That Pokemon does not know that attack.",

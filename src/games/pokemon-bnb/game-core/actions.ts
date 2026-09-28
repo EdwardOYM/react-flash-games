@@ -7,7 +7,7 @@
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
-import { canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, failure, findDuration, inPlayList, inPlayOf, isAttackLocked, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
+import { activeIsUnhealable, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, inPlayList, inPlayOf, isAttackLocked, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState, PendingChoice, SideState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
@@ -235,10 +235,17 @@ export function retreatToBench(state: BattleState, actor: PlayerSlot, benchIndex
   // so the Retreat button and the engine cannot disagree.
   if (findDuration(next, active.uid, 'cantRetreat')) return failure(state, 'duration-cant-retreat')
   if (side.retreatedThisTurn) return failure(state, 'retreat-limit')
-  if (active.attachedEnergy.length < active.card.retreat) return failure(state, 'retreat-cost')
+  // 04.9 CP6 / 096: Zoroark's "-2" applies only while the Zoroark is on the Bench,
+  // so the payable cost comes from `effectiveRetreatCost` rather than the printed
+  // `card.retreat`. `controls.ts` reads the same helper, so the button's `retreat-cost`
+  // reason and this refusal can never disagree.
+  const retreatCost = effectiveRetreatCost(next, actor)
+  if (active.attachedEnergy.length < retreatCost) return failure(state, 'retreat-cost')
 
   const logStart = next.log.length
-  const paid = active.attachedEnergy.splice(0, active.card.retreat)
+  // 04.9 CP6 / 096: pay the REDUCED cost, not the printed one — the two are equal
+  // whenever no passive is in play, so this is a no-op on an ordinary retreat.
+  const paid = active.attachedEnergy.splice(0, retreatCost)
   side.discard.push(...paid)
   side.bench.splice(benchIndex, 1)
   side.bench.push(active)
@@ -520,6 +527,12 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     if (target.zone === 'deck' || target.zone === 'discard') return failure(state, 'no-target')
     const patient = inPlayList(sideOf(next, target.side)).find((pokemon) => pokemon.uid === target.uid)
     if (!patient) return failure(state, 'no-target')
+    // 04.9 CP6 / 100: Yveltal's "your opponent's Active Pokemon can't be healed". The
+    // printed scope is the ACTIVE specifically, so a Benched patient is still healable
+    // — gating every Pokemon would be a wrong effect, not a stricter one.
+    if (activeIsUnhealable(next, target.side) && sideOf(next, target.side).active === patient) {
+      return failure(state, 'target-cannot-be-healed')
+    }
     const healed = Math.min(choice.effect.amount === 'all' ? patient.damage : choice.effect.amount, patient.damage)
     patient.damage -= healed
     next.pendingChoice = null

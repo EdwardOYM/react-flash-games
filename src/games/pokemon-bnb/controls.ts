@@ -15,7 +15,7 @@
 import type { BattleState, SideState } from './game-core'
 import type { PlayerSlot } from './net/protocol'
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type AttackDef } from './cards'
-import { MAX_BENCH, canEvolveOnto, canPayCost, findDuration, inPlayOf, isAttackLocked } from './game-core'
+import { MAX_BENCH, canEvolveOnto, canPayCost, effectiveRetreatCost, findDuration, inPlayOf, isAttackLocked } from './game-core'
 
 export type ControlId =
   | 'attachEnergy'
@@ -172,7 +172,7 @@ export function controlStates(
         ? blocked('duration-cant-retreat')
       : side.retreatedThisTurn
         ? blocked('retreat-limit')
-        : active.attachedEnergy.length < active.card.retreat
+        : active.attachedEnergy.length < effectiveRetreatCost(state, actor)
           ? blocked('retreat-cost')
           : benchIndex === null
             ? blocked('select-bench-target')

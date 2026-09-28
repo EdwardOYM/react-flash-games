@@ -558,6 +558,7 @@
       "cannotAttack": "Pokemon yang Tidur atau Lumpuh tidak boleh menyerang.",
       "durationCantAttack": "Pokemon itu tidak boleh menggunakan serangannya giliran ini.",
       "durationCantRetreat": "Pokemon itu tidak boleh berundur giliran ini.",
+      "targetCannotBeHealed": "Pokemon itu tidak boleh disembuhkan selagi Yveltal berada dalam permainan.",
       "alreadyAttacked": "Pokemon Aktif anda sudah menyerang giliran ini.",
       "insufficientEnergy": "Tenaga tidak cukup untuk membayar kos serangan.",
       "noAttack": "Pokemon itu tidak tahu serangan itu.",

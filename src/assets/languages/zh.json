@@ -558,6 +558,7 @@
       "cannotAttack": "睡眠或麻痹状态的宝可梦无法攻击。",
       "durationCantAttack": "该宝可梦本回合无法使用招式。",
       "durationCantRetreat": "该宝可梦本回合无法撤退。",
+      "targetCannotBeHealed": "当 Yveltal 在场上时，该宝可梦无法被治疗。",
       "alreadyAttacked": "你的出战宝可梦本回合已经攻击过。",
       "insufficientEnergy": "所贴能量不足以支付攻击费用。",
       "noAttack": "那只宝可梦不会这个招式。",

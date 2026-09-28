@@ -566,6 +566,7 @@ type PkmBnbErrorTranslationKey =
   | 'cannotAttack'
   | 'durationCantAttack'
   | 'durationCantRetreat'
+  | 'targetCannotBeHealed'
   | 'alreadyAttacked'
   | 'insufficientEnergy'
   | 'noAttack'
