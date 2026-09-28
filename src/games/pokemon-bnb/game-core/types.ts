@@ -67,6 +67,10 @@ export type PendingChoice = {
     | { kind: 'damagePerCounter'; amountPerCounter: number }
     // 04.8 CP3-B: move the chosen card out of the actor's own Deck.
     | { kind: 'searchDeck'; filter: 'pokemon' | 'trainer' | 'energy' }
+    // 04.9 CP2: reduce the chosen Pokemon's damage to 0. `'all'` is the printed
+    // "heal all damage", kept distinct from a number so a cap can never be
+    // mistaken for a full heal.
+    | { kind: 'healChosen'; amount: number | 'all' }
   /** Printed attack that asked for the choice, for the log line. */
   attackName: string
 }

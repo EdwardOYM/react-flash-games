@@ -428,6 +428,7 @@
     "chooseTargetAction": "Berikan kerosakan {amount} kepada {name}",
     "chooseTargetPerCounterAction": "Berikan {amount} kerosakan bagi setiap penanda kerosakan kepada {name}",
     "chooseDeckTitle": "Cari dalam dek anda",
+    "chooseHealAction": "Sembuhkan {name}",
     "waitingTurn": "Menunggu {player}...",
     "yourTurn": "Giliran anda - pilih satu tindakan",
     "helpTitle": "Bantuan pertempuran",

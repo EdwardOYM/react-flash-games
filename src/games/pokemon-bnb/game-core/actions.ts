@@ -471,6 +471,24 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   const next = cloneBattleState(state)
   const logStart = next.log.length
 
+  // 04.9 CP2: a heal is resolved BEFORE the deck search and the damage paths,
+  // because it is its own effect kind rather than a variant of them. The cap is
+  // applied against the damage actually on the target, so "heal 80" on a
+  // 30-damaged Pokemon removes 30 and never pushes it below 0. Looked up by uid,
+  // like every other in-play target, so a promotion cannot make it mean a
+  // different Pokemon.
+  if (choice.effect.kind === 'healChosen') {
+    if (target.zone === 'deck') return failure(state, 'no-target')
+    const patient = inPlayList(sideOf(next, target.side)).find((pokemon) => pokemon.uid === target.uid)
+    if (!patient) return failure(state, 'no-target')
+    const healed = Math.min(choice.effect.amount === 'all' ? patient.damage : choice.effect.amount, patient.damage)
+    patient.damage -= healed
+    next.pendingChoice = null
+    logEvent(next, 'pokemonBnb.log.effectHeal', { player: actor, target: patient.card.name, amount: healed })
+    const closedHeal = next.over ? next : applyEndTurn(next, actor)
+    return { state: closedHeal, log: tailLog(closedHeal, logStart) }
+  }
+
   // 04.8 CP3-B: a deck search moves the chosen card out of the actor's own Deck
   // and into hand. It is NOT a damage effect, so it short-circuits before any
   // Weakness/Resistance or Knock-Out maths. The deck index is re-validated

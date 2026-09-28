@@ -143,6 +143,12 @@ export type ParsedEffect =
   // only fires if the first did, and threading that across sentences would need
   // cross-sentence state this parser deliberately does not keep.
   | { kind: 'prizesThenShuffleHand'; handSize: number; amount: number }
+  // -- 04.9 CP2: the target is a CHOSEN Pokemon and the effect is healing. The
+  // existing `heal` clause heals the ATTACKER, so this is a genuinely new kind
+  // rather than a flag on that one. `amount: 'all'` is Comfey's sibling clause
+  // ("heal ALL damage"), so the printed "all" is preserved rather than being
+  // flattened to a number at parse time.
+  | { kind: 'healChosenTarget'; amount: number | 'all' }
   // (b) "Place 13 damage counters on 1 of your opponent's Pokemon." Converted to
   //     damage at parse time with 04.5's unit, so no second code path exists for
   //     a counter-denominated amount.
@@ -344,6 +350,22 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     // -- 04.9 CP1: the pure slice, matched FIRST so no looser pattern below can
     // swallow one. Every pattern is anchored end-to-end; the near-miss suite in
     // the CP1 harness is what proves that.
+    // 04.9 CP2: "Heal 80 damage from 1 of your Benched Pokemon." / "Heal all damage
+    // from 1 of your Benched Pokemon." Anchored, and matched BEFORE the older
+    // `^heal (\d+) damage from this` clause below — that one heals the ATTACKER and
+    // is deliberately non-anchored, so letting it see this text first would be a
+    // chance to read "1 of your Benched" as something else.
+    const healChosen = sentence.match(
+      /^heal (\d+|all) damage from 1 of your benched pokemon\.$/i,
+    )
+    if (healChosen) {
+      effects.push({
+        kind: 'healChosenTarget',
+        amount: healChosen[1].toLowerCase() === 'all' ? 'all' : Number(healChosen[1]),
+      })
+      pendingCoin = false
+      continue
+    }
     const selfHit = sentence.match(/^this pokemon also does (\d+) damage to itself\.$/i)
     if (selfHit) {
       effects.push({ kind: 'selfDamage', amount: Number(selfHit[1]) })
@@ -995,7 +1017,11 @@ export function applyEffect(
     case 'damageChosenTarget':
     case 'damageChosenPerCounter':
     // 04.8 CP3-B: `searchDeck` is resolved by resolveChoice from a parked choice.
+    // 04.8 CP2-C: consumed by resolveAttack from a parked choice.
     case 'shuffleDeck':
+      break
+    // 04.9 CP2: parked by resolveAttack, applied by resolveChoice.
+    case 'healChosenTarget':
       break
     default:
       break // before-damage clauses are consumed by resolveAttack
@@ -1379,6 +1405,29 @@ export function resolveAttack(
       logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no matching card in deck' })
+    }
+  }
+
+  // 7. 04.9 CP2: a heal parks a choice over the ATTACKER'S OWN BENCH — the
+  // printed "1 of your Benched Pokemon" never includes the Active, so the Active
+  // is deliberately absent from the offered targets. No matching Pokemon means no
+  // choice is parked at all: an empty picker would refuse every action with
+  // nothing to tap, which is the same soft-lock rule CP3-B used.
+  const healTarget = effects.find((effect) => effect.kind === 'healChosenTarget')
+  if (healTarget && healTarget.kind === 'healChosenTarget') {
+    const bench = ownInPlay(state, actor)
+      .slice(1)
+      .map((pokemon, index) => ({ side: actor, zone: index, uid: pokemon.uid }))
+    if (bench.length > 0) {
+      state.pendingChoice = {
+        actor,
+        targets: bench,
+        effect: { kind: 'healChosen', amount: healTarget.amount },
+        attackName: context.attackName,
+      }
+      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: bench.length })
+    } else {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Benched Pokemon to heal' })
     }
   }
 }

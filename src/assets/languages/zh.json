@@ -428,6 +428,7 @@
     "chooseTargetAction": "对 {name} 造成 {amount} 点伤害",
     "chooseTargetPerCounterAction": "对 {name} 的每个伤害指示器造成 {amount} 点伤害",
     "chooseDeckTitle": "搜索你的牌库",
+    "chooseHealAction": "治疗 {name}",
     "waitingTurn": "等待 {player} 行动...",
     "yourTurn": "轮到你了——请选择行动",
     "helpTitle": "对战帮助",

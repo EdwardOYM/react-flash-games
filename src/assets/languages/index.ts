@@ -434,6 +434,7 @@ type PkmBnbTranslationKey =
   | 'chooseTargetTitle'
   | 'chooseTargetAction'
   | 'chooseDeckTitle'
+  | 'chooseHealAction'
   | 'chooseTargetPerCounterAction'
   | 'waitingTurn'
   | 'yourTurn'

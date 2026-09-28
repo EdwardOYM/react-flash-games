@@ -1991,10 +1991,16 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                     >
                       {deckCard
                         ? name
-                        : substituteParams(
+                        : battle.pendingChoice!.effect.kind === 'healChosen'
+                          // 04.9 CP2: a heal has no `{amount}` in the printed sense
+                          // ("heal ALL damage"), so it gets its own template rather
+                          // than a number glued into JSX.
+                          ? substituteParams(t('pokemonBnb.chooseHealAction'), { name })
+                          : substituteParams(
                             // 04.8 CP2-C: a per-counter clause has no flat amount, so it
                             // gets its own template and {amount} stays a bare number —
-                            // never an English unit glued into JSX.
+                            // never an English unit glued into JSX. A deck search
+                            // renders the bare card name above and never reaches here.
                             battle.pendingChoice!.effect.kind === 'damage'
                               ? t('pokemonBnb.chooseTargetAction')
                               : t('pokemonBnb.chooseTargetPerCounterAction'),
