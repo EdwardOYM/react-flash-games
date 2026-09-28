@@ -4,11 +4,11 @@
 // Part of the game-core module split (CP7-E-a); see ./index.ts for the full
 // engine header and the re-export barrel.
 
-import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type PokemonCardDef } from '../cards'
+import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type EnergyCardDef, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
 import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, inPlayList, inPlayOf, isAttackLocked, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
-import type { ActionResult, BattleAction, BattleState, PendingChoice, SideState } from './types'
+import type { ActionResult, BattleAction, BattleState, ChoiceTarget, PendingChoice, SideState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, recordAttackDamageOn, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
 import { applyEndTurn, applyStartOfTurn, checkVictory, performBenchKo, performKo } from './turns'
@@ -491,6 +491,21 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
  * then settles on its own path (`performKo` / `performBenchKo`), and the turn
  * closes, since the attack that opened the choice is now finished.
  */
+/**
+ * 04.10 CP4: the actor's own in-play Pokemon, as choice targets — Active first, then
+ * the Bench, which is the order the board reads in and therefore the order the picker
+ * offers. Every one of them is legal: 063 says "1 of your Pokemon" and 007 says "your
+ * Pokemon in any way you like", with no condition on the target, so no entry is
+ * filtered out here.
+ */
+function inPlayTargets(state: BattleState, actor: PlayerSlot): ChoiceTarget[] {
+  return inPlayList(sideOf(state, actor)).map((pokemon) => ({
+    side: actor,
+    zone: (pokemon === sideOf(state, actor).active ? 'active' : sideOf(state, actor).bench.indexOf(pokemon)) as 'active' | number,
+    uid: pokemon.uid,
+  }))
+}
+
 export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex: number): ActionResult {
   if (state.over) return failure(state, 'match-over')
   const choice = state.pendingChoice
@@ -543,6 +558,139 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     logEvent(next, 'pokemonBnb.log.effectHeal', { player: actor, target: patient.card.name, amount: healed })
     const closedHeal = next.over ? next : applyEndTurn(next, actor)
     return { state: closedHeal, log: tailLog(closedHeal, logStart) }
+  }
+
+  // 04.10 CP4: STAGE TWO of a two-stage pick — "in any way you like" (007) / "to 1 of
+  // your Pokemon" (063). The cards are already out of their pile in `staged`; this
+  // picks the DESTINATION and commits them.
+  //
+  // It runs before the `searchDeckUpTo` arm because a `searchAttachEnergy` pick is
+  // handled by the arm below, which re-parks rather than closing.
+  if (choice.effect.kind === 'attachStaged') {
+    // Narrow to the in-play variant explicitly: a ternary does not carry narrowing
+    // past the expression, and the deck/discard arms below already return on their own
+    // zones, so this arm must prove the target is a Pokemon before reading `uid`.
+    if (target.zone === 'deck' || target.zone === 'discard') return failure(state, 'no-target')
+    const ownSide = sideOf(next, actor)
+    const pokemon = inPlayList(ownSide).find((entry) => entry.uid === target.uid)
+    if (!pokemon) return failure(state, 'no-target')
+    const staged = choice.staged ?? []
+    if (staged.length === 0) return failure(state, 'no-target')
+    for (const card of staged) {
+      pokemon.attachedEnergy.push(card as EnergyCardDef)
+      logEvent(next, 'pokemonBnb.log.attachEnergy', { player: actor, card: card.name, target: pokemon.card.name })
+    }
+    logEvent(next, 'pokemonBnb.log.effectSearchDeck', { player: actor, count: staged.length })
+    // 04.10 CP4: 'perCard' (007) still has cards left to lift, so stage two must RE-PARK
+    // the pile rather than close. `parent` is what makes that possible: without it this
+    // arm cannot tell "one more card to choose" from "finished", and it closed the turn
+    // after the first card — 007 attaching exactly one Energy instead of two.
+    if (choice.effect.parent.target === 'perCard' && choice.remaining > 0) {
+      const resume: PendingChoice = {
+        ...choice, staged: [], remaining: choice.remaining, source: choice.effect.parent.from,
+        effect: choice.effect.parent, targets: [],
+      }
+      const more = refreshChoiceTargets(next, resume)
+      if (more.length > 0) {
+        resume.targets = more
+        next.pendingChoice = resume
+        logEvent(next, 'pokemonBnb.log.chooseTarget', { player: actor, count: more.length })
+        return { state: next, log: tailLog(next, logStart) }
+      }
+    }
+    // The choice MUST be cleared here. `next` is a clone of a state that had
+    // `pendingChoice` set, and `applyEndTurn` does not clear it — so without this the
+    // turn ended with a finished choice still parked, and `processAction` refused every
+    // subsequent action with `must-choose-target`. Every other closing arm in this
+    // function does the same; the first run of the harness caught the omission as
+    // "a hand attach is still available" failing.
+    next.pendingChoice = null
+    const closedAttach = next.over ? next : applyEndTurn(next, actor)
+    return { state: closedAttach, log: tailLog(closedAttach, logStart) }
+  }
+
+  // 04.10 CP4: STAGE ONE — lift a Basic Energy card out of its zone. Where it GOES is
+  // not decided here, because the three printed destination rules differ:
+  //  - 'attacker'  042 attaches immediately and never parks a second picker.
+  //  - 'perCard'   007 parks a destination for this one card, then re-parks the pile.
+  //  - 'oneForAll' 063 keeps collecting cards, then parks ONE destination for them all.
+  if (choice.effect.kind === 'searchAttachEnergy') {
+    const fromDiscard = choice.effect.from === 'discard'
+    const ownSide = sideOf(next, actor)
+    // The pile is chosen by the CLAUSE, and the target must be a real entry of it.
+    // Checking the clause rather than trusting the target stops a forged `zone` from
+    // naming a card in the other pile — the same 04.10 CP1 guard, kept deliberately.
+    if (fromDiscard !== (target.zone === 'discard')) return failure(state, 'no-target')
+    const pile = fromDiscard ? ownSide.discard : ownSide.deck
+    const index = fromDiscard
+      ? (target.zone === 'discard' ? target.index : -1)
+      : (target.zone === 'deck' ? target.deckIndex : -1)
+    if (index < 0) return failure(state, 'no-target')
+    const cardId = 'cardId' in target ? target.cardId : null
+    const found = cardId ? pile[index] : undefined
+    if (!found || found.id !== cardId) return failure(state, 'no-target')
+    // Re-validate the FILTER at resolve time as well as at park time: a card can only
+    // have been removed from this pile while the choice was open, but a forged index
+    // could name a non-Energy card, and attaching a Pokemon would be a wrong effect.
+    if (!cardIsEnergy(found) || found.provides === undefined) return failure(state, 'not-energy')
+    if (choice.effect.energyType && found.provides !== choice.effect.energyType) {
+      return failure(state, 'no-target')
+    }
+    pile.splice(index, 1)
+
+    const remaining = choice.remaining - 1
+    const staged = [...(choice.staged ?? []), found]
+    const destination = choice.effect.target === 'attacker'
+      ? sideOf(next, actor).active
+      : null
+
+    if (destination) {
+      // 042: "attach it to THIS Pokemon" — no second pick, so commit and move on.
+      destination.attachedEnergy.push(found as EnergyCardDef)
+      logEvent(next, 'pokemonBnb.log.attachEnergy', {
+        player: actor, card: found.name, target: destination.card.name,
+      })
+      const after: PendingChoice = { ...choice, remaining, staged: [], targets: [] }
+      const more = refreshChoiceTargets(next, after)
+      if (after.remaining > 0 && more.length > 0) {
+        after.targets = more
+        next.pendingChoice = after
+        logEvent(next, 'pokemonBnb.log.chooseTarget', { player: actor, count: after.targets.length })
+        return { state: next, log: tailLog(next, logStart) }
+      }
+      const closedAttacker = next.over ? next : applyEndTurn(next, actor)
+      return { state: closedAttacker, log: tailLog(closedAttacker, logStart) }
+    }
+
+    if (choice.effect.target === 'perCard') {
+      // 007: this card alone needs a destination, so park it NOW and keep the pile
+      // pick for afterwards. The staged list is exactly one card deep here.
+      next.pendingChoice = {
+        ...choice, staged, remaining,
+        source: 'inPlay', effect: { kind: 'attachStaged', parent: choice.effect },
+        targets: inPlayTargets(next, actor),
+      }
+      logEvent(next, 'pokemonBnb.log.chooseTarget', { player: actor, count: next.pendingChoice.targets.length })
+      return { state: next, log: tailLog(next, logStart) }
+    }
+
+    // 063: keep collecting until the cap is reached, then choose ONE destination for
+    // all of them. `staged` is what makes "up to 2" mean "1 or 2, same Pokemon".
+    const more: PendingChoice = { ...choice, remaining, staged, targets: [] }
+    const available = refreshChoiceTargets(next, more)
+    if (more.remaining > 0 && available.length > 0) {
+      more.targets = available
+      next.pendingChoice = more
+      logEvent(next, 'pokemonBnb.log.chooseTarget', { player: actor, count: more.targets.length })
+      return { state: next, log: tailLog(next, logStart) }
+    }
+    next.pendingChoice = {
+      ...choice, staged, remaining: 0,
+      source: 'inPlay', effect: { kind: 'attachStaged', parent: choice.effect },
+      targets: inPlayTargets(next, actor),
+    }
+    logEvent(next, 'pokemonBnb.log.chooseTarget', { player: actor, count: next.pendingChoice.targets.length })
+    return { state: next, log: tailLog(next, logStart) }
   }
 
   // 04.9 CP4: the "up to N" ZONE search is the ONE effect that resolves more than
@@ -763,10 +911,30 @@ export function finishChoice(state: BattleState, actor: PlayerSlot): ActionResul
   // effect. The flag rides the EFFECT rather than being matched on the attack name, so
   // the two cannot drift apart.
   const optional = choice.effect.kind === 'switchActive' && choice.effect.optional
-  if (choice.effect.kind !== 'searchDeckUpTo' && !optional) return failure(state, 'choice-not-optional')
+  // 04.10 CP4: `searchAttachEnergy` is declinable for the same reason `searchDeckUpTo`
+  // is — "up to 2 Basic Energy" permits 0, 1 or 2. 042 ('attacker') is exempt in
+  // practice because its cap can be 0 heads, in which case nothing is ever parked.
+  if (choice.effect.kind !== 'searchDeckUpTo' && choice.effect.kind !== 'searchAttachEnergy' && !optional) {
+    return failure(state, 'choice-not-optional')
+  }
 
   const next = cloneBattleState(state)
   const logStart = next.log.length
+  // 04.10 CP4: 063's "up to 2 … to 1 of your Pokemon" can have cards ALREADY lifted
+  // out of the discard when the player declines the rest. Closing the turn outright
+  // would DESTROY them — they are spliced out of the pile and live only in `staged`,
+  // so they would be in no zone at all. Declining must therefore still finish the
+  // attach: park the destination pick instead. The "up to 0" case is already handled
+  // earlier (an empty eligible pile parks nothing), so `staged` here is never empty.
+  if (choice.effect.kind === 'searchAttachEnergy' && (choice.staged?.length ?? 0) > 0) {
+    next.pendingChoice = {
+      ...choice, remaining: 0,
+      source: 'inPlay', effect: { kind: 'attachStaged', parent: choice.effect },
+      targets: inPlayTargets(next, actor),
+    }
+    logEvent(next, 'pokemonBnb.log.chooseTarget', { player: actor, count: next.pendingChoice.targets.length })
+    return { state: next, log: tailLog(next, logStart) }
+  }
   // Whatever was already taken STAYS taken; only the chance to take more is declined.
   next.pendingChoice = null
   const closed = next.over ? next : applyEndTurn(next, actor)

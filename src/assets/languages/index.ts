@@ -439,6 +439,10 @@ type PkmBnbTranslationKey =
   | 'chooseFinishAction'
   | 'chooseHealAction'
   | 'chooseSwitchAction'
+  // 04.10 CP4: the destination stage of a two-stage Energy attach (007/063). Without
+  // it the second-stage picker would fall through to the damage template and read
+  // "Deal 0 damage to Ninetales" for an attach, which is a wrong label, not a blank one.
+  | 'chooseAttachHereAction'
   | 'chooseTargetPerCounterAction'
   | 'waitingTurn'
   | 'yourTurn'

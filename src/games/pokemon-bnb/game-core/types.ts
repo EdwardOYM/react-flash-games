@@ -58,6 +58,33 @@ export type ChoiceTarget =
  * card text produces one yet, because a choice with no picker would soft-lock
  * the match. CP2-B wires the dialog and the first text atomically with it.
  */
+/**
+ * 04.10 CP4: take Basic Energy out of a ZONE and ATTACH it.
+ *
+ * Declared ONCE and referenced from both `ParsedEffect` and `PendingChoice`, because the
+ * two must be the same shape — the second stage of the pick (`attachStaged`) carries a
+ * copy as its `parent` and hands it straight back to re-park the pile. Two separately
+ * written literals would drift, and the drift would only show up as a card silently
+ * attaching one Energy instead of two.
+ */
+export type SearchAttachEnergyClause = {
+  kind: 'searchAttachEnergy'
+  from: 'deck' | 'discard'
+  /** 042: Basic LIGHTNING Energy only. Undefined means any Basic Energy. */
+  energyType?: string
+  /** Printed cap. Meaningless when `maxFromHeads` is set. */
+  max: number
+  /** 042: the cap is the heads flipped before the first tails, resolved at park time. */
+  maxFromHeads?: boolean
+  /**
+   * How the destination Pokemon is chosen, and the whole of 007/042/063's difference:
+   *  - 'attacker'   042 "attach it to THIS Pokemon" — no destination pick at all.
+   *  - 'oneForAll'  063 "to 1 of your Pokemon"      — one destination for the whole set.
+   *  - 'perCard'    007 "in any way you like"       — a destination per card.
+   */
+  target: 'attacker' | 'oneForAll' | 'perCard'
+}
+
 export type PendingChoice = {
   /** The seat that must choose. Only this seat may resolve it. */
   actor: PlayerSlot
@@ -78,6 +105,18 @@ export type PendingChoice = {
   remaining: number
   /** Which zone `targets` lives in, so the list can be re-derived after a pick. */
   source: 'deck' | 'discard' | 'inPlay'
+  /**
+   * 04.10 CP4: Energy already lifted out of its zone and waiting for a destination.
+   *
+   * A pick cannot both choose a card and choose where it goes, so the two are split
+   * across two parked choices and the cards sit here in between. Without this buffer
+   * the cards would have to be re-found by id, which is impossible: a Deck holds
+   * DUPLICATES, so "the Lightning Energy I picked" is not an identity.
+   *
+   * It is copied out of the pile rather than referenced, because the pick SPLICES the
+   * card out — holding the reference would leave a card that is in no zone at all.
+   */
+  staged?: CardDef[]
   /** What happens to the chosen target. */
   effect:
     | { kind: 'damage'; amount: number }
@@ -124,6 +163,53 @@ export type PendingChoice = {
         requireType?: string
       }
     | { kind: 'searchAnyToHand'; coin: boolean }
+    /**
+     * 04.10 CP4: the SECOND stage of a two-stage pick — choose which of your Pokemon
+     * the already-chosen Energy attaches to.
+     *
+     * It is a choice effect rather than a flag on `searchAttachEnergy` because it is a
+     * genuinely different question with a genuinely different target list (in-play
+     * Pokemon, not cards in a pile), and the pending cards live on the choice itself
+     * in `staged`. Keeping it separate is what lets 'attacker' (042) skip the second
+     * stage entirely instead of parking a picker with exactly one legal entry.
+     *
+     * `parent` is the clause this stage was split out of, and it is NOT optional. The
+     * first implementation dropped it, and 007 immediately broke in a way no parser
+     * test could see: with the parent gone, stage two had no idea the remaining
+     * `remaining` belonged to a per-card sequence, so it closed the turn after the
+     * FIRST card and 007 could only ever attach one. Carrying the parent is what lets
+     * 'perCard' re-park the pile and 'oneForAll' close.
+     */
+    | { kind: 'attachStaged'; parent: SearchAttachEnergyClause }
+    // 04.10 CP4: take Basic Energy out of a ZONE and ATTACH it. This is NOT
+    // `searchDeckUpTo` with a fourth `to` value, because the cards never move the
+    // picked card to a pile — they attach it, and attaching has three different
+    // destination rules that no `to` can express.
+    //
+    // `target` is the whole of that difference, and all three are needed:
+    //  - 'attacker'   042 "attach it to THIS Pokemon" — no pick at all.
+    //  - 'oneForAll'  063 "to 1 of your Pokemon"      — one destination, chosen once.
+    //  - 'perCard'    007 "in any way you like"       — a destination per card.
+    //
+    // `maxFromHeads` is 042's cap: "up to the number of heads" from a flip-until-tails,
+    // so the cap is not knowable at parse time. It is resolved at park time, and the
+    // resolved number is what goes into `remaining` — never a stale or invented cap.
+    | SearchAttachEnergyClause
+    /**
+     * 04.10 CP4: the SECOND stage of a two-stage pick — choose which of your Pokemon
+     * the already-chosen Energy attaches to.
+     *
+     * It is a choice effect rather than a flag on `searchAttachEnergy` because it is a
+     * genuinely different question with a genuinely different target list (in-play
+     * Pokemon, not cards in a pile), and the pending cards live on the choice itself
+     * `parent` is the clause this stage was split out of, and it is NOT optional. The
+     * first implementation dropped it, and 007 immediately broke in a way no parser
+     * test could see: with the parent gone, stage two had no idea the remaining
+     * `remaining` belonged to a per-card sequence, so it closed the turn after the
+     * FIRST card and 007 could only ever attach one. Carrying the parent is what lets
+     * 'perCard' re-park the pile and 'oneForAll' close.
+     */
+    | { kind: 'attachStaged'; parent: SearchAttachEnergyClause }
     // 04.9 CP7: swap the chosen Pokemon with the current Active of that side. The whole
     // `InPlayPokemon` object moves, so Energy, damage, conditions and the uid travel
     // with it — see `applySwitchInPlace`. `optional` is 066/152/158's printed "You may",

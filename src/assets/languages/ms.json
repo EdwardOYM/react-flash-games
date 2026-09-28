@@ -433,6 +433,7 @@
     "chooseFinishAction": "Tamat (jangan ambil lagi)",
     "chooseHealAction": "Sembuhkan {name}",
     "chooseSwitchAction": "Tukar masuk {name}",
+    "chooseAttachHereAction": "LTampkan tenaga ke {name}",
     "waitingTurn": "Menunggu {player}...",
     "yourTurn": "Giliran anda - pilih satu tindakan",
     "helpTitle": "Bantuan pertempuran",

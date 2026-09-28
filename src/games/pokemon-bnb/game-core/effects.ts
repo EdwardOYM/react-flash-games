@@ -15,7 +15,7 @@ import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
 import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
 import { addDuration, durationDamageAdjustment, durationTurnFor, findDuration, hasPassive } from './helpers'
-import { STATUS_CONDITIONS, type BattleLogEntry, type BattleState, type ChoiceTarget, type DurationEffect, type InPlayPokemon, type PendingChoice, type StatusCondition } from './types'
+import { STATUS_CONDITIONS, type BattleLogEntry, type BattleState, type ChoiceTarget, type DurationEffect, type InPlayPokemon, type PendingChoice, type SearchAttachEnergyClause, type StatusCondition } from './types'
 import { applyDeckOutLoss, performBenchKo, performKo, prizesTaken, takePrizeCard } from './turns'
 // -- CP7-C: damage, effects, KO, prizes, victory --
 
@@ -341,6 +341,12 @@ export type ParsedEffect =
   // after damage like the other post-damage clauses.
   | { kind: 'extraPrizeOnKo'; amount: number }
   | { kind: 'noDamageOnTails' }
+  // -- 04.10 CP4: lift Basic Energy out of a zone and ATTACH it. This is deliberately
+  // its own kind rather than a fourth `to` on `searchDeckUpTo`: `searchDeckUpTo` always
+  // moves a card INTO a pile, and attaching moves it onto a Pokemon, which carries the
+  // three different destination rules no `to` value can express. The shape is the shared
+  // `SearchAttachEnergyClause`, because the pick's SECOND stage carries a copy of it.
+  | SearchAttachEnergyClause
   // -- 04.10 CP2: the PER-HEAD effects. A coin count is already tracked by
   // `pendingCoinCount`; what was missing was the effect that runs once per head.
   //
@@ -661,6 +667,15 @@ export function refreshChoiceTargets(state: BattleState, choice: PendingChoice):
   // decides what is pickable — four near-identical lists could disagree, and a wrong
   // target is worse than a missing one.
   const zoneFits = (card: CardDef): boolean => {
+    if (choice.effect.kind === 'searchAttachEnergy') {
+      // 04.10 CP4: Basic Energy whose `provides` is the named type. A SPECIAL Energy
+      // provides nothing, so `provides !== undefined` is what makes it a "Basic Energy"
+      // in the printed sense — the same test `basicEnergy` uses, plus 042's type test.
+      if (!cardIsEnergy(card) || card.provides === undefined) return false
+      return choice.effect.energyType
+        ? card.provides === choice.effect.energyType
+        : true
+    }
     if (choice.effect.kind !== 'searchDeckUpTo') return true
     const { filter, requireType } = choice.effect
     const typeOk = requireType
@@ -1052,6 +1067,54 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     }
     if (/^this attack's damage isn't affected by weakness or resistance,? or by any effects on your opponent's active pokemon\.$/i.test(sentence)) {
       effects.push({ kind: 'noWeakness' })
+      pendingCoin = false
+      continue
+    }
+    // 04.10 CP4 / 007: "Search your deck for up to 2 Basic Energy cards and attach
+    // them to your Pokemon IN ANY WAY YOU LIKE." That trailing phrase is the whole
+    // rule and is why this is `perCard` and not `oneForAll`: each card gets its own
+    // destination, so 007 can put both on one Pokemon or split them across two.
+    // Dropping the phrase would silently narrow it to 063's rule — a wrong effect.
+    const energyGift = sentence.match(
+      /^search your deck for up to (\d+) basic energy cards and attach them to your pokemon in any way you like\.$/i,
+    )
+    if (energyGift) {
+      effects.push({
+        kind: 'searchAttachEnergy', from: 'deck',
+        max: Number(energyGift[1]), target: 'perCard',
+      })
+      pendingCoin = false
+      continue
+    }
+    // 04.10 CP4 / 042: "Search your deck for an amount of Basic Lightning Energy up to
+    // the number of heads and attach it to THIS Pokemon." Two things are dynamic: the
+    // cap is the heads from the flip-until-tails, and the destination is the attacker
+    // itself. The clause records the cap as a FLAG rather than a number, because the
+    // heads are not known until the attack resolves.
+    const chargeUp = sentence.match(
+      /^search your deck for an amount of basic (\w+) energy up to the number of heads and attach it to this pokemon\.$/i,
+    )
+    if (chargeUp && pendingUntilTails) {
+      effects.push({
+        kind: 'searchAttachEnergy', from: 'deck',
+        energyType: chargeUp[1].toLowerCase(),
+        max: 0, maxFromHeads: true, target: 'attacker',
+      })
+      pendingUntilTails = false
+      pendingCoin = false
+      continue
+    }
+    // 04.10 CP4 / 063: "Attach up to 2 Basic Energy cards from your discard pile to
+    // 1 of your Pokemon." ONE destination for the whole set — which is the opposite
+    // of 007's "in any way you like", and is the reason the two cannot share a rule.
+    const empower = sentence.match(
+      /^attach up to (\d+) basic energy cards from your discard pile to 1 of your pokemon\.$/i,
+    )
+    if (empower) {
+      effects.push({
+        kind: 'searchAttachEnergy', from: 'discard',
+        max: Number(empower[1]), target: 'oneForAll',
+      })
       pendingCoin = false
       continue
     }
@@ -1789,6 +1852,10 @@ export function applyEffect(
     // is the safe answer.
     case 'searchDeckUpTo':
       break
+    // 04.10 CP4: `searchAttachEnergy` is consumed by resolveAttack (it parks a pick).
+    // `attachStaged` is a `PendingChoice`-only kind and never reaches this switch.
+    case 'searchAttachEnergy':
+      break
     // 04.9 CP5: installed at RESOLUTION time (they take effect on a LATER turn), so
     // they read `context.attacker` / `context.defender` rather than any zone, and
     // `whose` becomes an absolute turn number inside `applyDuration`.
@@ -2445,6 +2512,58 @@ export function resolveAttack(
       } else {
         probe.remaining = Math.min(cap, eligible)
         probe.targets = refreshChoiceTargets(state, probe)
+        state.pendingChoice = probe
+        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: probe.targets.length })
+      }
+    }
+  }
+
+  // 04.10 CP4: take Basic Energy out of a zone and ATTACH it. This runs AFTER the
+  // `searchDeckUpTo` arm above because the two can both move a card out of a pile and
+  // they are never on the same card text — but the ordering means a future card that
+  // printed both would take the search, not the attach.
+  const attachSearch = effects.find((effect) => effect.kind === 'searchAttachEnergy')
+  if (attachSearch && attachSearch.kind === 'searchAttachEnergy') {
+    const side = sideOf(state, actor)
+    const pile = attachSearch.from === 'discard' ? side.discard : side.deck
+    // 042's cap is the heads flipped BEFORE the first tails, resolved HERE rather than
+    // at parse time — the number genuinely does not exist until the attack resolves.
+    // It is bounded by MAX_COIN_FLIPS, as every other until-tails loop in this file is,
+    // so a pathological seed cannot park an unbounded picker.
+    let cap = attachSearch.max
+    if (attachSearch.maxFromHeads) {
+      let heads = 0
+      while (heads < MAX_COIN_FLIPS && flipCoin(state)) heads += 1
+      cap = heads
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: heads })
+    }
+    // Bounded by ELIGIBLE cards, never by the pile's size: "up to 2 Basic Lightning
+    // Energy" over a deck holding one Lightning Energy is a cap of 1, not a picker that
+    // offers nothing on the second pick. That is the same rule 04.10 CP1 applied to
+    // `searchDeckUpTo`, and for the same reason — a dead second pick is a soft-lock.
+    const eligible = pile.filter((card) =>
+      cardIsEnergy(card) && card.provides !== undefined &&
+      (attachSearch.energyType ? card.provides === attachSearch.energyType : true),
+    ).length
+    const bounded = Math.min(cap, eligible)
+    if (bounded <= 0) {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no matching Energy to attach' })
+    } else {
+      const probe: PendingChoice = {
+        actor,
+        targets: [],
+        remaining: bounded,
+        source: attachSearch.from,
+        effect: attachSearch,
+        attackName: context.attackName,
+        staged: [],
+      }
+      const available = refreshChoiceTargets(state, probe)
+      if (available.length === 0) {
+        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no matching Energy in the zone' })
+      } else {
+        probe.remaining = Math.min(bounded, available.length)
+        probe.targets = available
         state.pendingChoice = probe
         logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: probe.targets.length })
       }

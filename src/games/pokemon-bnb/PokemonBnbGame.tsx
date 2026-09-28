@@ -2022,6 +2022,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                           // ("heal ALL damage"), so it gets its own template rather
                           // than a number glued into JSX.
                           ? substituteParams(t('pokemonBnb.chooseHealAction'), { name })
+                          : battle.pendingChoice!.effect.kind === 'attachStaged'
+                            // 04.10 CP4: the SECOND stage of a two-stage pick. The target
+                            // is a Pokemon and the action is "attach here", so it must
+                            // NOT fall through to the damage branch below — that would
+                            // render "deal 0 damage to Ninetales" for an attach.
+                            ? substituteParams(t('pokemonBnb.chooseAttachHereAction'), { name })
                           : battle.pendingChoice!.effect.kind === 'switchActive'
                             // 04.9 CP7: a switch has no amount either, and it also
                             // renders the OPPONENT's Bench for 003, so the name is
@@ -2064,6 +2070,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                * a move the engine refuses.
                */}
               {(battle.pendingChoice.effect.kind === 'searchDeckUpTo' ||
+                battle.pendingChoice.effect.kind === 'searchAttachEnergy' ||
                 (battle.pendingChoice.effect.kind === 'switchActive' && battle.pendingChoice.effect.optional)) && (
                 <div className="bnb-choice-list">
                   <button

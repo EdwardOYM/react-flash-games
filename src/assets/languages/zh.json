@@ -433,6 +433,7 @@
     "chooseFinishAction": "结束（不再拿取）",
     "chooseHealAction": "治疗 {name}",
     "chooseSwitchAction": "换上 {name}",
+    "chooseAttachHereAction": "将能量贴给 {name}",
     "waitingTurn": "等待 {player} 行动...",
     "yourTurn": "轮到你了——请选择行动",
     "helpTitle": "对战帮助",

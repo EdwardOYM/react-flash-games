@@ -433,6 +433,7 @@
     "chooseFinishAction": "Finish (take no more)",
     "chooseHealAction": "Heal {name}",
     "chooseSwitchAction": "Switch in {name}",
+    "chooseAttachHereAction": "Attach the Energy to {name}",
     "waitingTurn": "Waiting for {player}...",
     "yourTurn": "Your turn - choose an action",
     "helpTitle": "Battle help",
