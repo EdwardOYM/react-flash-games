@@ -347,6 +347,11 @@ export type ParsedEffect =
   // three different destination rules no `to` value can express. The shape is the shared
   // `SearchAttachEnergyClause`, because the pick's SECOND stage carries a copy of it.
   | SearchAttachEnergyClause
+  // 04.10 CP5 / 073-136: a FLAG, not something the applier does. `resolveAttack` sees it
+  // and parks a single-target "You may" choice; the applier then has nothing left to run,
+  // so it falls into the shared no-op group. It is still a clause because that is the
+  // only channel by which a parsed sentence can reach `resolveAttack`.
+  | { kind: 'shuffleSelfIntoDeck'; optional: boolean }
   // -- 04.10 CP2: the PER-HEAD effects. A coin count is already tracked by
   // `pendingCoinCount`; what was missing was the effect that runs once per head.
   //
@@ -703,6 +708,13 @@ export function refreshChoiceTargets(state: BattleState, choice: PendingChoice):
       default:
         return true
     }
+  }
+  if (choice.source === 'hand') {
+    // 04.10 CP5 / 054-150. The hand is re-derived per pick like any other zone, so a
+    // card taken on the first pick is simply gone from the list on the second.
+    return sideOf(state, choice.actor).hand
+      .map((card, index) => ({ side: choice.actor, zone: 'hand' as const, index, cardId: card.id }))
+      .filter((entry) => zoneFits(sideOf(state, choice.actor).hand[entry.index]))
   }
   if (choice.source === 'discard') {
     return sideOf(state, choice.actor).discard
@@ -1067,6 +1079,32 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     }
     if (/^this attack's damage isn't affected by weakness or resistance,? or by any effects on your opponent's active pokemon\.$/i.test(sentence)) {
       effects.push({ kind: 'noWeakness' })
+      pendingCoin = false
+      continue
+    }
+    // 04.10 CP5 / 054-150: "You may attach ANY NUMBER of Basic Energy cards from your hand
+    // to your Pokemon in any way you like." Two things beyond 007: the source is the HAND,
+    // and the cap is "any number", which must be resolved to the eligible count at park
+    // time — `Infinity` cannot ride `remaining` (see the clause's own comment).
+    const zipZap = sentence.match(
+      /^you may attach any number of basic energy cards from your hand to your pokemon in any way you like\.$/i,
+    )
+    if (zipZap) {
+      effects.push({
+        kind: 'searchAttachEnergy', from: 'hand',
+        max: Number.POSITIVE_INFINITY, target: 'perCard', optional: true,
+      })
+      pendingCoin = false
+      continue
+    }
+    // 04.10 CP5 / 073-136: "You may shuffle this Pokemon and all attached cards into your
+    // deck." There is NO pick here — "this Pokemon" is the attacker — so the whole
+    // question is whether to do it at all, which the printed "You may" leaves open.
+    const floatUp = sentence.match(
+      /^you may shuffle this pokemon and all attached cards into your deck\.$/i,
+    )
+    if (floatUp) {
+      effects.push({ kind: 'shuffleSelfIntoDeck', optional: true })
       pendingCoin = false
       continue
     }
@@ -1853,8 +1891,11 @@ export function applyEffect(
     case 'searchDeckUpTo':
       break
     // 04.10 CP4: `searchAttachEnergy` is consumed by resolveAttack (it parks a pick).
-    // `attachStaged` is a `PendingChoice`-only kind and never reaches this switch.
-    case 'searchAttachEnergy':
+  // `shuffleSelfIntoDeck` is a FLAG: resolveAttack sees it, parks the single-target
+  // choice, and the applier has nothing to do — so it falls through to the same no-op
+  // group rather than growing a case that can never run.
+  case 'searchAttachEnergy':
+  case 'shuffleSelfIntoDeck':
       break
     // 04.9 CP5: installed at RESOLUTION time (they take effect on a LATER turn), so
     // they read `context.attacker` / `context.defender` rather than any zone, and
@@ -2518,6 +2559,29 @@ export function resolveAttack(
     }
   }
 
+  // 04.10 CP5 / 073-136: "You may shuffle this Pokemon and all attached cards into your
+  // deck." Parked as a single-target choice purely to honour the printed "You may" —
+  // applying it automatically would be a STRONGER effect than the card prints, which
+  // this engine ranks worse than a missing one. The target is the attacker, so the
+  // dialog offers exactly one entry and `finishChoice` declines it.
+  const selfShuffle = effects.find((effect) => effect.kind === 'shuffleSelfIntoDeck')
+  if (selfShuffle && selfShuffle.kind === 'shuffleSelfIntoDeck') {
+    const active = sideOf(state, actor).active
+    if (!active) {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no active Pokemon to shuffle away' })
+    } else {
+      state.pendingChoice = {
+        actor,
+        targets: [{ side: actor, zone: 'active', uid: active.uid }],
+        remaining: 1,
+        source: 'inPlay',
+        effect: selfShuffle,
+        attackName: context.attackName,
+      }
+      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: 1 })
+    }
+  }
+
   // 04.10 CP4: take Basic Energy out of a zone and ATTACH it. This runs AFTER the
   // `searchDeckUpTo` arm above because the two can both move a card out of a pile and
   // they are never on the same card text — but the ordering means a future card that
@@ -2525,7 +2589,9 @@ export function resolveAttack(
   const attachSearch = effects.find((effect) => effect.kind === 'searchAttachEnergy')
   if (attachSearch && attachSearch.kind === 'searchAttachEnergy') {
     const side = sideOf(state, actor)
-    const pile = attachSearch.from === 'discard' ? side.discard : side.deck
+    const pile = attachSearch.from === 'discard' ? side.discard
+      : attachSearch.from === 'hand' ? side.hand
+        : side.deck
     // 042's cap is the heads flipped BEFORE the first tails, resolved HERE rather than
     // at parse time — the number genuinely does not exist until the attack resolves.
     // It is bounded by MAX_COIN_FLIPS, as every other until-tails loop in this file is,
@@ -2537,10 +2603,11 @@ export function resolveAttack(
       cap = heads
       logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: heads })
     }
-    // Bounded by ELIGIBLE cards, never by the pile's size: "up to 2 Basic Lightning
-    // Energy" over a deck holding one Lightning Energy is a cap of 1, not a picker that
-    // offers nothing on the second pick. That is the same rule 04.10 CP1 applied to
-    // `searchDeckUpTo`, and for the same reason — a dead second pick is a soft-lock.
+    // Bounded by ELIGIBLE cards, never by the pile's size. This is also what makes
+    // 054/150's "ANY number of" SAFE: `Number.POSITIVE_INFINITY` never reaches
+    // `remaining`, because `Math.min(Infinity, eligible)` is `eligible` — the honest
+    // cap, since you cannot attach more Energy than you hold. Putting `Infinity` on
+    // `remaining` directly would serialise as `null` and break the snapshot round trip.
     const eligible = pile.filter((card) =>
       cardIsEnergy(card) && card.provides !== undefined &&
       (attachSearch.energyType ? card.provides === attachSearch.energyType : true),

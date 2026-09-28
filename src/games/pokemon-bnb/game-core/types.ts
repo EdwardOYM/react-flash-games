@@ -48,6 +48,11 @@ export type ChoiceTarget =
   // lookup. The discard is a PUBLIC zone, so the acting seat can already see it
   // (04.8 CP6's invariant, asserted in the harness).
   | { side: PlayerSlot; zone: 'discard'; index: number; cardId: string }
+  // 04.10 CP5: a card in the actor's OWN HAND (054/150's "from your hand"). Same
+  // index+id shape as the discard entry for the same reason — a hand holds DUPLICATES,
+  // so `cardId` is re-checked on resolve and the index is the lookup. Unlike the
+  // opponent's hand this is the VIEWER's own, so it discloses nothing new.
+  | { side: PlayerSlot; zone: 'hand'; index: number; cardId: string }
 
 /**
  * 04.8 CP2: an effect that the printed text hands to the player to resolve.
@@ -69,10 +74,19 @@ export type ChoiceTarget =
  */
 export type SearchAttachEnergyClause = {
   kind: 'searchAttachEnergy'
-  from: 'deck' | 'discard'
+  /** 04.10 CP5 adds `'hand'` for 054/150; the other three read a pile. */
+  from: 'deck' | 'discard' | 'hand'
   /** 042: Basic LIGHTNING Energy only. Undefined means any Basic Energy. */
   energyType?: string
-  /** Printed cap. Meaningless when `maxFromHeads` is set. */
+  /**
+   * Printed cap. Meaningless when `maxFromHeads` is set.
+   *
+   * 054/150 print "ANY number of", which is `Infinity` — and `Infinity` must NEVER
+   * reach `remaining`, because `JSON.stringify(Infinity)` is `null` and would silently
+   * break the snapshot round trip 04.8 CP6 established. The cap is therefore resolved to
+   * the ELIGIBLE card count at park time, which is also the honest answer: you cannot
+   * attach more Energy than you hold.
+   */
   max: number
   /** 042: the cap is the heads flipped before the first tails, resolved at park time. */
   maxFromHeads?: boolean
@@ -83,6 +97,13 @@ export type SearchAttachEnergyClause = {
    *  - 'perCard'    007 "in any way you like"       — a destination per card.
    */
   target: 'attacker' | 'oneForAll' | 'perCard'
+  /**
+   * 04.10 CP5 / 054-150: the printed "You may", which is what makes the whole effect
+   * declinable. 007/042/063 print no "may", so their absence of this flag is meaningful —
+   * a choice that carries `optional` is one the player may refuse with `finishChoice`,
+   * and a choice without it is a printed effect they may not skip.
+   */
+  optional?: boolean
 }
 
 export type PendingChoice = {
@@ -104,7 +125,7 @@ export type PendingChoice = {
    */
   remaining: number
   /** Which zone `targets` lives in, so the list can be re-derived after a pick. */
-  source: 'deck' | 'discard' | 'inPlay'
+  source: 'deck' | 'discard' | 'hand' | 'inPlay'
   /**
    * 04.10 CP4: Energy already lifted out of its zone and waiting for a destination.
    *
@@ -210,6 +231,21 @@ export type PendingChoice = {
      * 'perCard' re-park the pile and 'oneForAll' close.
      */
     | { kind: 'attachStaged'; parent: SearchAttachEnergyClause }
+    /**
+     * 04.10 CP5 / 073-136: "You may shuffle this Pokemon and all attached cards into your
+     * deck."
+     *
+     * A choice, not a flag, despite there being nothing to CHOOSE — the printed "You may"
+     * is a permission, and applying it automatically would be a *stronger* effect than the
+     * card prints, which is the wrong-effect failure this engine ranks above a missing
+     * one. The single target is the attacker, so the dialog offers exactly one entry and
+     * `finishChoice` declines it, which is the same shape 04.9 CP7 gave 066/152/158's
+     * optional switch.
+     *
+     * The plan predicted this would need "a per-card target pick". It does not: the text
+     * says "THIS Pokemon", so there is no target to pick and nothing to choose between.
+     */
+    | { kind: 'shuffleSelfIntoDeck'; optional: boolean }
     // 04.9 CP7: swap the chosen Pokemon with the current Active of that side. The whole
     // `InPlayPokemon` object moves, so Energy, damage, conditions and the uid travel
     // with it — see `applySwitchInPlace`. `optional` is 066/152/158's printed "You may",

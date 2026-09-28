@@ -434,6 +434,7 @@
     "chooseHealAction": "Heal {name}",
     "chooseSwitchAction": "Switch in {name}",
     "chooseAttachHereAction": "Attach the Energy to {name}",
+    "chooseShuffleSelfAction": "Shuffle {name} and its attached cards into your deck",
     "waitingTurn": "Waiting for {player}...",
     "yourTurn": "Your turn - choose an action",
     "helpTitle": "Battle help",

@@ -7,7 +7,7 @@
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type EnergyCardDef, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
-import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, inPlayList, inPlayOf, isAttackLocked, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
+import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, inPlayList, inPlayOf, isAttackLocked, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState, ChoiceTarget, PendingChoice, SideState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, recordAttackDamageOn, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
@@ -543,7 +543,7 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   // different Pokemon.
   if (choice.effect.kind === 'healChosen') {
     // Explicit narrowing: a deck or discard target is not an in-play Pokemon.
-    if (target.zone === 'deck' || target.zone === 'discard') return failure(state, 'no-target')
+    if (target.zone === 'deck' || target.zone === 'discard' || target.zone === 'hand') return failure(state, 'no-target')
     const patient = inPlayList(sideOf(next, target.side)).find((pokemon) => pokemon.uid === target.uid)
     if (!patient) return failure(state, 'no-target')
     // 04.9 CP6 / 100: Yveltal's "your opponent's Active Pokemon can't be healed". The
@@ -570,7 +570,7 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     // Narrow to the in-play variant explicitly: a ternary does not carry narrowing
     // past the expression, and the deck/discard arms below already return on their own
     // zones, so this arm must prove the target is a Pokemon before reading `uid`.
-    if (target.zone === 'deck' || target.zone === 'discard') return failure(state, 'no-target')
+    if (target.zone === 'deck' || target.zone === 'discard' || target.zone === 'hand') return failure(state, 'no-target')
     const ownSide = sideOf(next, actor)
     const pokemon = inPlayList(ownSide).find((entry) => entry.uid === target.uid)
     if (!pokemon) return failure(state, 'no-target')
@@ -609,6 +609,51 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closedAttach, log: tailLog(closedAttach, logStart) }
   }
 
+  // 04.10 CP5 / 073-136: the self-shuffle. "THIS Pokemon" means the target must be the
+  // actor's own ACTIVE — a forged target naming a Benched Pokemon would move the wrong
+  // card, and one naming the opponent's would be absurd. The uid is re-checked rather
+  // than the stored zone, for the promotion reason every other in-play pick here uses.
+  if (choice.effect.kind === 'shuffleSelfIntoDeck') {
+    if (target.zone === 'deck' || target.zone === 'discard' || target.zone === 'hand') {
+      return failure(state, 'no-target')
+    }
+    const side = sideOf(next, actor)
+    const active = side.active
+    if (!active || active.uid !== target.uid) return failure(state, 'no-target')
+    // The Pokemon AND every attached card go back. `attachedTool` is included because
+    // "all attached cards" covers a Tool exactly as it covers Energy; leaving the Tool
+    // behind would orphan a card that is in no zone at all.
+    side.deck.push(active.card, ...active.attachedEnergy, ...(active.attachedTool ? [active.attachedTool] : []))
+    side.active = null
+    logEvent(next, 'pokemonBnb.log.effectSearchDeck', { player: actor, card: active.card.name })
+    // The Active spot is now EMPTY, so the actor must promote — exactly the gate
+    // `performKo` sets. Reusing the same queue is what lets one promotion action serve
+    // both, and keeps a Drifloon that shuffles itself away from soft-locking the match.
+    if (side.bench.length > 0) {
+      if (!next.promotionQueue.includes(actor)) next.promotionQueue.push(actor)
+      next.pendingPromotion = next.promotionQueue[0] ?? null
+      logEvent(next, 'pokemonBnb.log.mustPromote', { player: actor })
+    } else {
+      // No Pokemon in play at all. The card IS in the deck, so this is not the same as a
+      // knockout, but the engine's existing `no-pokemon` loss is the only outcome that
+      // fits, and inventing a new one here would be a rules change.
+      next.winner = foeOf(actor)
+      next.winReason = 'no-pokemon'
+      next.over = true
+      next.pendingPromotion = null
+      next.promotionQueue = []
+    }
+    if (next.over) {
+      next.pendingChoice = null
+      return { state: next, log: tailLog(next, logStart) }
+    }
+    // With a promotion pending, `applyEndTurn` is deferred: the turn is still over, but
+    // the actor must choose the replacement first — the same order `performKo` sets up.
+    next.pendingChoice = null
+    const closedShuffle = applyEndTurn(next, actor)
+    return { state: closedShuffle, log: tailLog(closedShuffle, logStart) }
+  }
+
   // 04.10 CP4: STAGE ONE — lift a Basic Energy card out of its zone. Where it GOES is
   // not decided here, because the three printed destination rules differ:
   //  - 'attacker'  042 attaches immediately and never parks a second picker.
@@ -616,15 +661,20 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   //  - 'oneForAll' 063 keeps collecting cards, then parks ONE destination for them all.
   if (choice.effect.kind === 'searchAttachEnergy') {
     const fromDiscard = choice.effect.from === 'discard'
+    const fromHand = choice.effect.from === 'hand'
     const ownSide = sideOf(next, actor)
-    // The pile is chosen by the CLAUSE, and the target must be a real entry of it.
+    // The zone is chosen by the CLAUSE, and the target must actually be an entry of it.
     // Checking the clause rather than trusting the target stops a forged `zone` from
-    // naming a card in the other pile — the same 04.10 CP1 guard, kept deliberately.
+    // naming a card in a zone this effect never reads — the 04.10 CP1 guard, now also
+    // covering the hand, which is the zone a forged target is most likely to reach for.
     if (fromDiscard !== (target.zone === 'discard')) return failure(state, 'no-target')
-    const pile = fromDiscard ? ownSide.discard : ownSide.deck
+    if (fromHand !== (target.zone === 'hand')) return failure(state, 'no-target')
+    const pile = fromDiscard ? ownSide.discard : fromHand ? ownSide.hand : ownSide.deck
     const index = fromDiscard
       ? (target.zone === 'discard' ? target.index : -1)
-      : (target.zone === 'deck' ? target.deckIndex : -1)
+      : fromHand
+        ? (target.zone === 'hand' ? target.index : -1)
+        : (target.zone === 'deck' ? target.deckIndex : -1)
     if (index < 0) return failure(state, 'no-target')
     const cardId = 'cardId' in target ? target.cardId : null
     const found = cardId ? pile[index] : undefined
@@ -779,7 +829,7 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   // 04.9 CP7: a board switch. Resolved BEFORE the damage paths, because it changes
   // which Pokemon is where and nothing after it may assume the old Active.
   if (choice.effect.kind === 'switchActive') {
-    if (target.zone === 'deck' || target.zone === 'discard') return failure(state, 'no-target')
+    if (target.zone === 'deck' || target.zone === 'discard' || target.zone === 'hand') return failure(state, 'no-target')
     const side = sideOf(next, target.side)
     // Look the Pokemon up by `uid` (04.8 CP2-C: a promotion splices the Bench, so a
     // stored index can name a different Pokemon by the time it is resolved), then take
@@ -839,7 +889,7 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   }
   // Everything below works on an in-play Pokemon, so a deck or discard target is
   // invalid here.
-  if (target.zone === 'deck' || target.zone === 'discard') return failure(state, 'no-target')
+  if (target.zone === 'deck' || target.zone === 'discard' || target.zone === 'hand') return failure(state, 'no-target')
 
   const targetSide = sideOf(next, target.side)
   // Looked up by `uid` across the whole side, NOT by the stored `zone` index. A KO
@@ -911,10 +961,14 @@ export function finishChoice(state: BattleState, actor: PlayerSlot): ActionResul
   // effect. The flag rides the EFFECT rather than being matched on the attack name, so
   // the two cannot drift apart.
   const optional = choice.effect.kind === 'switchActive' && choice.effect.optional
+  // 04.10 CP5: 054/150 and 073/136 both print "You may", so both are declinable — and
+  // the permission rides the EFFECT rather than the attack name, so it cannot drift.
+  const mayClause = (choice.effect.kind === 'searchAttachEnergy' || choice.effect.kind === 'shuffleSelfIntoDeck')
+    && choice.effect.optional
   // 04.10 CP4: `searchAttachEnergy` is declinable for the same reason `searchDeckUpTo`
   // is — "up to 2 Basic Energy" permits 0, 1 or 2. 042 ('attacker') is exempt in
   // practice because its cap can be 0 heads, in which case nothing is ever parked.
-  if (choice.effect.kind !== 'searchDeckUpTo' && choice.effect.kind !== 'searchAttachEnergy' && !optional) {
+  if (choice.effect.kind !== 'searchDeckUpTo' && !mayClause && !optional) {
     return failure(state, 'choice-not-optional')
   }
 

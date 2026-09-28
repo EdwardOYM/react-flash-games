@@ -434,6 +434,7 @@
     "chooseHealAction": "治疗 {name}",
     "chooseSwitchAction": "换上 {name}",
     "chooseAttachHereAction": "将能量贴给 {name}",
+    "chooseShuffleSelfAction": "将 {name} 及其所有附属卡洗回牌库",
     "waitingTurn": "等待 {player} 行动...",
     "yourTurn": "轮到你了——请选择行动",
     "helpTitle": "对战帮助",

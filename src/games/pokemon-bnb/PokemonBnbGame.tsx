@@ -2000,10 +2000,15 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                   const discardCard = choiceTarget.zone === 'discard'
                     ? battle[choiceTarget.side].discard[choiceTarget.index]
                     : null
+                  // 04.10 CP5: 054/150 picks from the actor's OWN hand, which the
+                  // snapshot carries for the viewer — so the label can name the card.
+                  const handCard = choiceTarget.zone === 'hand'
+                    ? battle[choiceTarget.side].hand?.[choiceTarget.index]
+                    : null
                   const deckCard = choiceTarget.zone === 'deck'
                     ? battle[choiceTarget.side].deck[choiceTarget.deckIndex]
                     : null
-                  const looseCard = discardCard ?? deckCard
+                  const looseCard = discardCard ?? handCard ?? deckCard
                   if (choiceTarget.zone !== 'active' && choiceTarget.zone !== 'deck' && !looseCard) return null
                   const side = battle[choiceTarget.side]
                   const victim = choiceTarget.zone === 'active' ? side.active : side.bench[choiceTarget.zone as number]
@@ -2028,6 +2033,11 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                             // NOT fall through to the damage branch below — that would
                             // render "deal 0 damage to Ninetales" for an attach.
                             ? substituteParams(t('pokemonBnb.chooseAttachHereAction'), { name })
+                            : battle.pendingChoice!.effect.kind === 'shuffleSelfIntoDeck'
+                              // 04.10 CP5 / 073-136: the target is the attacker itself and
+                              // the action is returning it to the deck. It must not reach
+                              // the damage branch either, for the same reason.
+                              ? substituteParams(t('pokemonBnb.chooseShuffleSelfAction'), { name })
                           : battle.pendingChoice!.effect.kind === 'switchActive'
                             // 04.9 CP7: a switch has no amount either, and it also
                             // renders the OPPONENT's Bench for 003, so the name is
@@ -2070,7 +2080,8 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                * a move the engine refuses.
                */}
               {(battle.pendingChoice.effect.kind === 'searchDeckUpTo' ||
-                battle.pendingChoice.effect.kind === 'searchAttachEnergy' ||
+                (battle.pendingChoice.effect.kind === 'searchAttachEnergy' && battle.pendingChoice.effect.optional) ||
+                (battle.pendingChoice.effect.kind === 'shuffleSelfIntoDeck' && battle.pendingChoice.effect.optional) ||
                 (battle.pendingChoice.effect.kind === 'switchActive' && battle.pendingChoice.effect.optional)) && (
                 <div className="bnb-choice-list">
                   <button

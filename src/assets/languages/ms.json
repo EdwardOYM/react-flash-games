@@ -434,6 +434,7 @@
     "chooseHealAction": "Sembuhkan {name}",
     "chooseSwitchAction": "Tukar masuk {name}",
     "chooseAttachHereAction": "LTampkan tenaga ke {name}",
+    "chooseShuffleSelfAction": "Kocak {name} dan semua kad yang terlampir ke dek anda",
     "waitingTurn": "Menunggu {player}...",
     "yourTurn": "Giliran anda - pilih satu tindakan",
     "helpTitle": "Bantuan pertempuran",

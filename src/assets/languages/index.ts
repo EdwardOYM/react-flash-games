@@ -443,6 +443,10 @@ type PkmBnbTranslationKey =
   // it the second-stage picker would fall through to the damage template and read
   // "Deal 0 damage to Ninetales" for an attach, which is a wrong label, not a blank one.
   | 'chooseAttachHereAction'
+  // 04.10 CP5 / 073-136: the single "You may" entry that returns the attacker to the
+  // deck. Without its own template it falls through to the damage branch and reads
+  // "Deal 0 damage to Drifloon" for a shuffle — a wrong label, not a blank one.
+  | 'chooseShuffleSelfAction'
   | 'chooseTargetPerCounterAction'
   | 'waitingTurn'
   | 'yourTurn'
