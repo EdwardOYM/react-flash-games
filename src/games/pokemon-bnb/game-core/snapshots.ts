@@ -55,6 +55,13 @@ function snapshotSide(side: SideState, isViewer: boolean, prizeTotal: number): S
   return {
     handCount: side.hand.length,
     deckCount: side.deck.length,
+    // 04.8 CP3: the VIEWER's own deck is disclosed, so a "Search your deck…"
+    // effect can offer real targets. The OPPONENT's deck stays `HIDDEN_CARD`
+    // placeholders — one seat's snapshot never carries the other seat's deck.
+    // Deep-cloned (not `[...]` like `hand` below) because this is a newly
+    // disclosed zone: a shared CardDef object could otherwise be mutated on the
+    // render side and corrupt the authoritative deck behind the host's back.
+    deck: isViewer ? structuredClone(side.deck) : fillHidden(side.deck.length),
     prizesTaken: Math.max(0, prizeTotal - side.prizeCount),
     prizeCount: side.prizeCount,
     discard: [...side.discard],
@@ -75,10 +82,13 @@ function snapshotSide(side: SideState, isViewer: boolean, prizeTotal: number): S
 /**
  * Build a render-only Snapshot of the battle for `viewer`. Public zones (both
  * discard piles, every in-play Pokemon and its attached Energy) are copied
- * verbatim; face-down zones (both decks, both prize piles) become counts plus
- * `HIDDEN_CARD` placeholders; the hand is included only for the viewer
- * (`null` for the other side). In host-authoritative play (CP9) the host sends
- * each seat its own snapshot; the guest never sees the hidden zones.
+ * verbatim; the OPPONENT's face-down zones (their deck and prize pile) become
+ * counts plus `HIDDEN_CARD` placeholders; the hand and the viewer's OWN deck are
+ * included only for the viewer (`null`/placeholders for the other side). In
+ * host-authoritative play (CP9) the host sends each seat its own snapshot, so the
+ * guest never sees the host's hidden zones. **04.8 CP3:** the viewer's own deck
+ * was added for "Search your deck…" effects; the invariant that matters is that a
+ * seat's snapshot never contains the OTHER seat's deck.
  */
 export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
   return {
@@ -108,7 +118,10 @@ export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
 
 function snapshotSideToState(snapshot: SnapshotSide): SideState {
   return {
-    deck: fillHidden(snapshot.deckCount),
+    // 04.8 CP3: the viewer's own deck rides the snapshot and is restored as real
+    // cards; the other side's is still placeholders, so a rebuilt state can only
+    // ever see its own deck. It stays `viewOnly`, so it is display-only either way.
+    deck: snapshot.deck ? structuredClone(snapshot.deck) : fillHidden(snapshot.deckCount),
     hand: snapshot.hand ? [...snapshot.hand] : fillHidden(snapshot.handCount),
     active: snapshot.active ? cloneInPlay(snapshot.active) : null,
     bench: snapshot.bench.map(cloneInPlay),

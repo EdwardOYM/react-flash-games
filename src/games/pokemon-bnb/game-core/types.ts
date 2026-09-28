@@ -168,6 +168,13 @@ export type BattleState = {
 
 export type SnapshotSide = {
   handCount: number
+  /**
+   * 04.8 CP3: the VIEWER's own deck, as real cards, so a "Search your deck…"
+   * effect can offer real targets. The other seat's snapshot carries
+   * `HIDDEN_CARD` placeholders here instead — this is the one place the privacy
+   * boundary is a per-snapshot property rather than a global one.
+   */
+  deck: CardDef[]
   deckCount: number
   prizesTaken: number
   prizeCount: number
