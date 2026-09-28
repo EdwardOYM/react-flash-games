@@ -475,6 +475,8 @@
       "abilitySearch": "{pokemon}'s Ability revealed {card} from {player}'s deck.",
       "abilityAttachEnergy": "{pokemon} attached {count} Energy with its Ability.",
       "abilityHeal": "{target} healed {amount} damage with an Ability.",
+      "abilityCounter": "{player} had {count} damage counters placed on their Active Pokemon by an Ability.",
+      "effectKnockOutAttacker": "{player}'s {card} was Knocked Out by an Ability.",
       "abilityUnsupported": "Ability not implemented yet: {text}",
       "evolve": "{player}'s {target} evolved into {card}!",
       "retreat": "{player} retreated {from} for {to}.",

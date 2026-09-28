@@ -475,6 +475,8 @@
       "abilitySearch": "Kemahiran {pokemon} Dedahkan {card} daripada dek {player}.",
       "abilityAttachEnergy": "{pokemon} melekat {count} Energy dengan Kemahirannya.",
       "abilityHeal": "{target} memulihkan {amount} kerosakan dengan Kemahiran.",
+    "abilityCounter": "{player} meletakkan {count} Exactly kerosakan pada Pokemon Aktif mereka melalui Kemahiran.",
+    "effectKnockOutAttacker": "{card} milik {player} telah dikocok oleh sebuah Kemahiran.",
       "abilityUnsupported": "Kemahiran belum diimplementasikan: {text}",
       "evolve": "{target} milik {player} berevolusi menjadi {card}!",
       "retreat": "{player} tarik balik {from} dan ganti dengan {to}.",

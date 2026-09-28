@@ -489,6 +489,11 @@ type PkmBnbLogTranslationKey =
   | 'abilitySearch'
   | 'abilityAttachEnergy'
   | 'abilityHeal'
+  // 04.10 CP7: 022's counters-on-the-attacker and 090's knock-out-the-attacker. Both
+  // name the attacked side explicitly, because the affected Pokemon is the ATTACKER —
+  // the opposite end of the board from where the Ability's holder sits.
+  | 'abilityCounter'
+  | 'effectKnockOutAttacker'
   | 'abilityUnsupported'
   | 'evolve'
   | 'retreat'

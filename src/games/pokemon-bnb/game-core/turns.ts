@@ -7,7 +7,7 @@
 import { prizesForKnockOut } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { BURN_DAMAGE, POISON_DAMAGE } from './constants'
-import { cloneBattleState, drawCards, foeOf, inPlayList, isKnockedOut, logEvent, pruneDurations, sideOf } from './helpers'
+import { cloneBattleState, drawCards, foeOf, hasPassive, inPlayList, isKnockedOut, logEvent, pruneDurations, sideOf } from './helpers'
 import type { BattleState, InPlayPokemon } from './types'
 import { flipCoin } from './effects'
 
@@ -262,6 +262,22 @@ export function applyCheckup(state: BattleState, justFinished: PlayerSlot): void
       pokemon.conditions.paralyzed = false
       logEvent(state, 'pokemonBnb.log.paralysisEnded', { player: slot, card: pokemon.card.name })
     }
+  }
+
+  // 04.10 CP7 / 119 Snorlax: "If this Pokemon REMAINS Asleep during Pokemon Checkup,
+  // heal all damage from this Pokemon."
+  //
+  // It MUST sit after the Asleep loop above. "Remains asleep" is a claim about the
+  // OUTCOME of the wake-up coin, so reading `asleep` any earlier would heal on exactly
+  // the turn the Pokemon wakes — the precise inverse of what the card prints. A Pokemon
+  // that WOKE is not healed, and that single test is the whole Ability.
+  for (const { pokemon } of actives) {
+    if (!pokemon.conditions.asleep) continue
+    if (!hasPassive(pokemon, 'healAllIfRemainsAsleepAtCheckup')) continue
+    if (pokemon.damage === 0) continue
+    const healed = pokemon.damage
+    pokemon.damage = 0
+    logEvent(state, 'pokemonBnb.log.abilityHeal', { target: pokemon.card.name, amount: healed })
   }
 
   // No between-turn card effects are registered yet (CP5 owns Ability effects).

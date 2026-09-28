@@ -475,6 +475,8 @@
       "abilitySearch": "{pokemon} 的特性从 {player} 的牌库中找出了 {card}。",
       "abilityAttachEnergy": "{pokemon} 用其特性贴上了 {count} 张能量。",
       "abilityHeal": "{target} 用特性回复了 {amount} 点伤害。",
+    "abilityCounter": "特性在 {player} 的战斗宝可梦身上放置了 {count} 个伤害指示物。",
+    "effectKnockOutAttacker": "{player} 的 {card} 被特性击倒。",
       "abilityUnsupported": "该特性尚未实现：{text}",
       "evolve": "{player} 的 {target} 进化成了 {card}！",
       "retreat": "{player} 撤回 {from}，换上 {to}。",

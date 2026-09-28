@@ -61,6 +61,11 @@ export function computeAttackDamage(
       logEvent(state, 'pokemonBnb.log.unreadableWeakness', { value: weaknessEntry.value })
     }
     weakness = parseWeaknessValue(weaknessEntry.value).multiplier
+    // 04.10 CP7 / 004 Illumise: the board-wide ×3 OVERRIDES the printed ×2, it does not
+    // multiply it. "apply Weakness ... as ×3" replaces the multiplier outright — a ×2
+    // Weakness under the pair is ×3, not ×6, so this is an assignment and not a product.
+    // It is read from `baseDamage`'s own defender, which is why the board scan matters.
+    if (weaknessIsTripled(state)) weakness = 3
   }
   let resistance = 0
   if (resistanceEntry) {
@@ -145,6 +150,31 @@ export function damageTakenLastTurn(state: BattleState, pokemon: InPlayPokemon):
  */
 export function koByAttackLastTurn(state: BattleState, slot: PlayerSlot): boolean {
   return sideOf(state, slot).koByAttackTurn === state.turn - 1
+}
+
+/**
+ * 04.10 CP7 / 004 Illumise: is Weakness ×3 for WHICHEVER Pokemon is defending?
+ *
+ * A BOARD scan, not a per-defender test, because the printed rule is "for BOTH Active
+ * Pokemon" — the holder may sit on the attacker's side, or on the Bench, and still
+ * apply to the opponent's Active. Both conditions must hold: the holder is in play, and
+ * its named partner is too, which is what "If you have Volbeat in play" asks.
+ */
+export function weaknessIsTripled(state: BattleState): boolean {
+  for (const slot of ['host', 'guest'] as const) {
+    const inPlay = inPlayList(sideOf(state, slot))
+    for (const holder of inPlay) {
+      for (const ability of holder.card.abilities) {
+        const passive = classifyPassiveAbility(ability.text)
+        if (!passive || passive.id !== 'weaknessTripleWhilePartnerInPlay') continue
+        const partnersPresent = passive.requiresInPlay.every((name) =>
+          inPlay.some((pokemon) => nameMatches(pokemon.card.name, [name])),
+        )
+        if (partnersPresent) return true
+      }
+    }
+  }
+  return false
 }
 
 /** Which seat a given in-play Pokémon belongs to, or null when it is not in play. */
@@ -505,6 +535,46 @@ export type PassiveAbility =
   | { id: 'retreatCostReduction'; amount: number }
   /** 100 Yveltal — the opponent's Active cannot be healed. */
   | { id: 'opponentCannotHeal' }
+  /**
+   * 04.10 CP7 / 004 Illumise: "If you have Volbeat in play, apply Weakness for both
+   * Active Pokemon as x3."
+   *
+   * It is a BOARD-WIDE rule, not a per-defender one, and that is what the printed "for
+   * both Active Pokemon" means: while the pair is in play, *whichever* Pokemon is
+   * defending takes x3 rather than x2. So the check cannot be `hasPassive(defender, ...)`
+   * — the holder may be on the ATTACKER's side, or benched, and still apply. The engine
+   * therefore scans the whole board at damage time (see `weaknessIsTripled`).
+   */
+  | { id: 'weaknessTripleWhilePartnerInPlay'; requiresInPlay: string[] }
+  /**
+   * 04.10 CP7 / 119 Snorlax: "If this Pokemon remains Asleep during Pokemon Checkup,
+   * heal all damage from this Pokemon."
+   *
+   * "REMAINS" is the whole rule and it is what makes this a Checkup hook rather than an
+   * ordinary passive: the outcome depends on the wake-up coin, so it can only be read
+   * AFTER `applyCheckup` has run the Asleep flip. Reading it before would heal on the
+   * turn the Pokemon WAKES, which is the opposite of what the card prints.
+   */
+  | { id: 'healAllIfRemainsAsleepAtCheckup' }
+  /**
+   * 04.10 CP7 / 022 Wishiwashi: "…place 3 damage counters on the Attacking Pokemon."
+   *
+   * It fires from the DAMAGE site, not the Knock Out site, and that placement is the
+   * printed "even if your Pokemon is Knocked Out" — the reaction must land whether or
+   * not the Wishiwashi survives the hit. Recorded as COUNTERS, not damage, because the
+   * card says "counters" and `DAMAGE_PER_COUNTER` is the engine's only counter unit.
+   */
+  | { id: 'countersOnAttackerWhenDamaged'; counters: number }
+  /**
+   * 04.10 CP7 / 090-154 Gengar ex: "flip a coin. If heads, the Attacking Pokemon is
+   * Knocked Out."
+   *
+   * A second Knock Out raised from inside the first, so it runs AFTER the Gengar has been
+   * discarded — the Gengar is already gone, and the attacker is knocked out independently
+   * (it takes no Prize for being knocked out by an effect, per `performBenchKo`'s
+   * existing note on effect knockouts).
+   */
+  | { id: 'coinFlipKnockOutAttackerOnKo' }
   | { id: 'unsupported'; text: string }
 
 const PASSIVE_EFFECTS: { match: RegExp; build: (plain: string) => PassiveAbility }[] = [
@@ -559,6 +629,35 @@ const PASSIVE_EFFECTS: { match: RegExp; build: (plain: string) => PassiveAbility
   {
     match: /^your opponent's active pokemon can't be healed\.$/i,
     build: () => ({ id: 'opponentCannotHeal' }),
+  },
+  // 04.10 CP7 / 004 Illumise. The partner is read from the printed text rather than
+  // hard-coded to "Volbeat", so a sibling card printing a different partner still works.
+  {
+    match: /^if you have (.+) in play, apply weakness for both active pokemon as .3\.$/i,
+    build: (plain) => ({
+      id: 'weaknessTripleWhilePartnerInPlay',
+      requiresInPlay: [(plain.match(/^if you have (.+?) in play/i)?.[1] ?? '').trim()],
+    }),
+  },
+  // 04.10 CP7 / 119 Snorlax. "remains Asleep" is the load-bearing phrase: without it a
+  // permanently-Asleep Pokemon would heal every turn, which the card does not say.
+  {
+    match: /^if this pokemon remains asleep during pokemon checkup, heal all damage from this pokemon\.$/i,
+    build: () => ({ id: 'healAllIfRemainsAsleepAtCheckup' }),
+  },
+  // 04.10 CP7 / 022 Wishiwashi. The counter count is read from the text, so the printed
+  // "3 damage counters" is never hard-coded into the applier.
+  {
+    match: /^if your wishiwashi or wishiwashi ex is in the active spot and is damaged by an attack from your opponent's pokemon .*?, place (\d+) damage counters on the attacking pokemon\.$/i,
+    build: (plain) => ({
+      id: 'countersOnAttackerWhenDamaged',
+      counters: Number(plain.match(/place (\d+) damage counters/i)?.[1] ?? 0),
+    }),
+  },
+  // 04.10 CP7 / 090-154 Gengar ex.
+  {
+    match: /^if this pokemon is knocked out by damage from an attack from your opponent's pokemon, flip a coin\. if heads, the attacking pokemon is knocked out\.$/i,
+    build: () => ({ id: 'coinFlipKnockOutAttackerOnKo' }),
   },
 ]
 
@@ -2303,6 +2402,28 @@ export function resolveAttack(
     // already forced `adjusted` to 0, so a prevented hit leaves no memory — recording
     // it before that test would let a shielded Pokemon "remember" a hit it never took.
     recordAttackDamageOn(defender, state.turn, adjusted)
+    // 04.10 CP7 / 022 Wishiwashi: the damage-taken reaction fires HERE, at the DAMAGE
+    // site, and not at the Knock Out site. That placement IS the printed "even if your
+    // Pokemon is Knocked Out" — a reaction raised after `performKo` would find the
+    // Wishiwashi already discarded and could never fire on the turn it matters most.
+    if (attacker && adjusted > 0) {
+      for (const ability of defender.card.abilities) {
+        const passive = classifyPassiveAbility(ability.text)
+        if (passive?.id !== 'countersOnAttackerWhenDamaged') continue
+        // "your Wishiwashi … is in the ACTIVE SPOT" — position is part of the rule, and
+        // the test is that the DEFENDER is its own side's Active. It has just taken the
+        // hit here, so a benched Wishiwashi is never the `defender` anyway; the test is
+        // kept because it is the printed condition, not an incidental detail.
+        if (defenderSlot === null || sideOf(state, defenderSlot).active !== defender) continue
+        attacker.damage += passive.counters * DAMAGE_PER_COUNTER
+        logEvent(state, 'pokemonBnb.log.abilityCounter', { player: actor, count: passive.counters })
+        if (isKnockedOut(attacker)) {
+          logEvent(state, 'pokemonBnb.log.knockOut', { player: actor, card: attacker.card.name })
+          performKo(state, actor)
+        }
+        break
+      }
+    }
     logEvent(state, 'pokemonBnb.log.damageDealt', {
       player: actor,
       attack: context.attackName,
@@ -2377,6 +2498,16 @@ export function resolveAttack(
 
   // 4. Knock Out of the defender.
   if (!spread && isKnockedOut(defender)) {
+    // 04.10 CP7 / 090-154 Gengar ex: the second Knock Out, raised from inside the first.
+    // The flip and the reaction happen BEFORE `performKo` disposes of the Gengar, while
+    // both the attacker and the Gengar are still identifiable — after the discard only
+    // the CardDef survives and "the Attacking Pokemon" would have nothing to point at.
+    if (hasPassive(defender, 'coinFlipKnockOutAttackerOnKo') && flipCoin(state)) {
+      logEvent(state, 'pokemonBnb.log.effectKnockOutAttacker', { player: actor, card: attacker.card.name })
+      attacker.damage = attacker.card.hp
+      logEvent(state, 'pokemonBnb.log.knockOut', { player: actor, card: attacker.card.name })
+      performKo(state, actor)
+    }
     // 04.10 CP3: record the KO against the LOSING side, stamped with the current turn.
     // It is stamped rather than set, so a second KO later the same turn cannot be
     // missed and an older turn's KO cannot leak forward — the read compares the stamp
