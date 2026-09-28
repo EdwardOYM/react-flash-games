@@ -103,6 +103,11 @@ export type PendingChoice = {
     // the number enforced: `remaining` is resolved to a FINITE cap at park time,
     // because `JSON.stringify(Infinity)` is `null` and would break the round trip.
     | { kind: 'searchDeckUpTo'; filter: 'basicPokemon' | 'stadium'; to: 'hand' | 'bench'; max: number }
+    // 04.9 CP7: swap the chosen Pokemon with the current Active of that side. The whole
+    // `InPlayPokemon` object moves, so Energy, damage, conditions and the uid travel
+    // with it — see `applySwitchInPlace`. `optional` is 066/152/158's printed "You may",
+    // which is what lets `finishChoice` decline it; 032's mandatory swap has it false.
+    | { kind: 'switchActive'; side: 'attacker' | 'defender'; optional: boolean }
   /** Printed attack that asked for the choice, for the log line. */
   attackName: string
 }

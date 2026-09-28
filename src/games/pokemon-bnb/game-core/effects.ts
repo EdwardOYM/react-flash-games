@@ -221,6 +221,12 @@ export type ParsedEffect =
   // the ATTACKER ("this Pokemon"), while 110 and 093 ride the DEFENDER ("the
   // Defending Pokemon"). Collapsing them would attach 110's +30 to the wrong card.
   | { kind: 'durationCantAttack'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender' }
+  // -- 04.9 CP7: board manipulation — a printed clause that changes WHICH Pokemon is
+  // where, rather than what is in a zone. `optional` is 066/152/158's "You may"
+  // against 032's mandatory swap; `foe` is 003, which switches in the OPPONENT's
+  // Benched Pokemon. The mechanics are identical either way, so they are one kind
+  // with data rather than four near-identical kinds.
+  | { kind: 'switchWithBenched'; optional: boolean; foe: boolean }
   /** 106 — the same lock narrowed to one named attack. */
   | { kind: 'durationCantUseAttack'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender'; attackName: string }
   | { kind: 'durationLessDamageTaken'; whose: 'self' | 'foe'; subject: 'attacker' | 'defender'; amount: number }
@@ -573,7 +579,14 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
   let pendingCoinCount = 0
   let pendingUntilTails = false
 
-  for (const sentence of sentences) {
+  for (const [sentenceIndex, sentence] of sentences.entries()) {
+    // 04.9 CP7: whether this sentence is the ONLY one. A handful of clauses are legal
+    // only as the whole printed text — 032's bare "Switch this Pokemon with 1 of your
+    // Benched Pokemon." is one, and 020's first sentence is byte-identical to it while
+    // being followed by a second switch. Honouring it there would apply one switch and
+    // silently drop the other, which is the wrong-effect failure this engine ranks
+    // above a missing one.
+    const isLastSentence = sentenceIndex === sentences.length - 1
     // -- 04.9 CP1: the pure slice, matched FIRST so no looser pattern below can
     // swallow one. Every pattern is anchored end-to-end; the near-miss suite in
     // the CP1 harness is what proves that.
@@ -607,6 +620,40 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
         to: 'hand',
         max: Number(upToStadium[1]),
       })
+      pendingCoin = false
+      continue
+    }
+    // -- 04.9 CP7: board manipulation. 003 switches in the OPPONENT's Benched Pokemon;
+    // 032 switches with your own and is MANDATORY; 066/152/158 are the same swap with
+    // "You may", i.e. optional. Matched before the choices below so no damage clause
+    // can swallow a sentence that has no damage in it.
+    //
+    // 020 ("…If you do, switch out your opponent's Active Pokemon to the Bench") and 115
+    // ("search your deck … and switch it with this Pokemon") are NOT matched: both are
+    // compounds, and half-applying either would be a wrong effect rather than a
+    // missing one. They fall through to `unsupported`, which is the honest answer.
+    const switchIn = sentence.match(/^switch in 1 of your opponent's benched pokemon to the active spot\.$/i)
+    if (switchIn) {
+      effects.push({ kind: 'switchWithBenched', optional: false, foe: true })
+      pendingCoin = false
+      continue
+    }
+    const switchOwn = sentence.match(/^you may switch this pokemon with 1 of your benched pokemon\.$/i)
+    if (switchOwn) {
+      effects.push({ kind: 'switchWithBenched', optional: true, foe: false })
+      pendingCoin = false
+      continue
+    }
+    // 020 is "Switch this Pokemon with 1 of your Benched Pokemon. If you do, switch
+    // out your opponent's Active Pokemon to the Bench." — the FIRST sentence is
+    // byte-identical to 032's whole text, so the pattern above happily matched it and
+    // 020 would have applied one switch and silently dropped the second. The harness
+    // caught exactly that. So a bare mandatory own-switch is accepted ONLY when it is
+    // the ONLY clause in the sentence: 032 is one sentence, 020's first sentence is
+    // followed by two more, and a clause that is one of several must not be honoured
+    // on its own. This is the same all-or-nothing rule 04.8 CP1 used for spreads.
+    if (/^switch this pokemon with 1 of your benched pokemon\.$/i.test(sentence) && isLastSentence) {
+      effects.push({ kind: 'switchWithBenched', optional: false, foe: false })
       pendingCoin = false
       continue
     }
@@ -1475,6 +1522,9 @@ export function applyEffect(
     case 'durationCantRetreat':
       applyDuration(state, context, effect.whose, effect.subject, { kind: 'cantRetreat' })
       break
+    // 04.9 CP7: parked by resolveAttack as a board switch, applied by resolveChoice.
+    case 'switchWithBenched':
+      break
     default:
       break // before-damage clauses are consumed by resolveAttack
   }
@@ -2010,6 +2060,32 @@ export function resolveAttack(
         state.pendingChoice = probe
         logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
       }
+    }
+  }
+
+  // 9. 04.9 CP7: a board switch parks a choice like every other target-picking clause.
+  // An OPTIONAL switch ("You may…", 066/152/158) is still parked — the player has to be
+  // offered the option, and `finishChoice` is what declines it. A mandatory one with
+  // nothing to switch to parks nothing, which is the same soft-lock rule CP2/CP3 used.
+  //
+  // Offered targets are read from the side that OWNS the Benched Pokemon: `foe` is 003,
+  // which switches in the OPPONENT's Bench, so the list comes from the other side.
+  const swap = effects.find((effect) => effect.kind === 'switchWithBenched')
+  if (swap && swap.kind === 'switchWithBenched') {
+    const owner = swap.foe ? foeOf(actor) : actor
+    const bench = sideOf(state, owner).bench
+    if (bench.length > 0) {
+      state.pendingChoice = {
+        actor,
+        targets: bench.map((pokemon, index) => ({ side: owner, zone: index, uid: pokemon.uid })),
+        remaining: 1,
+        source: 'inPlay',
+        effect: { kind: 'switchActive', side: swap.foe ? 'defender' : 'attacker', optional: swap.optional },
+        attackName: context.attackName,
+      }
+      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: bench.length })
+    } else {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Benched Pokemon to switch with' })
     }
   }
 }

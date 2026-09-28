@@ -7,7 +7,7 @@
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
-import { activeIsUnhealable, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, inPlayList, inPlayOf, isAttackLocked, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
+import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, inPlayList, inPlayOf, isAttackLocked, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState, PendingChoice, SideState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
@@ -606,6 +606,32 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closedUpTo, log: tailLog(closedUpTo, logStart) }
   }
 
+  // 04.9 CP7: a board switch. Resolved BEFORE the damage paths, because it changes
+  // which Pokemon is where and nothing after it may assume the old Active.
+  if (choice.effect.kind === 'switchActive') {
+    if (target.zone === 'deck' || target.zone === 'discard') return failure(state, 'no-target')
+    const side = sideOf(next, target.side)
+    // Look the Pokemon up by `uid` (04.8 CP2-C: a promotion splices the Bench, so a
+    // stored index can name a different Pokemon by the time it is resolved), then take
+    // the CURRENT index of that object — the stored one is informational only.
+    const incoming = side.bench.find((pokemon) => pokemon.uid === target.uid)
+    if (!incoming) return failure(state, 'no-target')
+    const benchIndex = side.bench.indexOf(incoming)
+    const outgoing = side.active
+    // `applySwitchInPlace` moves the whole object, so Energy, damage, conditions, the
+    // Tool and the uid all travel with it — nothing here copies a field.
+    const moved = applySwitchInPlace(side, benchIndex)
+    if (!moved || !outgoing) return failure(state, 'no-target')
+    next.pendingChoice = null
+    logEvent(next, 'pokemonBnb.log.switch', {
+      player: target.side,
+      in: incoming.card.name,
+      out: outgoing.card.name,
+    })
+    const closedSwitch = next.over ? next : applyEndTurn(next, actor)
+    return { state: closedSwitch, log: tailLog(closedSwitch, logStart) }
+  }
+
   // 04.8 CP3-B: a deck search moves the chosen card out of the actor's own Deck
   // and into hand. It is NOT a damage effect, so it short-circuits before any
   // Weakness/Resistance or Knock-Out maths. The deck index is re-validated
@@ -686,7 +712,12 @@ export function finishChoice(state: BattleState, actor: PlayerSlot): ActionResul
   const choice = state.pendingChoice
   if (!choice) return failure(state, 'no-choice-pending')
   if (choice.actor !== actor) return failure(state, 'not-your-turn')
-  if (choice.effect.kind !== 'searchDeckUpTo') return failure(state, 'choice-not-optional')
+  // 04.9 CP7: a switch is optional exactly when its clause printed "You may"
+  // (066/152/158). 032 prints no "may", so declining it would be skipping a printed
+  // effect. The flag rides the EFFECT rather than being matched on the attack name, so
+  // the two cannot drift apart.
+  const optional = choice.effect.kind === 'switchActive' && choice.effect.optional
+  if (choice.effect.kind !== 'searchDeckUpTo' && !optional) return failure(state, 'choice-not-optional')
 
   const next = cloneBattleState(state)
   const logStart = next.log.length

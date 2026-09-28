@@ -254,6 +254,35 @@ export function inPlayList(side: SideState): InPlayPokemon[] {
   return side.active ? [side.active, ...side.bench] : [...side.bench]
 }
 
+/**
+ * 04.9 CP7: swap a Benched Pokémon with a side's Active, in place.
+ *
+ * **This moves the whole `InPlayPokemon` OBJECT, it does not copy fields.** That is
+ * the entire trick: attached Energy, damage, Special Conditions, the Tool, every turn
+ * counter and the `uid` are properties of that one object, so a reference move
+ * carries all of them for free and none of them can be forgotten. A field-by-field
+ * copy would have to enumerate every field added in 04.5, 04.6, 04.9 CP5 and CP6, and
+ * a field added later would silently drop on a switch.
+ *
+ * Moving the object rather than its contents is also what keeps a `uid` meaning the
+ * same Pokémon afterwards — 04.9 CP5's durations ride the `uid`, so a switch that
+ * re-created the object would detach every live duration from the card it belongs to.
+ *
+ * `benchIndex` is an index into the LIVE array and is spliced out **before** the
+ * Active slot is written, so the two assignments cannot collide.
+ */
+export function applySwitchInPlace(side: SideState, benchIndex: number): InPlayPokemon | null {
+  const active = side.active
+  const incoming = side.bench[benchIndex]
+  if (!active || !incoming) return null
+  // Splice first: after this, `side.bench` no longer holds `incoming`, so pushing
+  // `active` cannot accidentally duplicate or drop either Pokemon.
+  side.bench.splice(benchIndex, 1)
+  side.bench.push(active)
+  side.active = incoming
+  return active
+}
+
 /** Rejection result: the caller keeps the untouched state and gets a code. */
 export function failure(state: BattleState, error: string): ActionResult {
   return { state, log: [], error }

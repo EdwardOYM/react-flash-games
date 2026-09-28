@@ -2022,6 +2022,11 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                           // ("heal ALL damage"), so it gets its own template rather
                           // than a number glued into JSX.
                           ? substituteParams(t('pokemonBnb.chooseHealAction'), { name })
+                          : battle.pendingChoice!.effect.kind === 'switchActive'
+                            // 04.9 CP7: a switch has no amount either, and it also
+                            // renders the OPPONENT's Bench for 003, so the name is
+                            // taken from the target's own side (handled above).
+                            ? substituteParams(t('pokemonBnb.chooseSwitchAction'), { name })
                           : substituteParams(
                             // 04.8 CP2-C: a per-counter clause has no flat amount, so it
                             // gets its own template and {amount} stays a bare number —
@@ -2051,7 +2056,15 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                * above and the engine's own guard, so the dialog can only ever offer a
                * move `processAction` will accept.
                */}
-              {battle.pendingChoice.effect.kind === 'searchDeckUpTo' && (
+              {/*
+               * 04.9 CP7: the "finish" affordance is offered for a MULTI-PICK deck search
+               * (04.9 CP4) and for an OPTIONAL switch (066/152/158's "You may"), and for
+               * nothing else. A mandatory switch (032) must not be declinable, so this
+               * mirrors `finishChoice`'s own guard exactly and the dialog can never offer
+               * a move the engine refuses.
+               */}
+              {(battle.pendingChoice.effect.kind === 'searchDeckUpTo' ||
+                (battle.pendingChoice.effect.kind === 'switchActive' && battle.pendingChoice.effect.optional)) && (
                 <div className="bnb-choice-list">
                   <button
                     className="bnb-choice-finish"
