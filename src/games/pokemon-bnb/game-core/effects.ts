@@ -513,6 +513,9 @@ export type ParsedEffect =
   // first sentence produces, and two clauses would each need to know about the other
   // (the same argument as 173's branching pair in CP2).
   | { kind: 'discardEnergyTypeThenTimesDamage'; types: string[]; perCard: number }
+  // 04.11 CP14 / 161: both sentences folded into ONE clause, for the same reason as 174 —
+  // the damage is a function of a count the first sentence produces.
+  | { kind: 'discardAttachedEnergyThenBonusDamage'; base: number; perCard: number }
   | { kind: 'unsupported'; text: string }
 
 export type EffectTiming = 'beforeDamage' | 'afterDamage'
@@ -864,7 +867,7 @@ function countAttachedEnergy(pokemon: InPlayPokemon, energyType: string): number
 }
 
 /** Every Pokemon a side has in play: the Active first, then the Bench. */
-function ownInPlay(state: BattleState, slot: PlayerSlot): InPlayPokemon[] {
+export function ownInPlay(state: BattleState, slot: PlayerSlot): InPlayPokemon[] {
   const side = sideOf(state, slot)
   return side.active ? [side.active, ...side.bench] : [...side.bench]
 }
@@ -1000,6 +1003,9 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
   // are held between the two sentences rather than read once. The damage sentence then
   // completes the pair into a single clause.
   let pendingDiscardTypes: string[] = []
+  // 04.11 CP14 / 161: the "You may discard as many … as you like" half, held between the
+  // two sentences exactly as `pendingDiscardTypes` holds 174's.
+  let pendingAttachedDiscard = false
   for (const [sentenceIndex, sentence] of sentences.entries()) {
     // 04.9 CP7: whether this sentence is the ONLY one. A handful of clauses are legal
     // only as the whole printed text — 032's bare "Switch this Pokemon with 1 of your
@@ -1574,7 +1580,33 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
-    // 04.11 CP11 / 174, sentence 1 of 2. "Discard all basic Fire Energy or all basic
+    // 04.11 CP14 / 161, sentence 1 of 2: the "as many … as you like" PERMISSION. Nothing is
+  // pushed for it on its own; the damage sentence completes the pair.
+  const mayDiscardAnyAttached = sentence.match(
+    /^you may discard as many energy cards as you like attached to your pokemon in play\.?$/i,
+  )
+  if (mayDiscardAnyAttached) {
+    pendingAttachedDiscard = true
+    pendingCoin = false
+    continue
+  }
+  // 04.11 CP14 / 161, sentence 2 of 2: "this attack does 30 damage plus 20 more damage for
+  // each Energy card you discarded." Only honoured when sentence 1 preceded it, for the
+  // same reason 174's is: the count it names would otherwise have no source.
+  const bonusPerDiscardedAttached = sentence.match(
+    /^if you do, this attack does (\d+) damage plus (\d+) more damage for each energy card you discarded\.?$/i,
+  )
+  if (bonusPerDiscardedAttached && pendingAttachedDiscard) {
+    effects.push({
+      kind: 'discardAttachedEnergyThenBonusDamage',
+      base: Number(bonusPerDiscardedAttached[1]),
+      perCard: Number(bonusPerDiscardedAttached[2]),
+    })
+    pendingAttachedDiscard = false
+    pendingCoin = false
+    continue
+  }
+  // 04.11 CP11 / 174, sentence 1 of 2. "Discard all basic Fire Energy or all basic
     // Lightning Energy attached to this Pokemon." The "or" is a CHOICE between the two
     // types, not a list of types to take one of each from — which is how `discardEnergy`
     // reads a multi-type list (04.7 CP2), so this must NOT be parsed as one.
@@ -3112,7 +3144,10 @@ export function resolveAttack(
   // of a count that only exists after a player choice, and this step fixes the amount
   // before any choice is offered — so running it would commit a damage figure computed
   // from nothing. The whole attack is resolved later, in `resolveChoice`.
-  const deferred = effects.find((effect) => effect.kind === 'discardEnergyTypeThenTimesDamage')
+  const deferred = effects.find(
+    (effect) => effect.kind === 'discardEnergyTypeThenTimesDamage'
+      || effect.kind === 'discardAttachedEnergyThenBonusDamage',
+  )
   if (!spread && !deferred) {
   // 04.9 CP1: `noWeakness` bypasses the multiplier entirely — that is the whole
   // printed clause ("isn't affected by Weakness or Resistance"), so the damage
@@ -3480,6 +3515,41 @@ export function resolveAttack(
       }
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Benched Pokemon to heal' })
+    }
+  }
+
+  // 04.11 CP14 / 161: the multi-pick. `remaining` is the "as many as you like" allowance
+  // resolved to a FINITE count at park time — the total Energy attached to the actor's
+  // Active AND Bench. An unbounded `remaining` would serialise to `null` and break the
+  // snapshot round trip, which is why this is computed rather than stored as "any".
+  //
+  // Targets carry `cardId` because the index SHIFTS as cards are spliced out, and the list
+  // is rebuilt after every pick in `resolveChoice`. A stale index would discard a different
+  // card than the player tapped — a wrong effect, not a missing one.
+  if (deferred && deferred.kind === 'discardAttachedEnergyThenBonusDamage') {
+    const own = ownInPlay(state, actor)
+    const targets = own.flatMap((pokemon) =>
+      pokemon.attachedEnergy.map((card, index) => ({
+        side: actor, zone: 'attachedEnergy' as const, uid: pokemon.uid, index, cardId: card.id,
+      })))
+    if (targets.length > 0) {
+      state.pendingChoice = {
+        actor,
+        targets,
+        remaining: targets.length,
+        source: 'inPlay',
+        effect: {
+          kind: 'discardAttachedEnergyThenBonusDamage',
+          base: deferred.base,
+          perCard: deferred.perCard,
+        },
+        attackName: context.attackName,
+      }
+      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
+    } else {
+      // No Energy attached anywhere: the printed damage is still the bare `base`, and the
+      // clause is a no-op. Logging rather than parking an unpickable choice.
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: deferred.base })
     }
   }
 

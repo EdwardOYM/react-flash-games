@@ -2024,7 +2024,24 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                   // other kind of non-Pokemon pick, handled just below.
                   const isBenchZone = typeof choiceTarget.zone === 'number'
                   if (choiceTarget.zone !== 'active' && !isBenchZone && !looseCard
-                    && choiceTarget.zone !== 'energyType') return null
+                    && choiceTarget.zone !== 'energyType' && choiceTarget.zone !== 'attachedEnergy') return null
+                  // 04.11 CP14 / 161: an `attachedEnergy` target is a card on a Pokemon, not a
+                  // Pokemon and not a card in a zone, so it needs its own lookup. `victim`
+                  // below is `side.bench[<string>]` for this shape, which is `undefined` and
+                  // would render nothing — the same class of bug the guard above fixes.
+                  // The snapshot carries whole `InPlayPokemon` objects, so `attachedEnergy`
+                  // and `uid` are both present on the VIEWER's side without a new wire field.
+                  // The target is captured into a local first: reading `.index` inside the
+                  // `.filter(...)` closure would lose the discriminant narrowing.
+                  const attachedTarget = choiceTarget.zone === 'attachedEnergy' ? choiceTarget : null
+                  const attachedHolder = attachedTarget
+                    ? [battle[attachedTarget.side].active, ...battle[attachedTarget.side].bench]
+                      .filter((p): p is NonNullable<typeof p> => p !== null)
+                      .find((p) => p.uid === attachedTarget.uid)
+                    : null
+                  const attachedCard = attachedHolder && attachedTarget
+                    ? attachedHolder.attachedEnergy[attachedTarget.index] ?? null
+                    : null
                   const side = battle[choiceTarget.side]
                   const victim = choiceTarget.zone === 'active' ? side.active : side.bench[choiceTarget.zone as number]
                   // 04.11 CP11: an `energyType` target is not a Pokemon at all, so `victim`
@@ -2037,7 +2054,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                     // is built at runtime and cannot be statically checked.
                     ? t(`pokemonBnb.energyType${choiceTarget.energyType.charAt(0).toUpperCase()}${choiceTarget.energyType.slice(1)}` as never)
                     : null
-                  const name = energyTypeName ?? (looseCard ? looseCard.name : victim?.card.name)
+                  const name = energyTypeName ?? (attachedCard
+                    ? attachedCard.name
+                    : looseCard ? looseCard.name : victim?.card.name)
                   if (!name) return null
                   return (
                     <button
@@ -2050,6 +2069,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                         // it gets its own template rather than falling through to "deal 0
                         // damage to Fire" from the generic damage branch below.
                         ? substituteParams(t('pokemonBnb.chooseEnergyTypeAction'), { type: energyTypeName })
+                        : attachedCard
+                        // 04.11 CP14 / 161: the pick discards ONE attached Energy card, so it
+                        // must not fall through to "deal 0 damage to <card>" either.
+                        ? substituteParams(t('pokemonBnb.chooseDiscardAttachedAction'), { name })
                         : looseCard
                         ? name
                         : battle.pendingChoice!.effect.kind === 'healChosen'

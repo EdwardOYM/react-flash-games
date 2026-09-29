@@ -58,6 +58,15 @@ export type ChoiceTarget =
   // pick is not a card in any zone — so it is its own variant rather than a card target
   // with a fake zone, which would make the card-index lookup below meaningless.
   | { side: PlayerSlot; zone: 'energyType'; energyType: string }
+  // 04.11 CP14 / 161: a specific Energy card ATTACHED to a specific in-play Pokemon.
+  //
+  // It is not a card in a zone — it is on a Pokemon — so it needs the owning `uid` as well
+  // as an index. The index is into that Pokemon's `attachedEnergy` and it SHIFTS as cards
+  // are discarded, which is why the target list is rebuilt after every pick rather than
+  // stored once; `cardId` is re-checked on resolve for the same reason the deck and
+  // discard targets carry it (a list of attachments is a list, and a stale index would
+  // silently discard a DIFFERENT card than the player tapped).
+  | { side: PlayerSlot; zone: 'attachedEnergy'; uid: string; index: number; cardId: string }
 
 /**
  * 04.8 CP2: an effect that the printed text hands to the player to resolve.
@@ -245,6 +254,25 @@ export type PendingChoice = {
      * own damage entirely for a card carrying this kind. `perCard` is the printed 60.
      */
     | { kind: 'discardEnergyTypeThenTimesDamage'; types: string[]; perCard: number }
+    /**
+     * 04.11 CP14 / 161 — the multi-pick deferred damage.
+     *
+     * "You may discard as many Energy cards as you like attached to your Pokemon in play.
+     * If you do, this attack does 30 damage plus 20 more damage for each Energy card you
+     * discarded."
+     *
+     * `remaining` is the "as many as you like" allowance, resolved at park time to a
+     * FINITE count (every Energy attached to the actor's Active and Bench), because an
+     * unbounded `remaining` would serialise to `null` and break the snapshot round trip.
+     * "You may" makes the whole thing declinable, so `finishChoice` is legal and deals
+     * `base` alone.
+     *
+     * Picked cards are spliced into `staged` and only reach the discard pile when the
+     * sequence ENDS, so `staged.length` is the count the damage is a function of. This is
+     * what `staged` is for — 04.10 CP4 splices cards out for exactly the same reason — and
+     * it means a half-finished sequence can never leave cards in no zone at all.
+     */
+    | { kind: 'discardAttachedEnergyThenBonusDamage'; base: number; perCard: number }
     /**
      * 04.10 CP5 / 073-136: "You may shuffle this Pokemon and all attached cards into your
      * deck."

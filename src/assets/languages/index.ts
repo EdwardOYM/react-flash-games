@@ -446,6 +446,10 @@ type PkmBnbTranslationKey =
   // not a Pokemon, so without this the label fell through to the generic damage template
   // and read "Deal 0 damage to Fire" — a wrong label rather than a blank one.
   | 'chooseEnergyTypeAction'
+  // 04.11 CP14 / 161: the button for an `attachedEnergy` target. The pick discards ONE
+  // attached Energy card, so it needs its own template for the same reason — otherwise it
+  // falls through to the damage template and reads "Deal 0 damage to Fire Energy".
+  | 'chooseDiscardAttachedAction'
   | 'chooseSwitchAction'
   // 04.10 CP4: the destination stage of a two-stage Energy attach (007/063). Without
   // it the second-stage picker would fall through to the damage template and read

@@ -9,7 +9,7 @@ import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
 import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState, ChoiceTarget, PendingChoice, SideState } from './types'
-import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, recordAttackDamageOn, refreshChoiceTargets, resolveAttack } from './effects'
+import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, ownInPlay, parseAttackEffects, recordAttackDamageOn, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
 import { applyEndTurn, applyStartOfTurn, checkVictory, performBenchKo, performKo } from './turns'
 
@@ -562,6 +562,56 @@ function inPlayTargets(state: BattleState, actor: PlayerSlot): ChoiceTarget[] {
   }))
 }
 
+/**
+ * 04.11 CP14 / 161: finish the deferred multi-pick.
+ *
+ * Called from BOTH the last pick and `finishChoice`, because "as many as you like" is a
+ * PERMISSION and a player may stop early — 04.9 CP4's rule is that a "up to N" clause must
+ * be declinable, and this is the same shape. Sharing the function is what guarantees the
+ * damage is dealt EXACTLY ONCE: two separate implementations of "commit and deal" is how a
+ * turn ends up dealing damage twice, or losing the staged cards entirely.
+ *
+ * `staged` holds cards spliced out of their Pokemon. If this is never called they would be
+ * in no zone at all, which is the failure 04.10 CP4 documented for 063's "up to 2".
+ */
+function commitDeferredEnergyDiscard(
+  state: BattleState,
+  actor: PlayerSlot,
+  effect: { base: number; perCard: number },
+  staged: CardDef[],
+  attackName: string,
+  logStart: number,
+): ActionResult {
+  const discarded = staged as EnergyCardDef[]
+  const attacker = sideOf(state, actor).active
+  const defenderSlot = foeOf(actor)
+  const defender = sideOf(state, defenderSlot).active
+  if (defender && attacker) {
+    sideOf(state, actor).discard.push(...discarded)
+    logEvent(state, 'pokemonBnb.log.effectDiscardEnergy', { player: actor, count: discarded.length })
+    // "If you do … 20 more damage for each Energy card you discarded" — the base 30 is
+    // printed unconditionally and the bonus only for cards actually discarded, so
+    // declining immediately is exactly `base`, which is the printed behaviour.
+    const amount = computeAttackDamage(
+      state, attacker, defender, effect.base + effect.perCard * discarded.length,
+    ).damage
+    if (amount > 0) {
+      defender.damage += amount
+      recordAttackDamageOn(defender, state.turn, amount)
+      logEvent(state, 'pokemonBnb.log.damageDealt', {
+        player: actor, attack: attackName, target: defender.card.name, amount,
+      })
+    }
+    if (isKnockedOut(defender)) {
+      sideOf(state, defenderSlot).koByAttackTurn = state.turn
+      performKo(state, defenderSlot)
+    }
+  }
+  state.pendingChoice = null
+  const closed = state.over ? state : applyEndTurn(state, actor)
+  return { state: closed, log: tailLog(closed, logStart) }
+}
+
 export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex: number): ActionResult {
   if (state.over) return failure(state, 'match-over')
   const choice = state.pendingChoice
@@ -973,6 +1023,35 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     const closedDeck = next.over ? next : applyEndTurn(next, actor)
     return { state: closedDeck, log: tailLog(closedDeck, logStart) }
   }
+  // 04.11 CP14 / 161: the MULTI-pick half of the deferred damage. Each pick splices one
+  // attached Energy card into `staged` and RE-PARKS with fresh targets, because the index
+  // shifts. Only when the last card is picked — or the player declines the rest — are the
+  // staged cards committed to the discard pile and the damage dealt, exactly once.
+  if (choice.effect.kind === 'discardAttachedEnergyThenBonusDamage') {
+    if (target.zone !== 'attachedEnergy') return failure(state, 'no-target')
+    const holder = inPlayList(sideOf(next, target.side)).find((p) => p.uid === target.uid)
+    if (!holder) return failure(state, 'no-target')
+    // The id is re-checked because the index shifts; a stale index would discard a
+    // DIFFERENT card than the one the player tapped.
+    const card = holder.attachedEnergy[target.index]
+    if (!card || card.id !== target.cardId) return failure(state, 'no-target')
+    holder.attachedEnergy.splice(target.index, 1)
+    const staged = [...(choice.staged ?? []), card]
+    const remaining = choice.remaining - 1
+    if (remaining > 0) {
+      const own = ownInPlay(next, actor)
+      next.pendingChoice = {
+        ...choice, staged, remaining,
+        targets: own.flatMap((pokemon) =>
+          pokemon.attachedEnergy.map((c, i) => ({
+            side: actor, zone: 'attachedEnergy' as const, uid: pokemon.uid, index: i, cardId: c.id,
+          }))),
+      }
+      return { state: next, log: tailLog(next, logStart) }
+    }
+    return commitDeferredEnergyDiscard(next, actor, choice.effect, staged, choice.attackName ?? '', logStart)
+  }
+
   // 04.11 CP11 / 174: the DEFERRED-damage arm. This choice does two things at once —
   // it discards the chosen Energy type and then DEALS the damage, because the damage is
   // a function of how many were discarded and step 2 was skipped for this card.
@@ -1105,8 +1184,24 @@ export function finishChoice(state: BattleState, actor: PlayerSlot): ActionResul
   // 04.10 CP4: `searchAttachEnergy` is declinable for the same reason `searchDeckUpTo`
   // is — "up to 2 Basic Energy" permits 0, 1 or 2. 042 ('attacker') is exempt in
   // practice because its cap can be 0 heads, in which case nothing is ever parked.
-  if (choice.effect.kind !== 'searchDeckUpTo' && !mayClause && !optional) {
+  // 04.11 CP14 / 161: "You may discard as many Energy cards as you like" is a PERMISSION
+  // in exactly the way "up to 2" is — 0, 1 or n are all legal, so `finishChoice` must be.
+  // It is unconditionally declinable (not gated on `optional`), because the printed text
+  // always says "You may" and the parser only raises the clause when it does.
+  const mayDiscardAny = choice.effect.kind === 'discardAttachedEnergyThenBonusDamage'
+  if (choice.effect.kind !== 'searchDeckUpTo' && !mayClause && !optional && !mayDiscardAny) {
     return failure(state, 'choice-not-optional')
+  }
+  // Declining 161 commits whatever was already staged and deals the damage for THAT count —
+  // so "discard 3 of 6, then stop" is a real, reachable outcome and must not lose the
+  // three spliced cards. Sharing the commit function is what guarantees the damage is dealt
+  // exactly once on this path as well as on the last-pick path.
+  //
+  // This sits BELOW the `next`/`logStart` clone on purpose: the commit mutates and closes,
+  // so it must run on the cloned state, exactly as every other finishing path does.
+  if (mayDiscardAny && choice.effect.kind === 'discardAttachedEnergyThenBonusDamage') {
+    const cloned = cloneBattleState(state)
+    return commitDeferredEnergyDiscard(cloned, actor, choice.effect, choice.staged ?? [], choice.attackName ?? '', cloned.log.length)
   }
 
   const next = cloneBattleState(state)
