@@ -2079,22 +2079,29 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                     ? battle[choiceTarget.side].deck[choiceTarget.deckIndex]
                     : null
                   const looseCard = discardCard ?? handCard ?? deckCard
-                  // 04.11 CP12: this guard was ENUMERATING absences — it ruled out
-                  // 'active' and 'deck' and then required a loose card, which meant a
-                  // BENCH target (whose zone is a NUMBER, and which has no loose card)
-                  // fell straight through to `return null` and rendered NO BUTTON AT ALL.
-                  // Every "choose 1 of your Benched Pokemon" dialog has been an empty
-                  // dialog since this shipped: healChosen, damageChosenTarget, attachStaged,
-                  // switchActive and shuffleSelfIntoDeck all target the Bench.
+                  // 04.11 CP21: THIS GUARD IS DELETED, and that is the finding.
+                  // It read as an enumeration of every non-Pokemon zone, listing
+                  // 'energyType', 'attachedEnergy' and 'statusCondition' by name. That is
+                  // the EXACT anti-pattern CP12 fixed in this very spot: CP12's own comment
+                  // says the fix was to "ask whether the target names a Pokemon, rather
+                  // than listing the things it might not be" — and then CP11, CP14 and CP16
+                  // each "fixed" a new shape by APPENDING to the list it was meant to
+                  // replace. So the next `ChoiceTarget` variant added to this union will
+                  // silently render an empty dialog again, which is the shipped soft-lock
+                  // CP12 found, and it will do so with no engine error to notice it by.
                   //
-                  // The fix is the same positive test used for `isInPlayTarget` in the
-                  // engine: ask whether the target names a Pokemon, rather than listing
-                  // the things it might not be. 04.11 CP11's `energyType` target is the
-                  // other kind of non-Pokemon pick, handled just below.
-                  const isBenchZone = typeof choiceTarget.zone === 'number'
-                  if (choiceTarget.zone !== 'active' && !isBenchZone && !looseCard
-                    && choiceTarget.zone !== 'energyType' && choiceTarget.zone !== 'attachedEnergy'
-                    && choiceTarget.zone !== 'statusCondition') return null
+                  // It is also PROVABLY REDUNDANT. Everything it admits is admitted by the
+                  // name resolution below, and everything it rejects resolves to no name
+                  // and hits `if (!name) return null` a few lines on — identical outcome,
+                  // reached by a POSITIVE test. `name` is the real question ("does this
+                  // target have something to call itself?"), it is already computed, and
+                  // asking it is what makes the next variant work without an edit here.
+                  //
+                  // One thing to know if you edit this block next: an earlier draft claimed
+                  // a local `isBenchZone` was still needed by `victim` below. It is not —
+                  // `victim` tests `zone` directly — and tsc caught the unused binding. There
+                  // is deliberately nothing declared here between the comment and
+                  // `statusLabel` below.
                   // 04.11 CP16 / 182: a `statusCondition` target is a CONDITION, not a card
                   // or a Pokemon, so it needs a name of its own. The `condition*` keys
                   // already exist, so this reuses existing vocabulary rather than adding any.
