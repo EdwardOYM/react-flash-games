@@ -453,6 +453,9 @@ type PkmBnbTranslationKey =
   // 04.11 CP15 / 180: the button for an Energy-move destination. The pick names where
   // Energy goes, not a victim, so it needs its own template rather than the damage one.
   | 'chooseMoveEnergyAction'
+  // 04.11 CP16 / 182: the button for a Special-Condition choice. The pick names a
+  // condition rather than a victim, so it needs its own template.
+  | 'chooseConditionAction'
   | 'chooseSwitchAction'
   // 04.10 CP4: the destination stage of a two-stage Energy attach (007/063). Without
   // it the second-stage picker would fall through to the damage template and read

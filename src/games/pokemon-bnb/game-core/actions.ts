@@ -1097,6 +1097,23 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closedDeferred, log: tailLog(closedDeferred, logStart) }
   }
 
+  // 04.11 CP16 / 182: apply the condition the player chose. The flips already happened in
+  // the applier, so this is purely "which one", and the condition is re-checked against the
+  // card's own printed list so a forged target cannot apply something unprinted.
+  if (choice.effect.kind === 'chooseStatusCondition') {
+    if (target.zone !== 'statusCondition') return failure(state, 'no-target')
+    if (!choice.effect.conditions.includes(target.condition)) return failure(state, 'no-target')
+    const victim = sideOf(next, foeOf(actor)).active
+    if (!victim) return failure(state, 'no-target')
+    victim.conditions[target.condition] = true
+    next.pendingChoice = null
+    logEvent(next, 'pokemonBnb.log.effectStatus', {
+      player: actor, target: victim.card.name, status: target.condition,
+    })
+    const closed = next.over ? next : applyEndTurn(next, actor)
+    return { state: closed, log: tailLog(closed, logStart) }
+  }
+
   // 04.11 CP15 / 180: move ONE attached Energy card to the chosen Benched Pokemon, then
   // re-park while cards remain. "in any way you like" grants a DESTINATION choice per
   // card, so the sequence runs once per card — the same shape as 04.10 CP4's `perCard`

@@ -520,6 +520,14 @@ export type ParsedEffect =
   // choice rather than a deferred-damage one — the distinction that makes 180 far simpler
   // than 161 and 174.
   | { kind: 'moveAttachedEnergyToBench'; optional: boolean }
+  // 04.11 CP16 / 182: both sentences folded into ONE clause, for the same reason as 174 and
+  // 161 — the status is gated on a coin count the first sentence produces, so the two cannot
+  // be separate clauses without each needing to know about the other.
+  //
+  // `conditions` is the printed list ("Asleep, Confused, or Poisoned (your choice)"). The
+  // count is DERIVED at resolution from the DEFENDER's attachments, which is CP2's
+  // `damageTimesEnergy` scope 'defender' applied to coins rather than damage.
+  | { kind: 'flipCoinsPerDefenderEnergyThenStatus'; conditions: StatusCondition[] }
   | { kind: 'unsupported'; text: string }
 
 export type EffectTiming = 'beforeDamage' | 'afterDamage'
@@ -1010,6 +1018,8 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
   // 04.11 CP14 / 161: the "You may discard as many … as you like" half, held between the
   // two sentences exactly as `pendingDiscardTypes` holds 174's.
   let pendingAttachedDiscard = false
+  // 04.11 CP16 / 182: the "Flip a number of coins …" lead-in, held between the sentences.
+  let pendingStatusFlip = false
   for (const [sentenceIndex, sentence] of sentences.entries()) {
     // 04.9 CP7: whether this sentence is the ONLY one. A handful of clauses are legal
     // only as the whole printed text — 032's bare "Switch this Pokemon with 1 of your
@@ -1584,7 +1594,38 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
-    // 04.11 CP15 / 180, sentence 1 of 2. "You may move all Energy cards attached to Palkia to
+    // 04.11 CP16 / 182, sentence 1 of 2. "Flip a number of coins equal to the number of
+  // Energy attached to the Defending Pokemon." The COUNT is derived at resolution from the
+  // defender's attachments, so only the lead-in is matched here; the status sentence
+  // completes the pair.
+  const flipPerDefenderEnergy = sentence.match(
+    /^flip a number of coins equal to the number of energy attached to the defending pokemon\.?$/i,
+  )
+  if (flipPerDefenderEnergy) {
+    pendingStatusFlip = true
+    pendingCoin = false
+    continue
+  }
+  // 04.11 CP16 / 182, sentence 2 of 2. The printed condition list is read from the TEXT
+  // rather than hard-coded, so a variant naming a different set of conditions still works,
+  // and a typo in the card data surfaces as "no conditions" rather than as a silent miss.
+  const statusOnHeads = sentence.match(
+    /^if you get 1 or more heads, the defending pokemon is now (asleep|confused|poisoned)(?:, (\w+))?(?:, or (\w+))? \(your choice\)\.?$/i,
+  )
+  if (statusOnHeads && pendingStatusFlip) {
+    // Only the three conditions the text names are offered, and each is validated against
+    // `STATUS_CONDITIONS` rather than cast — a card naming something else yields no
+    // condition instead of a fabricated one.
+    const named = [statusOnHeads[1], statusOnHeads[2], statusOnHeads[3]]
+      .filter((v): v is string => Boolean(v))
+      .map((v) => v.toLowerCase())
+      .filter((v): v is StatusCondition => (STATUS_CONDITIONS as readonly string[]).includes(v))
+    effects.push({ kind: 'flipCoinsPerDefenderEnergyThenStatus', conditions: named })
+    pendingStatusFlip = false
+    pendingCoin = false
+    continue
+  }
+  // 04.11 CP15 / 180, sentence 1 of 2. "You may move all Energy cards attached to Palkia to
   // your Benched Pokemon in any way you like."
   //
   // The PARENTHETICAL is a separate sentence after the splitter runs, so it is matched
@@ -2651,6 +2692,37 @@ export function applyEffect(
         player: context.actor,
         count: discarded.length,
       })
+      break
+    }
+    case 'flipCoinsPerDefenderEnergyThenStatus': {
+      // 04.11 CP16 / 182: flip a number of coins EQUAL TO the defender's attached Energy,
+      // then — only if at least one was heads — let the player choose which of the printed
+      // conditions to apply.
+      //
+      // **ZERO ATTACHED ENERGY MEANS ZERO FLIPS, WHICH MEANS TAILS, WHICH MEANS NO
+      // STATUS.** That is the printed behaviour, not a special case, and it is why nothing
+      // is parked for an empty attachment list rather than a picker with no effect behind it.
+      const victim = context.defender
+      if (!victim) break
+      const flips = victim.attachedEnergy.length
+      let heads = 0
+      for (let i = 0; i < flips; i += 1) if (flipCoin(state)) heads += 1
+      if (heads === 0) {
+        logEvent(state, 'pokemonBnb.log.coinTails', { player: context.actor })
+        break
+      }
+      if (effect.conditions.length === 0) break
+      state.pendingChoice = {
+        actor: context.actor,
+        targets: effect.conditions.map((condition) => ({
+          side: context.actor, zone: 'statusCondition' as const, condition,
+        })),
+        remaining: 1,
+        source: 'inPlay',
+        effect: { kind: 'chooseStatusCondition', conditions: effect.conditions },
+        attackName: context.attackName,
+      }
+      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: context.actor, count: effect.conditions.length })
       break
     }
     case 'moveAttachedEnergyToBench': {

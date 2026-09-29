@@ -67,6 +67,10 @@ export type ChoiceTarget =
   // discard targets carry it (a list of attachments is a list, and a stale index would
   // silently discard a DIFFERENT card than the player tapped).
   | { side: PlayerSlot; zone: 'attachedEnergy'; uid: string; index: number; cardId: string }
+  // 04.11 CP16 / 182: a choice among SPECIAL CONDITIONS, not among cards. "…is now
+  // Asleep, Confused, or Poisoned (your choice)" makes the player pick the condition, and
+  // a condition is not a thing in a zone or on a Pokemon, so it needs its own variant.
+  | { side: PlayerSlot; zone: 'statusCondition'; condition: StatusCondition }
 
 /**
  * 04.8 CP2: an effect that the printed text hands to the player to resolve.
@@ -291,6 +295,16 @@ export type PendingChoice = {
      * Pokemon.)" — is folded in rather than modelled separately; see the parser.
      */
     | { kind: 'moveAttachedEnergyToBench' }
+    /**
+     * 04.11 CP16 / 182 — "Flip a number of coins equal to the number of Energy attached to
+     * the Defending Pokemon. If you get 1 or more heads, the Defending Pokemon is now
+     * Asleep, Confused, or Poisoned (your choice)."
+     *
+     * The flips have ALREADY happened by the time this is offered — the applier resolves
+     * them and only parks this when at least one was heads — so the choice is purely WHICH
+     * condition to apply, and `conditions` is exactly the list the text names.
+     */
+    | { kind: 'chooseStatusCondition'; conditions: StatusCondition[] }
     /**
      * 04.10 CP5 / 073-136: "You may shuffle this Pokemon and all attached cards into your
      * deck."

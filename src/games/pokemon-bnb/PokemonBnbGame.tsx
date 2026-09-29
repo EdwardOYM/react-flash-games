@@ -2024,7 +2024,14 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                   // other kind of non-Pokemon pick, handled just below.
                   const isBenchZone = typeof choiceTarget.zone === 'number'
                   if (choiceTarget.zone !== 'active' && !isBenchZone && !looseCard
-                    && choiceTarget.zone !== 'energyType' && choiceTarget.zone !== 'attachedEnergy') return null
+                    && choiceTarget.zone !== 'energyType' && choiceTarget.zone !== 'attachedEnergy'
+                    && choiceTarget.zone !== 'statusCondition') return null
+                  // 04.11 CP16 / 182: a `statusCondition` target is a CONDITION, not a card
+                  // or a Pokemon, so it needs a name of its own. The `condition*` keys
+                  // already exist, so this reuses existing vocabulary rather than adding any.
+                  const statusLabel = choiceTarget.zone === 'statusCondition'
+                    ? t(`pokemonBnb.condition${choiceTarget.condition.charAt(0).toUpperCase()}${choiceTarget.condition.slice(1)}` as never)
+                    : null
                   // 04.11 CP14 / 161: an `attachedEnergy` target is a card on a Pokemon, not a
                   // Pokemon and not a card in a zone, so it needs its own lookup. `victim`
                   // below is `side.bench[<string>]` for this shape, which is `undefined` and
@@ -2054,7 +2061,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                     // is built at runtime and cannot be statically checked.
                     ? t(`pokemonBnb.energyType${choiceTarget.energyType.charAt(0).toUpperCase()}${choiceTarget.energyType.slice(1)}` as never)
                     : null
-                  const name = energyTypeName ?? (attachedCard
+                  const name = energyTypeName ?? (statusLabel
+                    ? statusLabel
+                    : attachedCard
                     ? attachedCard.name
                     : looseCard ? looseCard.name : victim?.card.name)
                   if (!name) return null
@@ -2077,6 +2086,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                           // 04.11 CP15 / 180: the pick is a DESTINATION for Energy leaving
                           // the attacker, not damage — it must not read "deal 0 damage to X".
                           ? substituteParams(t('pokemonBnb.chooseMoveEnergyAction'), { name })
+                        : statusLabel
+                        // 04.11 CP16 / 182: the pick selects a Special Condition, so it
+                        // needs its own template rather than the damage one.
+                        ? substituteParams(t('pokemonBnb.chooseConditionAction'), { name })
                         : looseCard
                         ? name
                         : battle.pendingChoice!.effect.kind === 'healChosen'
