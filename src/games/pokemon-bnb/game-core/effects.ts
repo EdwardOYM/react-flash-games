@@ -348,6 +348,21 @@ export type ParsedEffect =
   // ("heal ALL damage"), so the printed "all" is preserved rather than being
   // flattened to a number at parse time.
   | { kind: 'healChosenTarget'; amount: number | 'all' }
+  // 04.11 CP7 / 182: heal a chosen Benched Pokemon of a count EQUAL TO a number derived
+  // from the board ("equal to the number of Water Energy cards attached to Shining
+  // Celebi"). It is a separate clause from `healChosenTarget` because the amount is not
+  // knowable at parse time and must be resolved at PARK time — the same reason
+  // `searchDeckUpTo` resolves its cap at park time rather than trusting a printed number.
+  //
+  // "If the Pokemon has fewer damage counters than that, remove all of them" is NOT a
+  // separate clause: `healChosen` already caps the removal at the damage actually on the
+  // target, which is exactly that sentence. Modelling it again would be a second
+  // implementation of a rule the engine already follows.
+  | { kind: 'healChosenPerEnergyType'; energyType: string }
+  // 04.11 CP7 / 173: remove N damage counters from EVERY Pokemon on BOTH boards that has
+  // damage on it. `amount` is in DAMAGE POINTS (the parser converts the printed counter
+  // count), because every other heal clause in the engine speaks points.
+  | { kind: 'healAllSides'; amount: number }
   // 04.9 CP4: "Search your deck for up to 2 Basic Pokemon and put them onto your
   // Bench. Then, shuffle your deck." (013 Victini) / "…any number of Basic
   // Pokemon…" (053/149 Pikachu ex) / "…up to 2 Stadium cards, reveal them, and put
@@ -1541,6 +1556,49 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.11 CP7 / 173: "You and your opponent remove 1 damage counter from each of your
+    // Pokemon with damage counters on them."
+    //
+    // "each of YOUR Pokemon" is read per-player: you clear your own board, your opponent
+    // clears theirs, and neither chooses. That is why this is a clause and not a choice —
+    // there is nothing to pick, and parking a picker would soft-lock the match.
+    //
+    // The printed unit is COUNTERS, and `amount` is POINTS like every other heal in the
+    // engine, so the conversion happens here at parse time. "with damage counters on them"
+    // is the only filter: an undamaged Pokemon is skipped rather than healed to 0.
+    const healBothSides = sentence.match(
+      /^you and your opponent remove (\d+) damage counters? from each of your pokemon with damage counters on them\.?$/i,
+    )
+    if (healBothSides) {
+      effects.push({ kind: 'healAllSides', amount: Number(healBothSides[1]) * DAMAGE_PER_COUNTER })
+      pendingCoin = false
+      continue
+    }
+    // 04.11 CP7 / 182: "Remove a number of damage counters from 1 of your Benched Pokemon
+    // equal to the number of Water Energy cards attached to Shining Celebi."
+    //
+    // The Benched-only shape is `healChosenTarget`'s existing `benchedOnly` concept, and
+    // the trailing "If the Pokemon has fewer … remove all of them" is deliberately NOT
+    // matched here — see `healChosenPerEnergyType`'s declaration for why.
+    const healPerEnergy = sentence.match(
+      /^remove a number of damage counters from 1 of your benched pokemon equal to the number of (\w+) energy cards attached to \w[\w ]*?\.$/i,
+    )
+    if (healPerEnergy) {
+      effects.push({ kind: 'healChosenPerEnergyType', energyType: healPerEnergy[1].toLowerCase() })
+      pendingCoin = false
+      continue
+    }
+    // 04.11 CP7 / 182's SECOND sentence: "If the Pokemon has fewer damage counters than
+    // that, remove all of them." **RECOGNISED AND DISCARDED, NOT MODELLED.** The cap is
+    // already `Math.min(amount, damage)` inside `healChosen`'s resolve in `actions.ts`,
+    // so a clause for this sentence would be a second implementation of a rule the engine
+    // follows anyway — and the first version of this checkpoint simply omitted it, which
+    // left the card `unsupported` while the harness reported it as landing. That is CP5's
+    // defect again, in a new costume, and it is why the coverage assertion below pins the
+    // exact unsupported count and NAMES the card.
+    if (/^if the pokemon has fewer damage counters than that, remove all of them\.?$/i.test(sentence)) {
+      continue
+    }
     // 171: "This Pokemon can't attack during your next turn." 04.9's lock form is
     // "During your next turn, this Pokemon can't use attacks" — the INVERSION, and the
     // window is the holder's OWN next turn, so `whose` is 'self' (+1) not 'foe' (+2).
@@ -2491,6 +2549,26 @@ export function applyEffect(
       })
       break
     }
+    case 'healAllSides': {
+      // 04.11 CP7 / 173. BOTH boards: "You and your opponent remove 1 damage counter from
+      // each of your Pokemon with damage counters on them." Each player clears their OWN
+      // Pokemon, so this walks both sides rather than the actor's only.
+      //
+      // An undamaged Pokemon is skipped rather than healed to 0, which is what "with damage
+      // counters on them" means — and it also keeps a 0-damage Pokemon from being logged
+      // as healed when it never lost anything.
+      for (const slot of [context.actor, foeOf(context.actor)] as const) {
+        for (const pokemon of inPlayList(sideOf(state, slot))) {
+          if (pokemon.damage <= 0) continue
+          const removed = Math.min(effect.amount, pokemon.damage)
+          pokemon.damage -= removed
+          logEvent(state, 'pokemonBnb.log.effectHeal', {
+            player: slot, target: pokemon.card.name, amount: removed,
+          })
+        }
+      }
+      break
+    }
     case 'setPoisonCounters': {
       // 04.11 CP6 / 169. Sets the count the ALREADY-APPLIED Poison will place; it does
       // not deal damage now. The `status` clause for the same sentence has already run
@@ -3296,6 +3374,44 @@ export function resolveAttack(
         attackName: context.attackName,
       }
       logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: bench.length })
+    } else {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Benched Pokemon to heal' })
+    }
+  }
+
+  // 04.11 CP7 / 182: the DERIVED-amount heal. The amount is resolved HERE, at park time,
+  // from the attacker's own attachments — never at parse time, where the board is not
+  // known. This is the same discipline as `searchDeckUpTo` resolving its cap at park time.
+  //
+  // **The resolved number is stored on the choice, not re-derived on resolve.** If the
+  // attacker somehow lost Energy between parking and the pick, re-deriving would change the
+  // amount out from under a choice the player has already been shown.
+  const healPerEnergy = effects.find((effect) => effect.kind === 'healChosenPerEnergyType')
+  if (healPerEnergy && healPerEnergy.kind === 'healChosenPerEnergyType') {
+    const bench = ownInPlay(state, actor)
+      .slice(1)
+      .map((pokemon, index) => ({ side: actor, zone: index, uid: pokemon.uid }))
+    if (bench.length > 0) {
+      // Only ATTACHED Energy of the named type counts — "attached to Shining Celebi", and
+      // Shining Celebi is the attacker, so this is the attacker's own attachments. An
+      // untyped Energy provides no type and must not be counted by accident.
+      const derived = attacker.attachedEnergy.filter((card) => card.provides === healPerEnergy.energyType).length
+      if (derived > 0) {
+        state.pendingChoice = {
+          actor,
+          targets: bench,
+          remaining: 1,
+          source: 'inPlay',
+          // Points, not counters: `healChosen`'s cap in `actions.ts` is written in points.
+          effect: { kind: 'healChosen', amount: derived * DAMAGE_PER_COUNTER },
+          attackName: context.attackName,
+        }
+        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: bench.length })
+      } else {
+        // No matching Energy attached: the printed amount is zero, so the heal is a legal
+        // no-op. Logging rather than parking an empty picker, for the soft-lock reason above.
+        logEvent(state, 'pokemonBnb.log.effectHeal', { player: actor, amount: 0 })
+      }
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Benched Pokemon to heal' })
     }
