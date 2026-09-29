@@ -480,6 +480,10 @@ export type ParsedEffect =
   | { kind: 'heal'; amount: number }
   | { kind: 'discardEnergy'; amount: number | 'all'; energyTypes?: string[] }
   | { kind: 'status'; status: StatusCondition; coin: boolean }
+  // 04.11 CP6 / 169: how many damage counters this Pokemon's Poison places between
+  // turns. The rulebook default is 1 and lives on the Pokemon, not on the clause, so
+  // nothing has to opt in — 169 is the only card in the set that prints another number.
+  | { kind: 'setPoisonCounters'; counters: number }
   | { kind: 'unsupported'; text: string }
 
 export type EffectTiming = 'beforeDamage' | 'afterDamage'
@@ -1521,6 +1525,22 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.11 CP6 / 169: "Put 2 damage counters instead of 1 on the Defending Pokemon
+    // between turns." The engine's Poison is a fixed 1 counter (`POISON_DAMAGE`), so
+    // this clause does not deal damage — it sets HOW MANY counters this Pokemon's
+    // existing Poison will place between turns.
+    //
+    // The "instead of 1" is the printed default and is why the number is read from the
+    // first group: "2 … instead of 1" must yield 2, never 1. A `status` clause for the
+    // same sentence has already been pushed, so the ordering is already right.
+    const poisonCounterCount = sentence.match(
+      /^put (\d+) damage counters instead of \d+ on the defending pokemon between turns\.?$/i,
+    )
+    if (poisonCounterCount) {
+      effects.push({ kind: 'setPoisonCounters', counters: Number(poisonCounterCount[1]) })
+      pendingCoin = false
+      continue
+    }
     // 171: "This Pokemon can't attack during your next turn." 04.9's lock form is
     // "During your next turn, this Pokemon can't use attacks" — the INVERSION, and the
     // window is the holder's OWN next turn, so `whose` is 'self' (+1) not 'foe' (+2).
@@ -2468,6 +2488,22 @@ export function applyEffect(
         player: context.actor,
         target: defender.card.name,
         status: effect.status,
+      })
+      break
+    }
+    case 'setPoisonCounters': {
+      // 04.11 CP6 / 169. Sets the count the ALREADY-APPLIED Poison will place; it does
+      // not deal damage now. The `status` clause for the same sentence has already run
+      // (or is in the same effects array and runs first), so the Pokemon is poisoned by
+      // the time this lands — but the order is not load-bearing here, because the value
+      // is read between turns, long after every applier has finished.
+      const defender = context.defender
+      if (!defender) break
+      defender.poisonCounters = effect.counters
+      logEvent(state, 'pokemonBnb.log.effectStatus', {
+        player: context.actor,
+        target: defender.card.name,
+        status: 'poisoned',
       })
       break
     }

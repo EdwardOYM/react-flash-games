@@ -260,6 +260,17 @@ export type InPlayPokemon = {
   /** Single Pokemon Tool attachment (CP4 action model; CP6 renders it). */
   attachedTool: TrainerCardDef | null
   conditions: SpecialConditionState
+  /**
+   * 04.11 CP6 / 169: damage COUNTERS this Pokemon's Poison deals between turns.
+   *
+   * The rulebook default is 1, and every other card leaves it alone — so this is `1`
+   * everywhere except the one card that prints otherwise. 169 ("Put 2 damage counters
+   * instead of 1") is the only card in the set that changes the number, and it changes it
+   * as a property OF THE POISONED POKEMON rather than as a damage modifier, so it cannot
+   * ride `durationDamageAdjustment` (which is a flat damage offset, not a multiplier of
+   * the poison tick).
+   */
+  poisonCounters: number
   enteredTurn: number
   evolvedTurn: number
   energyAttachedTurn: number

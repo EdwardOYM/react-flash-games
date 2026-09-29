@@ -25,6 +25,9 @@ function makeInPlay(card: PokemonCardDef, enteredTurn: number): InPlayPokemon {
     attachedEnergy: [],
     attachedTool: null,
     conditions: empty,
+    // 04.11 CP6 / 169: the rulebook default. Every Pokemon starts with a 1-counter
+    // Poison, and 169 is the only card in the set that raises it.
+    poisonCounters: 1,
     enteredTurn,
     evolvedTurn: 0,
     energyAttachedTurn: 0,

@@ -6,7 +6,7 @@
 
 import { prizesForKnockOut } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
-import { BURN_DAMAGE, POISON_DAMAGE } from './constants'
+import { BURN_DAMAGE, DAMAGE_PER_COUNTER } from './constants'
 import { cloneBattleState, drawCards, foeOf, hasPassive, inPlayList, isKnockedOut, logEvent, pruneDurations, sideOf } from './helpers'
 import type { BattleState, InPlayPokemon } from './types'
 import { flipCoin } from './effects'
@@ -239,8 +239,13 @@ export function applyCheckup(state: BattleState, justFinished: PlayerSlot): void
 
   for (const { slot, pokemon } of actives) {
     if (!pokemon.conditions.poisoned) continue
-    pokemon.damage += POISON_DAMAGE
-    logEvent(state, 'pokemonBnb.log.poisonDamage', { player: slot, card: pokemon.card.name, amount: POISON_DAMAGE })
+    // 04.11 CP6 / 169: the tick is a COUNTER COUNT, not a flat amount. It reads
+    // `poisonCounters` (default 1, set by 169) and multiplies by the counter size, so a
+    // Pokemon that somehow has no field set still ticks for the rulebook's 1 counter
+    // rather than for `undefined` damage.
+    const poisonDamage = (pokemon.poisonCounters ?? 1) * DAMAGE_PER_COUNTER
+    pokemon.damage += poisonDamage
+    logEvent(state, 'pokemonBnb.log.poisonDamage', { player: slot, card: pokemon.card.name, amount: poisonDamage })
   }
   for (const { slot, pokemon } of actives) {
     if (!pokemon.conditions.burned) continue
