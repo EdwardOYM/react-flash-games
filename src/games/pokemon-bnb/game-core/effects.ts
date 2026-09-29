@@ -499,6 +499,15 @@ export type ParsedEffect =
   // turns. The rulebook default is 1 and lives on the Pokemon, not on the clause, so
   // nothing has to opt in — 169 is the only card in the set that prints another number.
   | { kind: 'setPoisonCounters'; counters: number }
+  // 04.11 CP8 / 159: an ADDITIONAL attack cost paid by DISCARDING Energy.
+  //
+  // Every other cost in the engine is a requirement only — `canPayCost` checks the
+  // attachments and nothing is consumed, because Pokemon TCG Energy is never spent. 159
+  // prints "Discard 2 Energy cards attached to Charizard IN ORDER TO USE THIS ATTACK",
+  // which is the one place in the set where Energy genuinely leaves play, so the printed
+  // `cost` alone is not the whole price of the attack: the attacker needs `cost.length +
+  // count` cards attached, and the extra `count` are moved to the discard pile.
+  | { kind: 'discardEnergyCost'; count: number }
   | { kind: 'unsupported'; text: string }
 
 export type EffectTiming = 'beforeDamage' | 'afterDamage'
@@ -1553,6 +1562,19 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     )
     if (poisonCounterCount) {
       effects.push({ kind: 'setPoisonCounters', counters: Number(poisonCounterCount[1]) })
+      pendingCoin = false
+      continue
+    }
+    // 04.11 CP8 / 159: "Discard 2 Energy cards attached to Charizard in order to use this
+    // attack." The count is UNTYPED ("2 Energy cards", not "2 Fire Energy") — the same
+    // trap as CP1's 185, where a leading type word would be a filter that matches almost
+    // nothing. The card NAME stands in for "this Pokemon"; the cost itself is paid by the
+    // engine, so this clause is only the EXTRA charge on top of the printed cost.
+    const discardToUseAttack = sentence.match(
+      /^discard (\d+) energy cards? attached to \w[\w ]*? in order to use this attack\.?$/i,
+    )
+    if (discardToUseAttack) {
+      effects.push({ kind: 'discardEnergyCost', count: Number(discardToUseAttack[1]) })
       pendingCoin = false
       continue
     }

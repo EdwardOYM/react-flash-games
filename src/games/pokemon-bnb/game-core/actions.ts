@@ -363,6 +363,32 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
   if (side.attackedThisTurn) return failure(state, 'already-attacked')
   if (!canPayCost(active.attachedEnergy, attack.cost)) return failure(state, 'insufficient-energy')
 
+  // 04.11 CP8 / 159: an attack whose EXTRA cost is paid by DISCARDING Energy.
+  //
+  // The printed `cost` is a REQUIREMENT only — Pokemon TCG Energy is never spent, so
+  // `canPayCost` above checks and consumes nothing. 159 is the one card in the set where
+  // Energy genuinely leaves play to pay for an attack, so the printed cost is NOT the whole
+  // price: the attacker must also have `count` cards attached BEYOND what the cost needs.
+  //
+  // `cost.length` is exactly the number of Energy the cost consumes, so
+  // `attachedEnergy.length >= cost.length + count` is the correct affordability test — and
+  // it composes with the `canPayCost` type check above rather than replacing it, because a
+  // 6-Fire attacker passes both while 4-Fire + 1-Water fails the type check and 4-Fire
+  // alone fails the count.
+  const parsedForCost = parseAttackEffects(attack.text)
+  const extraCost = parsedForCost.find((effect) => effect.kind === 'discardEnergyCost')
+  if (extraCost && extraCost.kind === 'discardEnergyCost') {
+    if (active.attachedEnergy.length < attack.cost.length + extraCost.count) {
+      return failure(state, 'insufficient-energy')
+    }
+    // The extra charge is discarded — untyped, exactly as printed — and taken from the TOP
+    // of the attachment list, which is the same "most recently attached first" order the
+    // existing `discardEnergy` applier uses.
+    const charged = active.attachedEnergy.splice(active.attachedEnergy.length - extraCost.count, extraCost.count)
+    side.discard.push(...charged)
+    logEvent(next, 'pokemonBnb.log.effectDiscardEnergy', { player: actor, count: charged.length })
+  }
+
   const logStart = next.log.length
   side.attackedThisTurn = true
   logEvent(next, 'pokemonBnb.log.attack', { player: actor, card: active.card.name, attack: attack.name })
