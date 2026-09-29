@@ -442,6 +442,10 @@ type PkmBnbTranslationKey =
   | 'chooseDeckUpToRemaining'
   | 'chooseFinishAction'
   | 'chooseHealAction'
+  // 04.11 CP11 / 174: the button for an `energyType` choice target. The pick is a TYPE,
+  // not a Pokemon, so without this the label fell through to the generic damage template
+  // and read "Deal 0 damage to Fire" — a wrong label rather than a blank one.
+  | 'chooseEnergyTypeAction'
   | 'chooseSwitchAction'
   // 04.10 CP4: the destination stage of a two-stage Energy attach (007/063). Without
   // it the second-stage picker would fall through to the damage template and read

@@ -436,6 +436,7 @@
     "chooseDeckUpToRemaining": "Choose up to {count} more, or finish now.",
     "chooseFinishAction": "Finish (take no more)",
     "chooseHealAction": "Heal {name}",
+    "chooseEnergyTypeAction": "Discard all {type} Energy attached to this Pokemon",
     "chooseSwitchAction": "Switch in {name}",
     "chooseAttachHereAction": "Attach the Energy to {name}",
     "chooseShuffleSelfAction": "Shuffle {name} and its attached cards into your deck",

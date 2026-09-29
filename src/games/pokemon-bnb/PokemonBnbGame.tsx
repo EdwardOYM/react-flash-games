@@ -2010,10 +2010,34 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                     ? battle[choiceTarget.side].deck[choiceTarget.deckIndex]
                     : null
                   const looseCard = discardCard ?? handCard ?? deckCard
-                  if (choiceTarget.zone !== 'active' && choiceTarget.zone !== 'deck' && !looseCard) return null
+                  // 04.11 CP12: this guard was ENUMERATING absences — it ruled out
+                  // 'active' and 'deck' and then required a loose card, which meant a
+                  // BENCH target (whose zone is a NUMBER, and which has no loose card)
+                  // fell straight through to `return null` and rendered NO BUTTON AT ALL.
+                  // Every "choose 1 of your Benched Pokemon" dialog has been an empty
+                  // dialog since this shipped: healChosen, damageChosenTarget, attachStaged,
+                  // switchActive and shuffleSelfIntoDeck all target the Bench.
+                  //
+                  // The fix is the same positive test used for `isInPlayTarget` in the
+                  // engine: ask whether the target names a Pokemon, rather than listing
+                  // the things it might not be. 04.11 CP11's `energyType` target is the
+                  // other kind of non-Pokemon pick, handled just below.
+                  const isBenchZone = typeof choiceTarget.zone === 'number'
+                  if (choiceTarget.zone !== 'active' && !isBenchZone && !looseCard
+                    && choiceTarget.zone !== 'energyType') return null
                   const side = battle[choiceTarget.side]
                   const victim = choiceTarget.zone === 'active' ? side.active : side.bench[choiceTarget.zone as number]
-                  const name = looseCard ? looseCard.name : victim?.card.name
+                  // 04.11 CP11: an `energyType` target is not a Pokemon at all, so `victim`
+                  // is meaningless for it and the name is the TRANSLATED type label. The
+                  // `energyType*` keys already exist, so no new naming vocabulary is needed.
+                  const energyTypeName = choiceTarget.zone === 'energyType'
+                    // The `energyType*` keys are already `energyTypeFire`, `energyTypeLightning`,
+                    // … so capitalising the engine's lower-case `provides` value builds the
+                    // key. `t` is typed against the en dictionary, hence the cast — the key
+                    // is built at runtime and cannot be statically checked.
+                    ? t(`pokemonBnb.energyType${choiceTarget.energyType.charAt(0).toUpperCase()}${choiceTarget.energyType.slice(1)}` as never)
+                    : null
+                  const name = energyTypeName ?? (looseCard ? looseCard.name : victim?.card.name)
                   if (!name) return null
                   return (
                     <button
@@ -2021,7 +2045,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                       type="button"
                       onClick={() => runBattleAction(battle.pendingChoice!.actor, { type: 'chooseTarget', targetIndex: index })}
                     >
-                      {looseCard
+                      {energyTypeName
+                        // 04.11 CP11: the action is discarding EVERY Energy of that type, so
+                        // it gets its own template rather than falling through to "deal 0
+                        // damage to Fire" from the generic damage branch below.
+                        ? substituteParams(t('pokemonBnb.chooseEnergyTypeAction'), { type: energyTypeName })
+                        : looseCard
                         ? name
                         : battle.pendingChoice!.effect.kind === 'healChosen'
                           // 04.9 CP2: a heal has no `{amount}` in the printed sense

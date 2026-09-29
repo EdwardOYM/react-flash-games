@@ -436,6 +436,7 @@
     "chooseDeckUpToRemaining": "还可以选择最多 {count} 张，或立即结束。",
     "chooseFinishAction": "结束（不再拿取）",
     "chooseHealAction": "治疗 {name}",
+    "chooseEnergyTypeAction": "弃置此宝可梦附加的所有 {type} 能量",
     "chooseSwitchAction": "换上 {name}",
     "chooseAttachHereAction": "将能量贴给 {name}",
     "chooseShuffleSelfAction": "将 {name} 及其所有附属卡洗回牌库",

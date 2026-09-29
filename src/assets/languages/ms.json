@@ -436,6 +436,7 @@
     "chooseDeckUpToRemaining": "Pilih sehingga {count} lagi, atau tamatkan sekarang.",
     "chooseFinishAction": "Tamat (jangan ambil lagi)",
     "chooseHealAction": "Sembuhkan {name}",
+    "chooseEnergyTypeAction": "Buang semua Energy {type} yang dilekapkan pada Pokemon ini",
     "chooseSwitchAction": "Tukar masuk {name}",
     "chooseAttachHereAction": "LTampkan tenaga ke {name}",
     "chooseShuffleSelfAction": "Kocak {name} dan semua kad yang terlampir ke dek anda",
