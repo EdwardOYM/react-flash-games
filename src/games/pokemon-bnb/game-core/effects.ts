@@ -508,6 +508,11 @@ export type ParsedEffect =
   // `cost` alone is not the whole price of the attack: the attacker needs `cost.length +
   // count` cards attached, and the extra `count` are moved to the discard pile.
   | { kind: 'discardEnergyCost'; count: number }
+  // 04.11 CP11 / 174: the DEFERRED-damage shape. Both printed sentences are folded into
+  // ONE clause because they are inseparable — the damage is a function of the count the
+  // first sentence produces, and two clauses would each need to know about the other
+  // (the same argument as 173's branching pair in CP2).
+  | { kind: 'discardEnergyTypeThenTimesDamage'; types: string[]; perCard: number }
   | { kind: 'unsupported'; text: string }
 
 export type EffectTiming = 'beforeDamage' | 'afterDamage'
@@ -991,6 +996,10 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
   let pendingHeadsPerOwnName = ''
   let pendingUntilTails = false
 
+  // 04.11 CP11 / 174: the "or" between two Energy types is a PLAYER CHOICE, so the types
+  // are held between the two sentences rather than read once. The damage sentence then
+  // completes the pair into a single clause.
+  let pendingDiscardTypes: string[] = []
   for (const [sentenceIndex, sentence] of sentences.entries()) {
     // 04.9 CP7: whether this sentence is the ONLY one. A handful of clauses are legal
     // only as the whole printed text — 032's bare "Switch this Pokemon with 1 of your
@@ -1562,6 +1571,35 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     )
     if (poisonCounterCount) {
       effects.push({ kind: 'setPoisonCounters', counters: Number(poisonCounterCount[1]) })
+      pendingCoin = false
+      continue
+    }
+    // 04.11 CP11 / 174, sentence 1 of 2. "Discard all basic Fire Energy or all basic
+    // Lightning Energy attached to this Pokemon." The "or" is a CHOICE between the two
+    // types, not a list of types to take one of each from — which is how `discardEnergy`
+    // reads a multi-type list (04.7 CP2), so this must NOT be parsed as one.
+    const discardOneOfTwoTypes = sentence.match(
+      /^discard all basic (\w+) energy or all basic (\w+) energy attached to \w[\w ]*?\.?$/i,
+    )
+    if (discardOneOfTwoTypes) {
+      pendingDiscardTypes = [discardOneOfTwoTypes[1].toLowerCase(), discardOneOfTwoTypes[2].toLowerCase()]
+      pendingCoin = false
+      continue
+    }
+    // 04.11 CP11 / 174, sentence 2 of 2. "This attack does 60 damage times the number of
+    // Energy cards you discarded." Only meaningful paired with the sentence above; a stray
+    // "times the number of energy cards you discarded" with no preceding choice is not
+    // honoured, because the count it names would have no source.
+    const timesDiscardedCount = sentence.match(
+      /^this attack does (\d+) damage times the number of energy cards you discarded\.?$/i,
+    )
+    if (timesDiscardedCount && pendingDiscardTypes.length > 0) {
+      effects.push({
+        kind: 'discardEnergyTypeThenTimesDamage',
+        types: pendingDiscardTypes,
+        perCard: Number(timesDiscardedCount[1]),
+      })
+      pendingDiscardTypes = []
       pendingCoin = false
       continue
     }
@@ -3069,7 +3107,13 @@ export function resolveAttack(
 
   // 2. Weakness / Resistance, then damage on the defender. A spread already dealt
   // its own damage in step 0, so this step is skipped for one.
-  if (!spread) {
+  //
+  // 04.11 CP11: a DEFERRED-damage card skips this step too. 174's damage is a function
+  // of a count that only exists after a player choice, and this step fixes the amount
+  // before any choice is offered — so running it would commit a damage figure computed
+  // from nothing. The whole attack is resolved later, in `resolveChoice`.
+  const deferred = effects.find((effect) => effect.kind === 'discardEnergyTypeThenTimesDamage')
+  if (!spread && !deferred) {
   // 04.9 CP1: `noWeakness` bypasses the multiplier entirely — that is the whole
   // printed clause ("isn't affected by Weakness or Resistance"), so the damage
   // lands at face value and the modifier is never consulted.
@@ -3439,7 +3483,36 @@ export function resolveAttack(
     }
   }
 
-  // 8. 04.9 CP4: the "up to N" deck searches — the one place the 04.8 seam has to
+  // 04.11 CP11 / 174: park the Energy-TYPE choice. Step 2 was skipped for this card, so
+  // this choice is what actually produces the attack's damage, in `resolveChoice`.
+  //
+  // **ONLY TYPES THE ATTACKER ACTUALLY HAS ARE OFFERED.** Offering a type with none
+  // attached would let the player pick an empty branch, which prints as a choice with no
+  // meaning; and when NEITHER type is attached there is nothing to pick, so nothing is
+  // parked and the attack is a legal no-op rather than a soft-lock.
+  if (deferred && deferred.kind === 'discardEnergyTypeThenTimesDamage') {
+    const offered = deferred.types.filter((type) =>
+      attacker.attachedEnergy.some((card) => card.provides === type))
+    if (offered.length > 0) {
+      state.pendingChoice = {
+        actor,
+        targets: offered.map((energyType) => ({ side: actor, zone: 'energyType' as const, energyType })),
+        remaining: 1,
+        source: 'inPlay',
+        effect: {
+          kind: 'discardEnergyTypeThenTimesDamage',
+          types: deferred.types,
+          perCard: deferred.perCard,
+        },
+        attackName: context.attackName,
+      }
+      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: offered.length })
+    } else {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Energy of either type attached' })
+    }
+  }
+
+  // 04.9 CP4: the "up to N" deck searches — the one place the 04.8 seam has to
   // bend, because it resolves ONCE and closes the turn while "up to 2" may need
   // two resolutions and may be declined outright.
   //

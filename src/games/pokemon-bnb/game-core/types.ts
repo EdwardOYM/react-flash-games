@@ -53,6 +53,11 @@ export type ChoiceTarget =
   // so `cardId` is re-checked on resolve and the index is the lookup. Unlike the
   // opponent's hand this is the VIEWER's own, so it discloses nothing new.
   | { side: PlayerSlot; zone: 'hand'; index: number; cardId: string }
+  // 04.11 CP11 / 174: a choice between ENERGY TYPES, not between cards. "Discard all
+  // basic Fire Energy OR all basic Lightning Energy" makes the player pick a type, and the
+  // pick is not a card in any zone — so it is its own variant rather than a card target
+  // with a fake zone, which would make the card-index lookup below meaningless.
+  | { side: PlayerSlot; zone: 'energyType'; energyType: string }
 
 /**
  * 04.8 CP2: an effect that the printed text hands to the player to resolve.
@@ -227,6 +232,19 @@ export type PendingChoice = {
      * state, so it cannot be reused and needs its own kind.
      */
     | { kind: 'transformFromDeck' }
+    /**
+     * 04.11 CP11 / 174 — the FIRST deferred-damage effect.
+     *
+     * The printed text is "Discard all basic Fire Energy or all basic Lightning Energy
+     * attached to this Pokemon. This attack does 60 damage times the number of Energy
+     * cards you discarded." The damage is a function of a count that only exists AFTER a
+     * choice, and `resolveAttack` fixes damage at step 2 while choices park at step 5 —
+     * so the damage cannot be computed in the usual order at all.
+     *
+     * This choice therefore DISCARDS and DEALS in one step, and `resolveAttack` skips its
+     * own damage entirely for a card carrying this kind. `perCard` is the printed 60.
+     */
+    | { kind: 'discardEnergyTypeThenTimesDamage'; types: string[]; perCard: number }
     /**
      * 04.10 CP5 / 073-136: "You may shuffle this Pokemon and all attached cards into your
      * deck."

@@ -7,7 +7,7 @@
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type EnergyCardDef, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
-import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, inPlayList, inPlayOf, isAttackLocked, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
+import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState, ChoiceTarget, PendingChoice, SideState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, parseAttackEffects, recordAttackDamageOn, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
@@ -598,8 +598,9 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   // like every other in-play target, so a promotion cannot make it mean a
   // different Pokemon.
   if (choice.effect.kind === 'healChosen') {
-    // Explicit narrowing: a deck or discard target is not an in-play Pokemon.
-    if (target.zone === 'deck' || target.zone === 'discard' || target.zone === 'hand') return failure(state, 'no-target')
+    // 04.11 CP11: a POSITIVE in-play test, so a new non-Pokemon target variant cannot
+    // silently fall through and be read as a `uid`.
+    if (!isInPlayTarget(target)) return failure(state, 'no-target')
     const patient = inPlayList(sideOf(next, target.side)).find((pokemon) => pokemon.uid === target.uid)
     if (!patient) return failure(state, 'no-target')
     // 04.9 CP6 / 100: Yveltal's "your opponent's Active Pokemon can't be healed". The
@@ -623,10 +624,10 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   // It runs before the `searchDeckUpTo` arm because a `searchAttachEnergy` pick is
   // handled by the arm below, which re-parks rather than closing.
   if (choice.effect.kind === 'attachStaged') {
-    // Narrow to the in-play variant explicitly: a ternary does not carry narrowing
-    // past the expression, and the deck/discard arms below already return on their own
+    // 04.11 CP11: positive in-play test (see `isInPlayTarget`) — a ternary does not carry
+    // narrowing past the expression, and the deck/discard arms below return on their own
     // zones, so this arm must prove the target is a Pokemon before reading `uid`.
-    if (target.zone === 'deck' || target.zone === 'discard' || target.zone === 'hand') return failure(state, 'no-target')
+    if (!isInPlayTarget(target)) return failure(state, 'no-target')
     const ownSide = sideOf(next, actor)
     const pokemon = inPlayList(ownSide).find((entry) => entry.uid === target.uid)
     if (!pokemon) return failure(state, 'no-target')
@@ -670,9 +671,7 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   // card, and one naming the opponent's would be absurd. The uid is re-checked rather
   // than the stored zone, for the promotion reason every other in-play pick here uses.
   if (choice.effect.kind === 'shuffleSelfIntoDeck') {
-    if (target.zone === 'deck' || target.zone === 'discard' || target.zone === 'hand') {
-      return failure(state, 'no-target')
-    }
+    if (!isInPlayTarget(target)) return failure(state, 'no-target')
     const side = sideOf(next, actor)
     const active = side.active
     if (!active || active.uid !== target.uid) return failure(state, 'no-target')
@@ -916,7 +915,7 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   // 04.9 CP7: a board switch. Resolved BEFORE the damage paths, because it changes
   // which Pokemon is where and nothing after it may assume the old Active.
   if (choice.effect.kind === 'switchActive') {
-    if (target.zone === 'deck' || target.zone === 'discard' || target.zone === 'hand') return failure(state, 'no-target')
+    if (!isInPlayTarget(target)) return failure(state, 'no-target')
     const side = sideOf(next, target.side)
     // Look the Pokemon up by `uid` (04.8 CP2-C: a promotion splices the Bench, so a
     // stored index can name a different Pokemon by the time it is resolved), then take
@@ -974,9 +973,54 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     const closedDeck = next.over ? next : applyEndTurn(next, actor)
     return { state: closedDeck, log: tailLog(closedDeck, logStart) }
   }
-  // Everything below works on an in-play Pokemon, so a deck or discard target is
-  // invalid here.
-  if (target.zone === 'deck' || target.zone === 'discard' || target.zone === 'hand') return failure(state, 'no-target')
+  // 04.11 CP11 / 174: the DEFERRED-damage arm. This choice does two things at once —
+  // it discards the chosen Energy type and then DEALS the damage, because the damage is
+  // a function of how many were discarded and step 2 was skipped for this card.
+  //
+  // It runs early, before every in-play arm, because its target is an Energy TYPE and
+  // none of the arms below could read it.
+  if (choice.effect.kind === 'discardEnergyTypeThenTimesDamage') {
+    if (target.zone !== 'energyType') return failure(state, 'no-target')
+    // The type is re-checked against the card's own printed list: a forged target naming
+    // a third type must not be honoured, the same re-check every other arm does.
+    if (!choice.effect.types.includes(target.energyType)) return failure(state, 'no-target')
+    const attacker = sideOf(next, actor).active
+    const defender = sideOf(next, foeOf(actor)).active
+    if (!attacker || !defender) return failure(state, 'no-target')
+
+    // "Discard ALL basic <type> Energy attached to this Pokemon" — every card of that
+    // type, not a fixed count, and NOT "one of each" as a multi-type list would mean.
+    const discarded: EnergyCardDef[] = []
+    for (let i = attacker.attachedEnergy.length - 1; i >= 0; i -= 1) {
+      if (attacker.attachedEnergy[i].provides !== target.energyType) continue
+      discarded.unshift(...attacker.attachedEnergy.splice(i, 1))
+    }
+    sideOf(next, actor).discard.push(...discarded)
+    logEvent(next, 'pokemonBnb.log.effectDiscardEnergy', { player: actor, count: discarded.length })
+
+    // The deferred damage, with the same Weakness/Resistance the skipped step 2 would
+    // have applied, and the same KO/prize handling. Zero discarded => zero damage, which
+    // is the printed behaviour rather than a special case.
+    const amount = computeAttackDamage(next, attacker, defender, choice.effect.perCard * discarded.length).damage
+    if (amount > 0) {
+      defender.damage += amount
+      recordAttackDamageOn(defender, next.turn, amount)
+      logEvent(next, 'pokemonBnb.log.damageDealt', {
+        player: actor, attack: choice.attackName, target: defender.card.name, amount,
+      })
+    }
+    next.pendingChoice = null
+    if (isKnockedOut(defender)) {
+      sideOf(next, foeOf(actor)).koByAttackTurn = next.turn
+      performKo(next, foeOf(actor))
+    }
+    const closedDeferred = next.over ? next : applyEndTurn(next, actor)
+    return { state: closedDeferred, log: tailLog(closedDeferred, logStart) }
+  }
+
+  // Everything below works on an in-play Pokemon, so a non-Pokemon target is invalid here.
+  // 04.11 CP11: positive test, so a future non-card target variant cannot fall through.
+  if (!isInPlayTarget(target)) return failure(state, 'no-target')
 
   const targetSide = sideOf(next, target.side)
   // Looked up by `uid` across the whole side, NOT by the stored `zone` index. A KO
@@ -992,12 +1036,18 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
   const hitsActive = victim === targetSide.active
   const attacker = sideOf(next, actor).active
 
+  // 04.11 CP11: the deferred-damage kinds resolve in their OWN arms above, so by this
+  // point the effect is one of the flat damage kinds. Both branches are folded back into
+  // ONE `amount` so the shared tail below (logging, the KO flag, `performKo`/`performBenchKo`,
+  // the turn close) is the SINGLE path for damage — an early return here would have
+  // silently skipped all of it for `damagePerCounter`, which is exactly the regression the
+  // first version of this edit introduced.
   const amount = choice.effect.kind === 'damagePerCounter'
     // 04.5's counter unit, read off the target's damage at pick time.
     ? choice.effect.amountPerCounter * damageCounters(victim.damage)
     : (hitsActive && attacker
-        ? computeAttackDamage(next, attacker, victim, choice.effect.amount).damage
-        : choice.effect.amount)
+        ? computeAttackDamage(next, attacker, victim, choice.effect.kind === 'damage' ? choice.effect.amount : 0).damage
+        : (choice.effect.kind === 'damage' ? choice.effect.amount : 0))
   if (amount > 0) {
     victim.damage += amount
     // 04.10 CP3: damage dealt by an ATTACK's effect is still "damage from an

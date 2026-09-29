@@ -9,7 +9,7 @@ import type { CardDef, CardType, EnergyCardDef, PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { DAMAGE_PER_COUNTER } from './constants'
 import { classifyPassiveAbility, type PassiveAbility } from './effects'
-import type { ActionResult, ActiveDuration, BattleLogEntry, BattleState, DurationEffect, InPlayPokemon, SideState } from './types'
+import type { ActionResult, ActiveDuration, BattleLogEntry, BattleState, ChoiceTarget, DurationEffect, InPlayPokemon, SideState } from './types'
 
 // -- Pure helpers --
 
@@ -439,6 +439,23 @@ export function tailLog(state: BattleState, from: number): BattleLogEntry[] {
  * no `provides` (special energy) pays colorless only in v1 — a documented
  * approximation until special-energy scripts land in the effect library.
  */
+/**
+ * 04.11 CP11: true when a choice target names an in-play Pokemon rather than a card in a
+ * zone or a non-card pick like an Energy TYPE.
+ *
+ * **A POSITIVE test, and that is the point.** The two call sites used to enumerate the
+ * non-in-play zones (`deck`, `discard`, `hand`) and read `uid` after ruling those out.
+ * Adding 174's `energyType` variant broke both, and enumerating absences is exactly the
+ * shape that breaks again the next time a variant is added. Testing for the thing the code
+ * actually needs — a numeric or `'active'` zone, i.e. a Pokemon with a `uid` — cannot go
+ * stale when new non-Pokemon targets appear.
+ */
+export function isInPlayTarget(
+  target: ChoiceTarget,
+): target is { side: PlayerSlot; zone: 'active' | number; uid: string } {
+  return target.zone === 'active' || typeof target.zone === 'number'
+}
+
 export function canPayCost(attached: EnergyCardDef[], cost: CardType[]): boolean {
   const pool: CardType[] = attached.map((energy) => energy.provides ?? 'colorless')
   const used: boolean[] = pool.map(() => false)
