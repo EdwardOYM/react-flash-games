@@ -256,6 +256,13 @@ export type ParsedEffect =
   | { kind: 'bonusDamagePerDiscardEnergy'; amount: number }
   | { kind: 'bonusDamagePerDefenderAttached'; amount: number }
   | { kind: 'bonusDamageIfDefenderIsEx'; amount: number }
+  // 04.11 CP4 / 183: "If the Defending Pokemon is an EVOLVED Pokemon …" — a DIFFERENT
+  // condition from the `ex` suffix above, and deliberately not folded into it. Every
+  // Basic that took an Evolution is "evolved" in the rulebook sense while carrying no
+  // `ex` suffix, so the ex clause would fire against the wrong Pokemon and miss the
+  // right one. The printed damage is 0, so the leading 50 is a plain `bonusDamage` and
+  // only the conditional 30 is new.
+  | { kind: 'bonusDamageIfDefenderIsEvolved'; amount: number }
   | { kind: 'flipUntilTailsDamage'; amount: number }
   // -- 04.8 CP1: effects that reach past the defender, and so need their own
   // resolution rather than a `base` bonus. All print a base damage of 0.
@@ -492,7 +499,7 @@ export function effectTiming(kind: ParsedEffect['kind']): EffectTiming {
   if (
     kind === 'bonusDamage' || kind === 'bonusDamagePerPrize' || kind === 'noDamageOnTails'
     || kind === 'discardAllToolsOnDefender' || kind === 'damageTimesHeads'
-    || kind === 'bonusDamageIfAllHeads'
+    || kind === 'bonusDamageIfAllHeads' || kind === 'bonusDamageIfDefenderIsEvolved'
   ) {
     return 'beforeDamage'
   }
@@ -1282,6 +1289,20 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.11 CP4 / 184: "This attack's damage isn't affected by ANY effects on your
+    // opponent's Active Pokemon." — the SAME clause as the line above, with the
+    // "Weakness or Resistance, or by" list dropped rather than reordered. The 04.9 CP1
+    // pattern required that list, so 184 missed on the shorter wording.
+    //
+    // `noWeakness` is the right kind and NOT a new one: the flag's whole job is to bypass
+    // the modifier block, and "any effects" is a SUPERSET of Weakness and Resistance —
+    // 184 already ships on the flag today, so the two cards differ only in wording and
+    // must not diverge into separate kinds that can drift.
+    if (/^this attack's damage isn't affected by any effects on your opponent's active pokemon\.$/i.test(sentence)) {
+      effects.push({ kind: 'noWeakness' })
+      pendingCoin = false
+      continue
+    }
     // 04.10 CP5 / 054-150: "You may attach ANY NUMBER of Basic Energy cards from your hand
     // to your Pokemon in any way you like." Two things beyond 007: the source is the HAND,
     // and the cap is "any number", which must be resolved to the eligible count at park
@@ -1430,6 +1451,49 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.11 CP4 / 183: "If the Defending Pokemon is an EVOLVED Pokemon, this attack does
+    // 50 damage plus 30 more damage."
+    //
+    // The same two-clause shape as 164's line above, with ONE word changed: "is
+    // Pokemon-ex" became "is an Evolved Pokemon". These are genuinely different
+    // CONDITIONS — `bonusDamageIfDefenderIsEx` tests the `suffix === 'EX'` field, which
+    // says nothing about a Basic that evolved, and every Basic Pokemon in the set is
+    // "evolved" in the rulebook sense while carrying no `ex` suffix. Reusing the ex
+    // clause would make Scizor ex's bonus fire against any evolved Basic and NOT fire
+    // against a genuinely evolved non-ex, which is wrong in both directions.
+    //
+    // So this is a NEW condition but NOT a new shape: the base-plus-bonus pair, the
+    // `bonusDamage` and the conditional, are all reused exactly as 164 does them.
+    const defenderEvolvedBase = sentence.match(
+      /^if the defending pokemon is an evolved pokemon, this attack does (\d+) damage plus (\d+) more damage\.$/i,
+    )
+    if (defenderEvolvedBase) {
+      effects.push({ kind: 'bonusDamage', amount: Number(defenderEvolvedBase[1]), coin: false })
+      effects.push({ kind: 'bonusDamageIfDefenderIsEvolved', amount: Number(defenderEvolvedBase[2]) })
+      pendingCoin = false
+      continue
+    }
+    // 04.11 CP4 / 183: "During your opponent's next turn, any damage done to Scizor ex by
+    // attacks is reduced by 20 (after applying Weakness and Resistance)."
+    //
+    // 04.9 CP5's reduction is worded "damage … is reduced by N"; 183 adds "DONE TO … by
+    // attacks" and a trailing parenthetical that only restates the ordering that clause
+    // already implements. The parenthetical is STRIPPED rather than matched into the
+    // clause, because it is a restatement and not a separate condition — and the ordering
+    // it names is already structural (durations are read after Weakness/Resistance).
+    //
+    // `whose` is 'foe': the reduction applies during the OPPONENT's turn, so +2.
+    const foeNextTurnReduction = sentence.match(
+      /^during your opponent's next turn, any damage done to \w[\w ]*? by attacks is reduced by (\d+)(?: \(after applying weakness and resistance\))?\.?$/i,
+    )
+    if (foeNextTurnReduction) {
+      effects.push({
+        kind: 'durationLessDamageTaken', whose: 'foe', subject: 'attacker',
+        amount: Number(foeNextTurnReduction[1]),
+      })
+      pendingCoin = false
+      continue
+    }
     // 172: "If tails, Pikachu does 10 damage to itself." The existing clause is the
     // "also does N damage to itself" recoil form and is NOT coin-gated; this one flips a
     // coin first and NAMES the card, so it is a separate match rather than a loosened one.
@@ -1454,6 +1518,25 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     // window is the holder's OWN next turn, so `whose` is 'self' (+1) not 'foe' (+2).
     const selfTurnLock = sentence.match(/^this pokemon can't attack during your next turn\.$/i)
     if (selfTurnLock) {
+      effects.push({ kind: 'durationCantAttack', whose: 'self', subject: 'attacker' })
+      pendingCoin = false
+      continue
+    }
+    // 04.11 CP4 / 186: "During your next turn, this Pokemon can't attack."
+    //
+    // **THE SAME CLAUSE, INVERTED AGAIN, AND THE INVERSION IS THE WHOLE POINT.** Two
+    // forms already existed and 186 matched neither: 04.9's "During your next turn,
+    // this Pokemon can't use attacks" and the line above's "This Pokemon can't attack
+    // during your next turn". 186 prints the third shape — a leading "During" with no
+    // "use attacks" and no trailing "during". Reading the card, the two other clauses
+    // look identical to it, and no amount of re-reading shows that "during" is the only
+    // difference. **Probe the exact blocking sentence: the mismatch was a single
+    // preposition.**
+    //
+    // The window is still the holder's OWN next turn (`whose: 'self'`, +1), matching the
+    // clause above — 186 locks ITSELF, not its opponent.
+    const selfTurnLockInverted = sentence.match(/^during your next turn, this pokemon can't attack\.$/i)
+    if (selfTurnLockInverted) {
       effects.push({ kind: 'durationCantAttack', whose: 'self', subject: 'attacker' })
       pendingCoin = false
       continue
@@ -2710,6 +2793,16 @@ export function resolveAttack(
       const bonus = effect.amount * defender.attachedEnergy.length
       base += bonus
       logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamageIfDefenderIsEvolved') {
+      // 04.11 CP4 / 183. "Evolved" is a STAGE fact, not a suffix: a Basic that took an
+      // Evolution is evolved and carries no `ex`. `evolvedTurn > 0` is the engine's
+      // existing marker for exactly that (set when the Evolution enters play), so the
+      // test reuses it rather than inventing a new field — the same reason 079/107/110
+      // read turn numbers instead of caching "am I evolved".
+      const isEvolved = Boolean(defender.evolvedTurn && defender.evolvedTurn > 0)
+      const bonus = isEvolved ? effect.amount : 0
+      base += bonus
+      if (bonus > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
     } else if (effect.kind === 'bonusDamageIfDefenderIsEx') {
       // 04.6's rule-box field, reused as a condition instead of a Prize take.
       const isEx = defender.card.suffix?.trim().toUpperCase() === 'EX'
