@@ -9,13 +9,37 @@
 
 import type { SetId } from '../cards'
 
-export const PROTOCOL_VERSION = 2
+// 04.12 CP2: bumped from 2. A version-2 peer sends `packs` in 1..6, and the v3
+// `validateLobbySettings` REJECTS that range outright — so a v2 guest's `lobby-update` and
+// `lobby-start` would be silently dropped mid-lobby rather than refused outright. The
+// established rule in this file is that a peer which cannot safely share the revised rules
+// is refused (see the v1 -> v2 note), and a silently dropped handshake is worse than a
+// clear refusal. So the version moves with the range.
+export const PROTOCOL_VERSION = 3
 
 export const DECK_SIZE = 40
 
 export const LOBBY_LIMITS = {
-  minPacks: 1,
-  maxPacks: 6,
+  /**
+   * 04.12 CP2 (user-reported): the range is 6-36, was 1-6.
+   *
+   * **Everything else that reads these two numbers is already correct and needed no edit** —
+   * `clampLobbySettings`, `validateLobbySettings` and the lobby stepper's disabled states
+   * all reference the constants rather than repeating the numbers, so raising the range
+   * could not desynchronise them. The stepper's `disabled={settings.packs <= minPacks}` /
+   * `>= maxPacks` bounds move with the constants for free.
+   *
+   * **There is deliberately NO on-wire `packIndex` in this game's protocol.** Both seats
+   * derive the whole ceremony from the single broadcast `lobby-start` seed, so raising the
+   * count adds no new wire field and no new validation. (`pokemon-pack-battle` DOES put
+   * `packIndex` on the wire and bound it separately; that is a different game and is
+   * untouched by this change.)
+   *
+   * 36 packs x 6 cards = **216 opened cards per seat**, up from 36. That is the number to
+   * watch in the deck builder, and CP9's browser pass is what confirms it is usable.
+   */
+  minPacks: 6,
+  maxPacks: 36,
   /** Build & Battle setup supports exactly these Prize counts. */
   prizeChoices: [4, 6],
   defaultPrizeCards: 4,
@@ -33,7 +57,10 @@ export type LobbySettings = {
 }
 
 export function defaultLobbySettings(set: SetId): LobbySettings {
-  return { set, packs: 1, prizeCards: LOBBY_LIMITS.defaultPrizeCards, timerSeconds: 0 }
+  // 04.12 CP2: the default moved with the floor. It must not sit BELOW `minPacks`, or the
+  // first render would produce a setting that `validateLobbySettings` immediately refuses —
+  // a default that fails its own validator is a lobby that cannot start.
+  return { set, packs: LOBBY_LIMITS.minPacks, prizeCards: LOBBY_LIMITS.defaultPrizeCards, timerSeconds: 0 }
 }
 
 export function isPrizeCardCount(value: number): value is 4 | 6 {
@@ -41,9 +68,17 @@ export function isPrizeCardCount(value: number): value is 4 | 6 {
 }
 
 export function clampLobbySettings(settings: LobbySettings): LobbySettings {
+  // 04.12 CP2: the pack count is made finite BEFORE rounding. `Math.round(undefined)` is
+  // NaN and `Math.min`/`Math.max` PROPAGATE NaN rather than falling back to their other
+  // argument, so the original expression turned a missing or non-numeric `packs` into a
+  // NaN that then renders as "NaN" in the stepper and fails `validateLobbySettings`. The
+  // old 1-6 range had the same hole; raising the range did not create it, but this
+  // checkpoint touches the line, so it is closed here rather than left to be found again.
+  const rawPacks = Number(settings.packs)
+  const packs = Number.isFinite(rawPacks) ? Math.round(rawPacks) : LOBBY_LIMITS.minPacks
   return {
     set: settings.set,
-    packs: Math.min(LOBBY_LIMITS.maxPacks, Math.max(LOBBY_LIMITS.minPacks, Math.round(settings.packs))),
+    packs: Math.min(LOBBY_LIMITS.maxPacks, Math.max(LOBBY_LIMITS.minPacks, packs)),
     prizeCards: isPrizeCardCount(settings.prizeCards) ? settings.prizeCards : LOBBY_LIMITS.defaultPrizeCards,
     timerSeconds: (LOBBY_LIMITS.timerChoices as readonly number[]).includes(settings.timerSeconds) ? settings.timerSeconds : 0,
   }
