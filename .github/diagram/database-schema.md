@@ -24,10 +24,20 @@ AppConfig
 │       ├── movement: { x, y, scale }                      (percent pos + 0.5–2.5 scale)
 │       └── shoot: { x, y, scale }
 ├── highscores: Record<gameId, { name, score }[]>          (top-10, sorted desc; tron + pokemon-bnb score = lifetime match wins per player name)
-└── openedCards: Record<playerName, string[]>              (04.3; key = lowercased trimmed player name → that player's sorted,
-                                                            deduplicated opened card ids; default seed {}. Written only by
-                                                            pokemon-pack-battle: the ceremony records the local seat's own packs,
-                                                            the solo RIP page records each rip)
+├── openedCards: Record<playerName, string[]>              (04.3; key = lowercased trimmed player name → that player's sorted,
+│                                                            deduplicated opened card ids; default seed {}. Written only by
+│                                                            pokemon-pack-battle: the ceremony records the local seat's own packs,
+│                                                            the solo RIP page records each rip)
+└── lobby: ConfigLobby | null                               (04.11 CP20; default seed null. The lobby THIS DEVICE is currently in, so a page
+                                                             reload rejoins instead of dropping the player on the start view.
+                                                             role 'host' | 'guest' selects the net/peer constructor; code is the
+                                                             shared short code (a restoring host RE-REGISTERS it, otherwise a guest
+                                                             that also reloaded dials an orphaned id and the seats never meet); name
+                                                             is the seat name; server is the raw broker address text or null. null =
+                                                             "not in a lobby", and a deliberate leaveLobby writes null. Read as
+                                                             UNTRUSTED input: a bad role or code discards the whole record, while a
+                                                             bad optional name or server degrades only that field and KEEPS the
+                                                             room, because forgetting a live lobby is worse than losing its nickname)
 ```
 
 ## ER diagram

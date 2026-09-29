@@ -16,6 +16,7 @@ import { basicEnergyCatalog, openPacks, buildPool, seatSeed, type OpenedCard, ty
 // 04.11 CP19: kept in its own module so the label decision can be checked without
 // dragging JSX, CSS and the DOM into a Node process. See choice-labels.ts.
 import { choiceTemplateKey } from './choice-labels'
+import { updateConfig } from '../../config'
 import { createRng, randomSeed } from './rng'
 import { getSet, listSets } from './sets'
 import { readHighscores, recordMatchWin } from './highscores'
@@ -315,6 +316,18 @@ function LobbyFields({ settings, editable, idPrefix, t, onChange }: LobbyFieldsP
 
 type Role = 'host' | 'guest'
 
+// 04.11 CP20: lobby membership survives a reload. Both helpers funnel through
+// `updateConfig` so this stays inside the project's single persistence path and the one
+// `flash-games.config` key.
+function persistLobby(role: 'host' | 'guest', code: string, name: string, server: string | null) {
+  if (code.trim() === '') return
+  updateConfig((config) => ({ ...config, lobby: { role, code, name, server } }))
+}
+
+function clearLobby() {
+  updateConfig((config) => (config.lobby === null ? config : { ...config, lobby: null }))
+}
+
 export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit, t: providedTranslations }: PokemonBnbProps) {
   const locale = providedLocale ?? getPreferredLocale()
   const translations = useTranslations(locale)
@@ -515,6 +528,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   const isHost = role === 'host'
 
   const localStartedRef = useRef(false)
+  // 04.11 CP20: the reload restore is also a once-per-page-load action, same as the
+  // `?local=1` harness above, and must never re-fire on a later render.
+  const restoredRef = useRef(false)
 
   /**
    * This seat's opened cards.
@@ -990,11 +1006,22 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     beginLocalBattle()
   }, [localMode, beginLocalBattle])
 
-  /** Host a new lobby, or dial the typed code. Shared setup + callbacks. */
-  const beginSession = (nextRole: Role) => {
-    const server = parseServerAddress(serverInput)
-    setServerInvalid(server === null && serverInput.trim().length > 0)
-    const normalized = codeInput.trim().toUpperCase().replace(/\s+/g, '')
+  /**
+   * Host a new lobby, or dial the typed code. Shared setup + callbacks.
+   *
+   * 04.11 CP20: `restore` is the reload path. It supplies the code and seat name that
+   * `persistLobby` saved, so a restore re-enters through THIS function rather than a second
+   * code path — one place decides how a seat dials, which is what keeps the reconnect from
+   * drifting from a fresh join. A fresh host passes nothing, so it still rolls a new code.
+   */
+  const beginSession = (nextRole: Role, restore?: { code: string; name: string; server?: string | null }) => {
+    // 04.11 CP20: a restore must also re-dial the same BROKER. `parseServerAddress` yields a
+    // parsed object, which is not what is persisted — the raw address text is, so it can be
+    // re-parsed identically after a reload.
+    const serverAddress = restore?.server ?? serverInput
+    const server = parseServerAddress(serverAddress)
+    setServerInvalid(server === null && serverAddress.trim().length > 0)
+    const normalized = (restore?.code ?? codeInput).trim().toUpperCase().replace(/\s+/g, '')
     if (nextRole === 'guest' && normalized.length < 4) {
       setStatus('error')
       setErrorKey('pokemonBnb.errorPeerUnavailable')
@@ -1058,22 +1085,36 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
       // broker rejects a collision and the host auto-rolls a fresh one.
       onStatus: (next: PeerStatus) => {
         setStatus(next)
-        if (sessionRef.current) setCode(sessionRef.current.code)
+        if (sessionRef.current) {
+          setCode(sessionRef.current.code)
+          // 04.11 CP20: the broker can reject a restored id as still-registered and the host
+          // rolls a fresh one. Re-persisting here keeps the stored code equal to the code on
+          // screen, so a guest reloading next finds the lobby that actually exists.
+          if (roleRef.current === 'host') {
+            persistLobby('host', sessionRef.current.code, nameRef.current || displayName, serverInput.trim() || null)
+          }
+        }
       },
       onError: (failure: string) => setErrorKey(errorKeyFor(failure)),
     }
 
+    const seatName = restore?.name || nameRef.current || displayName
     if (nextRole === 'host') {
-      const session = createHost(callbacks, server)
+      // 04.11 CP20: only a RESTORE passes a requested code. Re-registering the saved id
+      // is what lets a guest that also reloaded find the same lobby again; a fresh host
+      // passes `undefined` and keeps rolling its own code, exactly as before.
+      const session = createHost(callbacks, server, restore?.code)
       sessionRef.current = session
       setCode(session.code)
+      persistLobby('host', session.code, seatName, serverAddress.trim() || null)
       setView('lobby')
       return
     }
 
-    const session = joinHost(normalized, nameRef.current || displayName, callbacks, server)
+    const session = joinHost(normalized, seatName, callbacks, server)
     sessionRef.current = session
     setCode(normalized)
+    persistLobby('guest', normalized, seatName, serverAddress.trim() || null)
     setView('lobbyJoin')
   }
 
@@ -1432,6 +1473,28 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     }).catch(() => undefined)
   }
 
+  // 04.11 CP20: a reload rejoins the lobby this device was last in, instead of dropping the
+  // player on the start view. CP9-D's reconnect only ever covered a DATA-CHANNEL drop with
+  // the page alive — a reload tears down the whole PeerJS session, so the seat has to dial
+  // again, which is what this does.
+  //
+  // Guarded by a ref and an empty dep list, like the `?local=1` harness above: this must
+  // run exactly once per page load, and `beginSession` is rebuilt every render.
+  //
+  // A stale code (the other seat is long gone) is NOT cleared here: the seat lands in the
+  // normal lobby view, which already has a Leave button, so the restore is leaveable rather
+  // than a dead end. `leaveLobby` is what clears the stored lobby.
+  useEffect(() => {
+    if (localMode || restoredRef.current) return
+    restoredRef.current = true
+    const saved = readConfig().lobby
+    if (!saved) return
+    beginSession(saved.role, { code: saved.code, name: saved.name, server: saved.server })
+    // `beginSession` and the inputs it reads are intentionally omitted: a one-shot mount
+    // action that must not re-fire when a state value changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localMode])
+
   /** Leave the lobby from either seat: notify, tear down, return to start. */
   const leaveLobby = () => {
     closingRef.current = true
@@ -1453,6 +1516,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     }
     setErrorKey(null)
     setMatchSeed(null)
+    // 04.11 CP20: a deliberate leave must forget the lobby, or the next reload would
+    // rejoin the room the player just walked out of.
+    clearLobby()
     resetMatchState()
     setView('start')
   }

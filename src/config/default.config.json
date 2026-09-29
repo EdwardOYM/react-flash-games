@@ -28,5 +28,6 @@
     "pokemon-bnb": [],
     "pokemon-pack-battle": []
   },
-  "openedCards": {}
+  "openedCards": {},
+  "lobby": null
 }
