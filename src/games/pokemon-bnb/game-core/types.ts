@@ -274,6 +274,24 @@ export type PendingChoice = {
      */
     | { kind: 'discardAttachedEnergyThenBonusDamage'; base: number; perCard: number }
     /**
+     * 04.11 CP15 / 180 — "You may move all Energy cards attached to Palkia to your Benched
+     * Pokemon in any way you like."
+     *
+     * **This is the one deferred-damage sibling that needs NO deferral**: 180 prints 60, so
+     * the damage is ordinary and the move is an ordinary choice. What makes it a multi-pick
+     * is "in any way you like" — the player picks a DESTINATION per card, so the sequence
+     * runs once per card exactly like 04.10 CP4's `perCard` attach.
+     *
+     * `remaining` counts the cards still to move. There is no cursor for WHICH card: every
+     * card moves eventually, so the order is immaterial and the next card is simply the
+     * last one still attached. Only the DISTRIBUTION is the player's choice, which is
+     * exactly what the text grants.
+     *
+     * The printed parenthetical — "(Ignore this effect if you don't have any Benched
+     * Pokemon.)" — is folded in rather than modelled separately; see the parser.
+     */
+    | { kind: 'moveAttachedEnergyToBench' }
+    /**
      * 04.10 CP5 / 073-136: "You may shuffle this Pokemon and all attached cards into your
      * deck."
      *

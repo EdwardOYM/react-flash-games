@@ -516,6 +516,10 @@ export type ParsedEffect =
   // 04.11 CP14 / 161: both sentences folded into ONE clause, for the same reason as 174 —
   // the damage is a function of a count the first sentence produces.
   | { kind: 'discardAttachedEnergyThenBonusDamage'; base: number; perCard: number }
+  // 04.11 CP15 / 180: the damage is the PRINTED 60, so this is an ordinary post-damage
+  // choice rather than a deferred-damage one — the distinction that makes 180 far simpler
+  // than 161 and 174.
+  | { kind: 'moveAttachedEnergyToBench'; optional: boolean }
   | { kind: 'unsupported'; text: string }
 
 export type EffectTiming = 'beforeDamage' | 'afterDamage'
@@ -1580,7 +1584,30 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
-    // 04.11 CP14 / 161, sentence 1 of 2: the "as many … as you like" PERMISSION. Nothing is
+    // 04.11 CP15 / 180, sentence 1 of 2. "You may move all Energy cards attached to Palkia to
+  // your Benched Pokemon in any way you like."
+  //
+  // The PARENTHETICAL is a separate sentence after the splitter runs, so it is matched
+  // separately below and simply consumed: "Ignore this effect if you don't have any Benched
+  // Pokemon" is not a second effect, it is a guard on this one, and the engine already
+  // implements it by parking nothing when the Bench is empty.
+  const mayMoveAttachedToBench = sentence.match(
+    /^you may move all energy cards attached to \w[\w ]*? to your benched pokemon in any way you like\.?$/i,
+  )
+  if (mayMoveAttachedToBench) {
+    effects.push({ kind: 'moveAttachedEnergyToBench', optional: true })
+    pendingCoin = false
+    continue
+  }
+  // 04.11 CP15 / 180, sentence 2: the printed parenthetical. RECOGNISED AND DISCARDED — it
+  // is a guard on the clause above, not a second effect, and the engine honours it by
+  // parking nothing when the Bench is empty. Omitting it (the first version) left 180
+  // `unsupported`, which is CP5's defect again: a sentence that must be RECOGNISED even
+  // when it changes nothing.
+  if (/^\(?ignore this effect if you don't have any benched pokemon\.?\)?$/i.test(sentence)) {
+    continue
+  }
+  // 04.11 CP14 / 161, sentence 1 of 2: the "as many … as you like" PERMISSION. Nothing is
   // pushed for it on its own; the damage sentence completes the pair.
   const mayDiscardAnyAttached = sentence.match(
     /^you may discard as many energy cards as you like attached to your pokemon in play\.?$/i,
@@ -2624,6 +2651,39 @@ export function applyEffect(
         player: context.actor,
         count: discarded.length,
       })
+      break
+    }
+    case 'moveAttachedEnergyToBench': {
+      // 04.11 CP15 / 180: park the per-card destination picker. "in any way you like" means
+      // one DESTINATION per card, so this runs once per attached card.
+      //
+      // The printed guard — "(Ignore this effect if you don't have any Benched Pokemon.)" —
+      // is honoured HERE: with an empty Bench there is no legal destination, and parking an
+      // empty picker would refuse every later action with nothing to tap.
+      //
+      // `remaining` is the count of cards still to move, which is a FINITE number and not
+      // the printed "all", so it survives the snapshot round trip as `Infinity` would not.
+      const host = sideOf(state, context.actor)
+      const attackerPokemon = host.active
+      const bench = host.bench
+      const movable = attackerPokemon?.attachedEnergy.length ?? 0
+      if (movable === 0) {
+        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Energy attached to move' })
+        break
+      }
+      if (bench.length === 0) {
+        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Benched Pokemon to move Energy to' })
+        break
+      }
+      state.pendingChoice = {
+        actor: context.actor,
+        targets: bench.map((pokemon, index) => ({ side: context.actor, zone: index, uid: pokemon.uid })),
+        remaining: movable,
+        source: 'inPlay',
+        effect: { kind: 'moveAttachedEnergyToBench' },
+        attackName: context.attackName,
+      }
+      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: context.actor, count: bench.length })
       break
     }
     case 'status': {

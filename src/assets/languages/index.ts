@@ -450,6 +450,9 @@ type PkmBnbTranslationKey =
   // attached Energy card, so it needs its own template for the same reason — otherwise it
   // falls through to the damage template and reads "Deal 0 damage to Fire Energy".
   | 'chooseDiscardAttachedAction'
+  // 04.11 CP15 / 180: the button for an Energy-move destination. The pick names where
+  // Energy goes, not a victim, so it needs its own template rather than the damage one.
+  | 'chooseMoveEnergyAction'
   | 'chooseSwitchAction'
   // 04.10 CP4: the destination stage of a two-stage Energy attach (007/063). Without
   // it the second-stage picker would fall through to the damage template and read

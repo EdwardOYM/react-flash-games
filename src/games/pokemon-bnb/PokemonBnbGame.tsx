@@ -2073,6 +2073,10 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                         // 04.11 CP14 / 161: the pick discards ONE attached Energy card, so it
                         // must not fall through to "deal 0 damage to <card>" either.
                         ? substituteParams(t('pokemonBnb.chooseDiscardAttachedAction'), { name })
+                        : battle.pendingChoice!.effect.kind === 'moveAttachedEnergyToBench'
+                          // 04.11 CP15 / 180: the pick is a DESTINATION for Energy leaving
+                          // the attacker, not damage — it must not read "deal 0 damage to X".
+                          ? substituteParams(t('pokemonBnb.chooseMoveEnergyAction'), { name })
                         : looseCard
                         ? name
                         : battle.pendingChoice!.effect.kind === 'healChosen'

@@ -1097,6 +1097,38 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closedDeferred, log: tailLog(closedDeferred, logStart) }
   }
 
+  // 04.11 CP15 / 180: move ONE attached Energy card to the chosen Benched Pokemon, then
+  // re-park while cards remain. "in any way you like" grants a DESTINATION choice per
+  // card, so the sequence runs once per card — the same shape as 04.10 CP4's `perCard`
+  // attach, and the reason `remaining` exists.
+  if (choice.effect.kind === 'moveAttachedEnergyToBench') {
+    if (!isInPlayTarget(target)) return failure(state, 'no-target')
+    const host = sideOf(next, actor)
+    const destination = inPlayList(host).find((p) => p.uid === target.uid)
+    const source = host.active
+    if (!destination || !source || destination.uid === source.uid) return failure(state, 'no-target')
+    const card = source.attachedEnergy[source.attachedEnergy.length - 1]
+    if (!card) return failure(state, 'no-target')
+    source.attachedEnergy.pop()
+    destination.attachedEnergy.push(card)
+    logEvent(next, 'pokemonBnb.log.attachEnergy', {
+      player: actor, card: card.name, target: destination.card.name,
+    })
+    const remaining = choice.remaining - 1
+    if (remaining > 0) {
+      next.pendingChoice = {
+        ...choice, remaining,
+        // Rebuilt, not reused: a pick may have changed the Bench, and 04.10 CP4 records
+        // that a stored list can name a different Pokemon by the time it is resolved.
+        targets: host.bench.map((pokemon, index) => ({ side: actor, zone: index, uid: pokemon.uid })),
+      }
+      return { state: next, log: tailLog(next, logStart) }
+    }
+    next.pendingChoice = null
+    const closed = next.over ? next : applyEndTurn(next, actor)
+    return { state: closed, log: tailLog(closed, logStart) }
+  }
+
   // Everything below works on an in-play Pokemon, so a non-Pokemon target is invalid here.
   // 04.11 CP11: positive test, so a future non-card target variant cannot fall through.
   if (!isInPlayTarget(target)) return failure(state, 'no-target')
@@ -1189,7 +1221,10 @@ export function finishChoice(state: BattleState, actor: PlayerSlot): ActionResul
   // It is unconditionally declinable (not gated on `optional`), because the printed text
   // always says "You may" and the parser only raises the clause when it does.
   const mayDiscardAny = choice.effect.kind === 'discardAttachedEnergyThenBonusDamage'
-  if (choice.effect.kind !== 'searchDeckUpTo' && !mayClause && !optional && !mayDiscardAny) {
+  // 04.11 CP15 / 180: "You may move …" is the same permission shape — declining leaves
+  // every card where it is, which is a legal outcome, not a skipped effect.
+  const mayMoveEnergy = choice.effect.kind === 'moveAttachedEnergyToBench'
+  if (choice.effect.kind !== 'searchDeckUpTo' && !mayClause && !optional && !mayDiscardAny && !mayMoveEnergy) {
     return failure(state, 'choice-not-optional')
   }
   // Declining 161 commits whatever was already staged and deals the damage for THAT count —

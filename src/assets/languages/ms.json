@@ -438,6 +438,7 @@
     "chooseHealAction": "Sembuhkan {name}",
     "chooseEnergyTypeAction": "Buang semua Energy {type} yang dilekapkan pada Pokemon ini",
     "chooseDiscardAttachedAction": "Buang {name} ini",
+    "chooseMoveEnergyAction": "Pindahkan Energy ke {name}",
     "chooseSwitchAction": "Tukar masuk {name}",
     "chooseAttachHereAction": "LTampkan tenaga ke {name}",
     "chooseShuffleSelfAction": "Kocak {name} dan semua kad yang terlampir ke dek anda",
