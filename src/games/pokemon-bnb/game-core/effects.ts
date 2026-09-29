@@ -1482,9 +1482,17 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     // clause, because it is a restatement and not a separate condition — and the ordering
     // it names is already structural (durations are read after Weakness/Resistance).
     //
+    // **`\s*\.?$` IS LOAD-BEARING, and CP4 got this wrong.** The `<em>` markup leaves a
+    // SPACE before the full stop — the normalised sentence ends "(…Resistance) ." — so a
+    // `\.?$` tail misses it and the card stays `unsupported` while looking correct. 04.9's
+    // own sibling pattern already writes `\s*\.?$` for precisely this reason. The first
+    // CP4 harness run reported this card as parsing when it did not, and the only reason
+    // it surfaced is that CP5 re-probed the whole set and found 183#0 still listed.
+    // **A checkpoint that measures its OWN output is what caught it.**
+    //
     // `whose` is 'foe': the reduction applies during the OPPONENT's turn, so +2.
     const foeNextTurnReduction = sentence.match(
-      /^during your opponent's next turn, any damage done to \w[\w ]*? by attacks is reduced by (\d+)(?: \(after applying weakness and resistance\))?\.?$/i,
+      /^during your opponent's next turn, any damage done to \w[\w ]*? by attacks is reduced by (\d+)(?:\s*\(after applying weakness and resistance\))?\s*\.?$/i,
     )
     if (foeNextTurnReduction) {
       effects.push({
