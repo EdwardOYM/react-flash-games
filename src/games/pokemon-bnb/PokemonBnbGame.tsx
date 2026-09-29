@@ -13,6 +13,9 @@ import { applySnapshot, applyTimeout, classifyAbility, HIDDEN_CARD, processActio
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
 import { basicEnergyCatalog, openPacks, buildPool, seatSeed, type OpenedCard, type OpenedPool } from './pack'
+// 04.11 CP19: kept in its own module so the label decision can be checked without
+// dragging JSX, CSS and the DOM into a Node process. See choice-labels.ts.
+import { choiceTemplateKey } from './choice-labels'
 import { createRng, randomSeed } from './rng'
 import { getSet, listSets } from './sets'
 import { readHighscores, recordMatchWin } from './highscores'
@@ -2073,47 +2076,23 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                       type="button"
                       onClick={() => runBattleAction(battle.pendingChoice!.actor, { type: 'chooseTarget', targetIndex: index })}
                     >
-                      {energyTypeName
-                        // 04.11 CP11: the action is discarding EVERY Energy of that type, so
-                        // it gets its own template rather than falling through to "deal 0
-                        // damage to Fire" from the generic damage branch below.
-                        ? substituteParams(t('pokemonBnb.chooseEnergyTypeAction'), { type: energyTypeName })
-                        : attachedCard
-                        // 04.11 CP14 / 161: the pick discards ONE attached Energy card, so it
-                        // must not fall through to "deal 0 damage to <card>" either.
-                        ? substituteParams(t('pokemonBnb.chooseDiscardAttachedAction'), { name })
-                        : battle.pendingChoice!.effect.kind === 'moveAttachedEnergyToBench'
-                          // 04.11 CP15 / 180: the pick is a DESTINATION for Energy leaving
-                          // the attacker, not damage — it must not read "deal 0 damage to X".
-                          ? substituteParams(t('pokemonBnb.chooseMoveEnergyAction'), { name })
-                        : statusLabel
-                        // 04.11 CP16 / 182: the pick selects a Special Condition, so it
-                        // needs its own template rather than the damage one.
-                        ? substituteParams(t('pokemonBnb.chooseConditionAction'), { name })
-                        : looseCard
-                        ? name
-                        : battle.pendingChoice!.effect.kind === 'healChosen'
-                          // 04.9 CP2: a heal has no `{amount}` in the printed sense
-                          // ("heal ALL damage"), so it gets its own template rather
-                          // than a number glued into JSX.
-                          ? substituteParams(t('pokemonBnb.chooseHealAction'), { name })
-                          : battle.pendingChoice!.effect.kind === 'attachStaged'
-                            // 04.10 CP4: the SECOND stage of a two-stage pick. The target
-                            // is a Pokemon and the action is "attach here", so it must
-                            // NOT fall through to the damage branch below — that would
-                            // render "deal 0 damage to Ninetales" for an attach.
-                            ? substituteParams(t('pokemonBnb.chooseAttachHereAction'), { name })
-                            : battle.pendingChoice!.effect.kind === 'shuffleSelfIntoDeck'
-                              // 04.10 CP5 / 073-136: the target is the attacker itself and
-                              // the action is returning it to the deck. It must not reach
-                              // the damage branch either, for the same reason.
-                              ? substituteParams(t('pokemonBnb.chooseShuffleSelfAction'), { name })
-                          : battle.pendingChoice!.effect.kind === 'switchActive'
-                            // 04.9 CP7: a switch has no amount either, and it also
-                            // renders the OPPONENT's Bench for 003, so the name is
-                            // taken from the target's own side (handled above).
-                            ? substituteParams(t('pokemonBnb.chooseSwitchAction'), { name })
-                          : substituteParams(
+                      {(() => {
+                        // 04.11 CP19: the nine-deep ternary this replaced is now
+                        // `choiceTemplateKey`, a pure function with a test over every pair.
+                        // Its ORDER is load-bearing and is why the fallbacks are each
+                        // commented at their original site.
+                        const shape = energyTypeName ? 'energyType'
+                          : attachedCard ? 'attachedEnergy'
+                          : statusLabel ? 'statusCondition'
+                          : looseCard ? 'looseCard'
+                          : 'inPlay'
+                        const pick = choiceTemplateKey(shape, battle.pendingChoice!.effect.kind)
+                        if (pick && pick.key) {
+                          return pick.usesName || shape === 'energyType'
+                            ? substituteParams(t(pick.key as never), { name, type: energyTypeName ?? '' })
+                            : name
+                        }
+                        return substituteParams(
                             // 04.8 CP2-C: a per-counter clause has no flat amount, so it
                             // gets its own template and {amount} stays a bare number —
                             // never an English unit glued into JSX. A deck search
@@ -2131,7 +2110,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                               ),
                               name,
                             },
-                          )}
+                          )})()}
                     </button>
                   )
                 })}
