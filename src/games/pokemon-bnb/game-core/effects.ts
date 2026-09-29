@@ -3280,6 +3280,21 @@ export function resolveAttack(
     (effect) => effect.kind === 'discardEnergyTypeThenTimesDamage'
       || effect.kind === 'discardAttachedEnergyThenBonusDamage',
   )
+  // 04.11 CP18 REVIEW: the skip below drops `attack.damage` outright, and that is only safe
+  // because every deferred card in the set PRINTS 0 (161 and both 174 attacks, measured).
+  // A future card that combined a deferred clause with a printed number would have that
+  // number silently discarded — the wrong-effect failure this engine ranks above a missing
+  // one, and invisible, because the deferred path still deals its own damage.
+  //
+  // **The printed number and the text's number are normally the SAME figure restated**, so
+  // adding both would double-count; there is no arithmetic here that is obviously right.
+  // The honest fix is to make the combination VISIBLE rather than to guess at it, which is
+  // the same "log rather than swallow" rule the rest of this file follows.
+  if (deferred && attack.damage > 0) {
+    logEvent(state, 'pokemonBnb.log.effectUnsupported', {
+      text: 'deferred damage printed alongside a printed figure',
+    })
+  }
   if (!spread && !deferred) {
   // 04.9 CP1: `noWeakness` bypasses the multiplier entirely — that is the whole
   // printed clause ("isn't affected by Weakness or Resistance"), so the damage
