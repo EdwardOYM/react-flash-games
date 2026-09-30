@@ -940,7 +940,23 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     opponentDeckReadyRef.current = opponentDeckReady
     openedPoolRef.current = openedPool
     enterDeckBuilderRef.current = () => {
-      setDeckCounts(Object.fromEntries(openedPool.cards.map((card) => [card.id, openedPool.byId.get(card.id) ?? 0])))
+      // 04.12 CP3 (user-reported): the builder opens EMPTY. It used to seed
+      // `deckCounts` with every opened card at its FULL count, which meant the whole
+      // opened pool was already in the deck before the player touched anything — so the
+      // pool was not a choice, it was a fait accompli, and the "Your deck" panel was
+      // pre-filled with 100+ cards the player never chose.
+      //
+      // The consequence is deliberate and visible: with nothing selected, `deckIds` is
+      // empty, so `buildPoolIsValid` reports `wrong-size` and the submit button stays
+      // disabled until the player assembles all DECK_SIZE (40) cards by hand. That is a
+      // real change from one click to a manual build, and it is what was asked for.
+      //
+      // **It interacts with CP2**: at the top of the new 6-36 pack range a seat opens up to
+      // 216 cards, so the "available" list now renders the ENTIRE pool on first paint
+      // (the included list is empty, so the `included >= opened` branch passes for
+      // everything). Whether that is usable is a RENDER question CP9 settles in a real
+      // browser - it is not claimed to be fine here.
+      setDeckCounts({})
       setEnergyCounts({})
       setDeckReady(false)
       deckReadyRef.current = false
