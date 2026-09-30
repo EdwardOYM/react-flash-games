@@ -379,6 +379,24 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   /** Unlimited basic-Energy construction counts, kept separate from opened cards. */
   const [energyCounts, setEnergyCounts] = useState<EnergySelection>({})
   const [deckReady, setDeckReady] = useState(false)
+  /**
+   * 04.12 CP4: the card being read in the DECK BUILDER.
+   *
+   * **Deliberately a separate state from `focusRef`, not a new `CardRef` variant.** The
+   * plan had assumed `source: 'pool'` and been right about the UI but wrong about the risk:
+   * `focus` is derived from `battle` and returns null when it is null, and `focusRef` is
+   * read by six battle-bound paths — `focusedPokemon` and `focusActions` in `focus.ts`, the
+   * card resolver at 1312, `runFocusAction`, `focusActionLabel`, and the zone switch at
+   * 2383. A deck-builder card belongs to no battle zone, so a `pool` variant would have
+   * threaded a card that does not exist in `battle` through all six, and a growing union is
+   * exactly what 04.11 CP21 had to delete an enumeration over. This state touches none of
+   * them.
+   *
+   * `.bnb-focus-overlay` is `position: fixed; inset: 0`, so the SAME `CardFocus` component
+   * renders correctly from inside the deck view and reuses its focus trap, Escape,
+   * click-outside-to-close and focus restore for free.
+   */
+  const [poolFocus, setPoolFocus] = useState<CardDef | null>(null)
   const [opponentDeckReady, setOpponentDeckReady] = useState(false)
   const opponentDeckReadyRef = useRef(false)
   const deckReadyRef = useRef(false)
@@ -1759,7 +1777,18 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               if (included === 0) return null
               return (
                 <li key={card.id}>
-                  <PokemonCard card={card} rarityLabel={rarityLabel(card.rarity)} faceDownLabel={t('pokemonBnb.cardFaceDown')} />
+                  {/* 04.12 CP4 (user-requested): click the face to read the card. The
+                      face is its own button and a SIBLING of the +/- controls, matching
+                      BattleBoard's "reading a hand card is separate from arming it" split,
+                      so inspecting a card can never add or remove a copy. */}
+                  <button
+                    type="button"
+                    className="bnb-inspect"
+                    aria-label={`${card.name} — ${t('pokemonBnb.focusOpen')}`}
+                    onClick={() => setPoolFocus(card)}
+                  >
+                    <PokemonCard card={card} rarityLabel={rarityLabel(card.rarity)} faceDownLabel={t('pokemonBnb.cardFaceDown')} />
+                  </button>
                   <p className="bnb-hint">{substituteParams(t('pokemonBnb.deckCopies'), { count: String(included) })}</p>
                   <div className="bnb-actions">
                     <button type="button" disabled={deckReady || included >= opened} onClick={() => adjustDeckCount(card.id, 1)} aria-label={substituteParams(t('pokemonBnb.deckInclude'), { name: card.name })}>+</button>
@@ -1777,7 +1806,16 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               if (included >= opened) return null
               return (
                 <li key={card.id}>
-                  <PokemonCard card={card} rarityLabel={rarityLabel(card.rarity)} faceDownLabel={t('pokemonBnb.cardFaceDown')} />
+                  {/* 04.12 CP4: same inspect affordance as the included list above, so a
+                      card is readable BEFORE it is added as well as after. */}
+                  <button
+                    type="button"
+                    className="bnb-inspect"
+                    aria-label={`${card.name} — ${t('pokemonBnb.focusOpen')}`}
+                    onClick={() => setPoolFocus(card)}
+                  >
+                    <PokemonCard card={card} rarityLabel={rarityLabel(card.rarity)} faceDownLabel={t('pokemonBnb.cardFaceDown')} />
+                  </button>
                   <div className="bnb-actions">
                     <button type="button" disabled={deckReady} onClick={() => adjustDeckCount(card.id, 1)} aria-label={substituteParams(t('pokemonBnb.deckInclude'), { name: card.name })}>+</button>
                   </div>
@@ -1793,6 +1831,27 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
             </p>
           ))}
           {opponentDeckReady && <p className="bnb-notice" role="status">{substituteParams(t('pokemonBnb.opponentReady'), { name: opponentName || t('pokemonBnb.defaultName') })}</p>}
+          {/* 04.12 CP4: the shared `CardFocus` overlay, rendered from the deck view.
+              `readOnly` with an empty `actions` list, because a builder card is not in play —
+              there is nothing to attack, attach or evolve, and offering those controls here
+              would be a wrong affordance. `onAction` is required by the props but is
+              unreachable with no actions, so it is an explicit no-op rather than a
+              dispatcher that would have to learn what a deck-builder card can do. The zone
+              reuses `deckPoolLabel` instead of inventing new vocabulary. */}
+          {poolFocus && (
+            <CardFocus
+              target={{ card: poolFocus, zone: t('pokemonBnb.deckPoolLabel'), targets: [] }}
+              actions={[]}
+              onAction={() => {}}
+              onSelectTarget={() => {}}
+              onClose={() => setPoolFocus(null)}
+              t={t}
+              rarityLabel={rarityLabel}
+              faceDownLabel={t('pokemonBnb.cardFaceDown')}
+              actionLabel={() => ''}
+              actionReason={() => null}
+            />
+          )}
           {noticeText && <p className="bnb-notice" role="status">{noticeText}</p>}
           {errorKey && <p className="bnb-error" role="alert">{t(errorKey)}</p>}
           <div className="bnb-actions">
