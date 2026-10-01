@@ -15,7 +15,8 @@
 //    exactly the silent-zero failure that happened twice. So the zero is reported AND the
 //    reason is named.
 
-import { abilityCoverageReport, classifyAbility, parseAttackEffects } from './game-core'
+import { abilityCoverageReport, classifyAbility, parseAttackEffects, trainerCoverageReport } from './game-core'
+import type { TrainerCoverage } from './game-core'
 import type { CardDef } from './cards'
 
 export type UnsupportedAttack = {
@@ -40,11 +41,19 @@ export type CoverageReport = {
     unsupported: { name: string; text: string }[]
   }
   /**
-   * 04.12 CP8: trainers have no parser and no measurement at all. Reported as an explicit
-   * `false` rather than omitted, so a coverage summary can never be read as covering the
-   * whole set when a third of the card categories is unmeasured.
+   * 04.12 CP8: trainers were previously reported as an explicit `measured: false`,
+   * because all five 30C trainers shipped with an empty `effect` and there was nothing
+   * to parse. Those effect strings have since been hand-written into the card data, so
+   * the category is genuinely measured now.
+   *
+   * **TWO numbers, deliberately, never one.** `recognised` counts cards whose every
+   * sentence parsed; `implemented` counts cards the engine actually executes. They are
+   * different questions — a parser can cover the whole set on the day it is written and
+   * the game can still not play a single Trainer — and a single blended figure is how a
+   * set gets reported as supported when it is not. `entries[].blockers` names the reason
+   * per card.
    */
-  trainers: { total: number; measured: false }
+  trainers: TrainerCoverage
   /** Named reasons the numbers above may be wrong. */
   diagnostics: string[]
 }
@@ -156,13 +165,13 @@ export function coverageReport(input: readonly unknown[]): CoverageReport {
   }
 
   // ---- trainers ----
-  const trainers = cards.filter((raw) => isRecord(raw) && raw.supertype === 'trainer').length
-  if (trainers > 0) {
-    diagnostics.push(
-      `${trainers} Trainer card(s) exist and are NOT covered by this report: there is no `
-      + 'parseTrainerEffects and no trainer coverage. 04.12 CP8 measures them.',
-    )
-  }
+  //
+  // 04.12 CP8. The card records are passed through UNFILTERED, including any with an
+  // empty `effect`: `trainerCoverageReport` separates a data gap from an engine gap
+  // itself, and pre-filtering the empties here would delete exactly the evidence that
+  // distinction depends on.
+  const trainers = trainerCoverageReport(cards.filter((raw) => isRecord(raw) && raw.supertype === 'trainer'))
+  diagnostics.push(...trainers.diagnostics)
 
   return {
     attacks: { total: attackTotal, supported: attackSupported, unsupported },
@@ -173,7 +182,7 @@ export function coverageReport(input: readonly unknown[]): CoverageReport {
       passive,
       unsupported: unsupportedAbilities,
     },
-    trainers: { total: trainers, measured: false },
+    trainers,
     diagnostics,
   }
 }
@@ -184,13 +193,19 @@ export function formatCoverageReport(report: CoverageReport): string {
   const lines: string[] = [
     `ATTACKS   ${report.attacks.supported}/${report.attacks.total} modelled (${pct(report.attacks.supported, report.attacks.total)})`,
     `ABILITIES ${report.abilities.supported}/${report.abilities.distinct} distinct supported (${pct(report.abilities.supported, report.abilities.distinct)}), ${report.abilities.passive} passive, ${report.abilities.instances} instances`,
-    `TRAINERS  ${report.trainers.total} in the set - NOT MEASURED`,
+    // Two trainer figures, never one: `recognised` measures the parser, `implemented`
+    // measures the game. Printing only the first would let this line be read as "the
+    // trainers work", which is the exact claim CP8 exists to keep falsifiable.
+    `TRAINERS  ${report.trainers.implemented}/${report.trainers.total} implemented, ${report.trainers.recognised}/${report.trainers.total} parsed`,
   ]
   for (const attack of report.attacks.unsupported) {
     lines.push(`  attack  ${attack.number}#${attack.attackIndex} ${attack.cardName} / ${attack.attackName}`)
   }
   for (const ability of report.abilities.unsupported) {
     lines.push(`  ability ${ability.name || '(unnamed)'}`)
+  }
+  for (const trainer of report.trainers.entries) {
+    lines.push(`  trainer ${trainer.number} ${trainer.name} [${trainer.support}]: ${trainer.blockers.join('; ') || 'implemented'}`)
   }
   for (const note of report.diagnostics) lines.push(`  DIAGNOSTIC ${note}`)
   return lines.join('\n')

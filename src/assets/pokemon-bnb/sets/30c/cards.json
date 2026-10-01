@@ -4963,7 +4963,7 @@
       "supertype": "trainer",
       "types": [],
       "trainerType": "Item",
-      "effect": ""
+      "effect": "Search your deck for a Pokémon that doesn't have a Rule Box, reveal it, and put it into your hand. Then, shuffle your deck. (Pokémon ex, Pokémon V, etc. have Rule Boxes.)"
     },
     {
       "id": "30c-127",
@@ -4974,7 +4974,7 @@
       "supertype": "trainer",
       "types": [],
       "trainerType": "Item",
-      "effect": ""
+      "effect": "Switch your Active Pokémon with 1 of your Benched Pokémon."
     },
     {
       "id": "30c-128",
@@ -4985,7 +4985,7 @@
       "supertype": "trainer",
       "types": [],
       "trainerType": "Item",
-      "effect": ""
+      "effect": "You can use this card only if you discard 2 other cards from your hand. Search your deck for a Pokémon, reveal it, and put it into your hand. Then, shuffle your deck."
     },
     {
       "id": "30c-129",
@@ -6401,7 +6401,7 @@
       "supertype": "trainer",
       "types": [],
       "trainerType": "Supporter",
-      "effect": ""
+      "effect": "Discard 2 of the other cards in your hand in order to play this card. If this turn's attack does damage to the Defending Pokémon (after applying Weakness and Resistance), and if the attacking Pokémon has Misty in its name, the attack does 20 more damage to the Defending Pokémon."
     },
     {
       "id": "30c-164",
@@ -7051,7 +7051,7 @@
       "supertype": "trainer",
       "types": [],
       "trainerType": "Supporter",
-      "effect": ""
+      "effect": "Each player shuffles his or her hand into his or her deck. Then, each player draws a card for each of his or her remaining Prize cards."
     },
     {
       "id": "30c-180",
