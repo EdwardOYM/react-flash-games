@@ -7,11 +7,12 @@
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type EnergyCardDef, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
-import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, logEvent, sideOf, tailLog } from './helpers'
+import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, logChoicePrompt, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState, ChoiceTarget, PendingChoice, SideState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, ownInPlay, parseAttackEffects, recordAttackDamageOn, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
 import { applyEndTurn, applyStartOfTurn, checkVictory, performBenchKo, performKo } from './turns'
+import { DAMAGE_PER_COUNTER } from './constants'
 
 // -- CP7-B: turn sub-phases + action dispatcher --
 
@@ -953,13 +954,128 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     if (after.remaining > 0 && roomLeft > 0 && targets.length > 0) {
       after.targets = targets
       next.pendingChoice = after
-      logEvent(next, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
+      logChoicePrompt(next)
       return { state: next, log: tailLog(next, logStart) }
     }
     // Nothing more can be taken, so the search is over and the turn closes.
     next.pendingChoice = null
     const closedUpTo = next.over ? next : applyEndTurn(next, actor)
     return { state: closedUpTo, log: tailLog(closedUpTo, logStart) }
+  }
+
+  // 04.12 CP11 / 097 Starmie "Giant Water Shuriken", STAGE ONE: discard the chosen Energy,
+  // then RE-PARK for the Pokemon. Resolved before the damage paths because the counters it
+  // leads to are a separate kind and must not fall through to them.
+  if (choice.effect.kind === 'discardEnergyFromHand') {
+    if (target.zone !== 'hand') return failure(state, 'no-target')
+    const hand = sideOf(next, target.side).hand
+    const found = hand[target.index]
+    if (!found || found.id !== target.cardId) return failure(state, 'no-target')
+    if (!cardIsEnergy(found) || found.provides !== choice.effect.energyType) return failure(state, 'no-target')
+    hand.splice(target.index, 1)
+    sideOf(next, target.side).discard.push(found)
+    logEvent(next, 'pokemonBnb.log.effectDiscardEnergy', { player: actor, card: found.name })
+    // Stage TWO: the OPPONENT's Pokemon only. Offering the actor's own would be a
+    // clickable target that is a wrong effect, which this engine ranks above a missing one.
+    const foeSide = sideOf(next, foeOf(actor))
+    const foeInPlay: ChoiceTarget[] = []
+    if (foeSide.active) foeInPlay.push({ side: foeOf(actor), zone: 'active', uid: foeSide.active.uid })
+    foeSide.bench.forEach((pokemon, index) => {
+      foeInPlay.push({ side: foeOf(actor), zone: index, uid: pokemon.uid })
+    })
+    if (foeInPlay.length === 0) {
+      next.pendingChoice = null
+      const closedSt = next.over ? next : applyEndTurn(next, actor)
+      return { state: closedSt, log: tailLog(closedSt, logStart) }
+    }
+    next.pendingChoice = {
+      ...choice,
+      targets: foeInPlay,
+      remaining: 1,
+      source: 'inPlay',
+      effect: { kind: 'placeCountersOnChosen', counters: choice.effect.counters },
+    }
+    logChoicePrompt(next)
+    return { state: next, log: tailLog(next, logStart) }
+  }
+
+  // 04.12 CP11 / 097, STAGE TWO: the counters land. Weakness deliberately does NOT apply —
+  // the card prints COUNTERS, and counters bypass the multiplier that an attack's damage
+  // would take.
+  if (choice.effect.kind === 'placeCountersOnChosen') {
+    if (!isInPlayTarget(target)) return failure(state, 'no-target')
+    const victim = inPlayList(sideOf(next, target.side)).find((pokemon) => pokemon.uid === target.uid)
+    if (!victim) return failure(state, 'no-target')
+    victim.damage += choice.effect.counters * DAMAGE_PER_COUNTER
+    next.pendingChoice = null
+    logEvent(next, 'pokemonBnb.log.effectDamage', {
+      player: actor,
+      target: victim.card.name,
+      amount: String(choice.effect.counters * DAMAGE_PER_COUNTER),
+    })
+    // A counter can knock the target out, and that KO must go through the same Active/Bench
+    // split every other damage source uses (see the attack path at ~L1307): an Active KO
+    // takes a Prize and opens the promotion gate, a Benched KO takes one silently.
+    if (isKnockedOut(victim)) {
+      const victimSide = sideOf(next, target.side)
+      if (victimSide.active === victim) performKo(next, target.side)
+      else performBenchKo(next, target.side, victim)
+    }
+    const closedCounters = next.over ? next : applyEndTurn(next, actor)
+    return { state: closedCounters, log: tailLog(closedCounters, logStart) }
+  }
+
+  // 04.12 CP11 / 158 Intrepid Sword: lift the chosen card off the top of the deck and
+  // attach it, then RE-PARK while any Metal remains in the window.
+  if (choice.effect.kind === 'takeTopOfDeck') {
+    // Captured into a local because the spread below (`...choice.effect`) breaks TS's
+    // discriminant narrowing for the rest of the arm -- a property that only exists on
+    // `takeTopOfDeck` is not reachable on the union once it has been widened.
+    const sword = choice.effect
+    if (target.zone !== 'deck') return failure(state, 'no-target')
+    const own = sideOf(next, actor)
+    const found = own.deck[target.deckIndex]
+    if (!found || found.id !== target.cardId) return failure(state, 'no-target')
+    own.deck.splice(target.deckIndex, 1)
+    // The window is a COUNTER, not a position (see the type's note). One card leaves the
+    // top-N window per pick, whatever index it sat at.
+    const windowLeft = Math.max(0, sword.look - sword.taken - 1)
+    if (cardIsEnergy(found) && found.provides === sword.energyType) {
+      // `attachTo: 'self'`, resolved by the uid captured at PARK time (see the type's note:
+      // re-deriving whose ability this was would attach to the wrong Pokemon).
+      const user = inPlayList(own).find((pokemon) => pokemon.uid === sword.userUid)
+      if (!user) return failure(state, 'no-target')
+      user.attachedEnergy.push(found as EnergyCardDef)
+      logEvent(next, 'pokemonBnb.log.attachEnergy', { player: actor, card: found.name, target: user.card.name })
+    }
+    logEvent(next, 'pokemonBnb.log.effectSearchDeck', { player: actor, card: found.name })
+    // "attach ANY NUMBER" is permissive: the player may stop early, so `finishChoice`
+    // closes this just like a multi-pick deck search.
+    const left = choice.remaining - 1
+    const stillEligible = own.deck
+      .slice(0, windowLeft)
+      .filter((card) => cardIsEnergy(card) && (card as EnergyCardDef).provides === sword.energyType)
+    if (left > 0 && stillEligible.length > 0) {
+      next.pendingChoice = {
+        ...choice,
+        remaining: left,
+        source: 'deck',
+        effect: { ...choice.effect, taken: sword.taken + 1 },
+        targets: stillEligible.map((card) => ({ side: actor, zone: 'deck' as const, deckIndex: own.deck.indexOf(card), cardId: card.id })),
+      }
+      logChoicePrompt(next)
+      return { state: next, log: tailLog(next, logStart) }
+    }
+    // Window exhausted OR the player took what they wanted: the printed "put the other
+    // cards into your hand" fires for whatever of the top-N window is still unclaimed.
+    const rest = own.deck.splice(0, windowLeft)
+    own.hand.push(...rest)
+    next.pendingChoice = null
+    logEvent(next, 'pokemonBnb.log.effectSearchDeck', { player: actor, count: rest.length })
+    // "your turn ends" — applied explicitly at the site that must honour it, rather than
+    // leaning on the `endsTurn` default being true.
+    const closedSword = next.over ? next : applyEndTurn(next, actor)
+    return { state: closedSword, log: tailLog(closedSword, logStart) }
   }
 
   // 04.9 CP7: a board switch. Resolved BEFORE the damage paths, because it changes

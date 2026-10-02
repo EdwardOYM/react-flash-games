@@ -343,6 +343,45 @@ export type PendingChoice = {
     // with it — see `applySwitchInPlace`. `optional` is 066/152/158's printed "You may",
     // which is what lets `finishChoice` decline it; 032's mandatory swap has it false.
     | { kind: 'switchActive'; side: 'attacker' | 'defender'; optional: boolean }
+    /**
+     * 04.12 CP11 / 158 Intrepid Sword, stage ONE: lift a card off the top of the deck.
+     *
+     * A genuinely new source rather than a `searchDeckUpTo` variant with a flag: the
+     * printed "look at the TOP 3" exposes a FIXED window, so the target list is
+     * `deck[0..look-1]` and must NOT be re-searched for a match anywhere in the deck. That
+     * is why it parks its own kind instead of widening `searchDeckUpTo`'s `from` — a flag
+     * there would have made "top 3" and "anywhere in the deck" one clause with a boolean,
+     * which is exactly the shape that gets mis-set once.
+     *
+     * **`userUid` is REQUIRED, not a convenience.** The ability's own Pokemon is the
+     * destination, and it cannot be recovered later: `resolveChoice` holds only the choice,
+     * and re-deriving "whose ability was this" from the log or the turn order is exactly the
+     * inference that silently attaches to the wrong Pokemon when both players use abilities
+     * in the same turn.
+     *
+     * **`taken` counts how much of the top-N window has already been lifted.** It is the
+     * ONLY correct way to track the window, and the reason is worth stating because the
+     * obvious alternative looks fine and is not: after lifting the card at deck index 0, the
+     * next "top 3" starts where index 3 used to be. Recomputing the window from a stored
+     * index silently re-offers a card that is no longer in it and under-offers a card that
+     * is — so the window is a COUNTER, not a position.
+     */
+    | { kind: 'takeTopOfDeck'; look: number; attachTo: 'self'; energyType: string; userUid: string; taken: number }
+    /**
+     * 04.12 CP11 / 097 Starmie, stage ONE: discard a matching Energy from hand. Stage two
+     * is `placeCountersOnChosen` below. Kept as two kinds rather than one with a phase
+     * counter, so `resolveChoice` has no "am I on stage one?" branch to get wrong.
+     */
+    | { kind: 'discardEnergyFromHand'; energyType: string; counters: number }
+    /**
+     * 04.12 CP11 / 097 Starmie, stage TWO: put the counters on the chosen Pokemon.
+     *
+     * COUNTERS, not damage, because the card prints "6 damage counters" and the engine's
+     * only counter unit is `DAMAGE_PER_COUNTER`. Weakness therefore does NOT apply, which
+     * is the printed reading of a counter and differs from an attack's damage — the same
+     * distinction `countersOnAttackerWhenDamaged` already draws.
+     */
+    | { kind: 'placeCountersOnChosen'; counters: number }
   /** Printed attack that asked for the choice, for the log line. */
   attackName: string
 }

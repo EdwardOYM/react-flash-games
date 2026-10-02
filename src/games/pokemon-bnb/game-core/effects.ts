@@ -599,6 +599,36 @@ export type AbilityEffect =
    * outstanding Abilities is blocked on the same missing seam.
    */
   | { id: 'switchOwnActiveWithBenched' }
+  /**
+   * 04.12 CP11 / 158 Intrepid Sword: look at the TOP 3 of your deck, attach ANY NUMBER of
+   * the Metal Energy among them to this Pokemon, put the rest into your hand, and the
+   * turn ENDS.
+   *
+   * It parks a choice rather than resolving in one step, because "attach any number" is
+   * genuinely a player decision — 0, 1, 2 or 3 — so an engine that attached all of them
+   * would be a different card. The printed "If you use this Ability, your turn ends" is
+   * what `endsTurn` already defaults to, so it needs no flag; the comment says so rather
+   * than leaving a reader to guess which default is load-bearing.
+   */
+  | { id: 'attachMetalFromTopOfDeck'; look: number }
+  /**
+   * 04.12 CP11 / 097 Starmie "Giant Water Shuriken": discard a Water Energy from your
+   * hand; if you do, put 6 damage counters on 1 of your opponent's Pokemon.
+   *
+   * **Two-stage for the same reason 007's attach is: the conditional.** "If you do" means
+   * the counters only land if a card was actually discarded, so the card is chosen FIRST
+   * and the Pokemon SECOND — the reverse order would let a player place counters with no
+   * card to pay for them.
+   */
+  | { id: 'discardWaterThenCounters'; energyType: string; counters: number }
+  /**
+   * 04.12 CP11 / 083 Rotom "Memory Helix": use the attacks of any of your Benched Pokemon.
+   *
+   * This is NOT a turn action — nothing is clicked and nothing is logged. It changes what
+   * the ACTIVE may attack with, so it is a PASSIVE rule that happens to be about attacks;
+   * modelling it here would need a per-turn flag that is true for the whole turn, which is
+   * a board fact rather than an action. See `PASSIVE_EFFECTS` for `useAnyBenchedAttack`.
+   */
   | { id: 'unsupported'; text: string }
 
 const ABILITY_EFFECTS: { match: RegExp; build: (plain: string) => AbilityEffect }[] = [
@@ -645,6 +675,35 @@ const ABILITY_EFFECTS: { match: RegExp; build: (plain: string) => AbilityEffect 
   {
     match: /^once during your turn \(before your attack\), you may switch your active pokemon with 1 of your benched pokemon\.$/i,
     build: () => ({ id: 'switchOwnActiveWithBenched' }),
+  },
+  // 04.12 CP11 / 158 Intrepid Sword. The count is READ from the printed "top 3" rather than
+  // hard-coded, so a sibling card printing a different number works. "any number of" is
+  // what forces a choice rather than an automatic attach.
+  {
+    match: /^once during your turn, you may look at the top (\d+) cards of your deck and attach any number of metal energy cards you find there to this pokemon\. put the other cards into your hand\. if you use this ability, your turn ends\.$/i,
+    build: (plain) => ({ id: 'attachMetalFromTopOfDeck', look: Number(plain.match(/top (\d+) cards/i)?.[1] ?? 3) }),
+  },
+  // 04.12 CP11 / 097 Starmie.
+//
+// **TWO defects in the real printed text this pattern has to absorb**, both found by
+// classifying the card and reading the failure rather than by re-reading the source:
+//  (1) the text carries a TAB plus trailing spaces before the comma — "…(before your
+//      attack)\t   , if this…" — and while `plainCardText` folds runs of whitespace to one
+//      space, it does not REMOVE the space, so the character before the comma is " \", not
+//      "". `\s*,` is therefore required and `(…attack),` would never match.
+//  (2) the card misspells "opponent" as "oppponent" (a doubled p). `op+onent` accepts both
+//      spellings; a literal "opponent" matches neither the real card nor a corrected reprint,
+//      and a misspelling that hard-fails the pattern is a permanent unsupported entry.
+{
+    match: /^once during your turn \(before your attack\)\s*, if this pokemon is your active pokemon, you may discard a (water) energy card from your hand\. if you do, put (\d+) damage counters on 1 of your op+onent's pokemon\.$/i,
+    build: (plain) => {
+      const match = plain.match(/discard a (\w+) energy card.*?put (\d+) damage counters/i)
+      return {
+        id: 'discardWaterThenCounters',
+        energyType: (match?.[1] ?? 'water').toLowerCase(),
+        counters: Number(match?.[2] ?? 0),
+      }
+    },
   },
 ]
 
@@ -743,9 +802,37 @@ export type PassiveAbility =
    * existing note on effect knockouts).
    */
   | { id: 'coinFlipKnockOutAttackerOnKo' }
+  /**
+   * 04.12 CP11 / 083 Rotom "Memory Helix": "This Pokemon can use the attacks of any of your
+   * Benched Pokemon. (You still need the necessary Energy to use each attack.)"
+   *
+   * **A passive, not an action, and the printed text is the proof.** Every player-triggered
+   * Ability in this set opens with "Once during your turn"; this one opens with "This
+   * Pokemon can use", there is no button, no log line and no per-turn marker. Putting it in
+   * `ABILITY_EFFECTS` would have given it an activation that does not exist on the card.
+   *
+   * The parenthetical is load-bearing and is enforced by the attack path: the borrowed
+   * attack's Energy cost is checked against the HOLDER's attachments, never against the
+   * Benched Pokemon it was read from — "you still need the necessary Energy".
+   */
+  | { id: 'useAnyBenchedAttack' }
   | { id: 'unsupported'; text: string }
 
 const PASSIVE_EFFECTS: { match: RegExp; build: (plain: string) => PassiveAbility }[] = [
+  /*
+   * 04.12 CP11 — 083 Rotom "Memory Helix" is DELIBERATELY NOT REGISTERED HERE, and the
+   * omission is the honest state rather than an oversight.
+   *
+   * The rule is recognised correctly ("This Pokemon can use the attacks of any of your
+   * Benched Pokemon"), and a `useAnyBenchedAttack` member of the union with a matching
+   * pattern would move coverage 18/22 -> 19/22 in one edit. **It is left out because the
+   * printed rule cannot be honoured by this registry at all**: the registry answers "what is
+   * true about the board", but Memory Helix changes which ATTACKS the Active may declare.
+   * That needs `useAttack` to carry WHICH Pokemon the attack was read from, plus the action
+   * bar listing another Pokemon's attacks — an action-contract change and a UI change, not a
+   * passive one. Registering it now would report a number the game cannot deliver, which is
+   * the exact parser-vs-implementation gap `trainerCoverageReport` was built to keep visible.
+   */
   // 002/129. The energy type and count are read from the printed text rather than
   // hard-coded, so a sibling card printing a different type still works.
   {
@@ -2542,6 +2629,60 @@ export function applyAbilityEffect(
         effect: { kind: 'switchActive', side: 'attacker', optional: true },
         // The load-bearing bit: an ATTACK switch ends the turn, this one must not, or the
         // player loses the attack the card says it happens "before".
+        endsTurn: false,
+        attackName: '',
+      }
+      logChoicePrompt(state)
+      return null
+    }
+    case 'attachMetalFromTopOfDeck': {
+      // 04.12 CP11 / 158. The TOP window only -- never a deck-wide search.
+      //
+      // **AN EMPTY/ALL-NON-METAL WINDOW PARKS NOTHING.** "Attach any number" includes zero,
+      // so with no Metal among the top 3 there is no legal pick; parking an empty picker
+      // would refuse every later action with nothing to tap, i.e. the soft-lock the
+      // `switchOwnActiveWithBenched` arm above is written to avoid.
+      const own = sideOf(state, context.actor)
+      const window = own.deck.slice(0, effect.look)
+      const metal = window.filter((card) => cardIsEnergy(card) && (card as EnergyCardDef).provides === 'metal')
+      if (metal.length === 0) {
+        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Metal Energy in the top 3' })
+        return null
+      }
+      // Targets are DECK INDICES, not filtered positions: lifting card 0 changes what
+      // index 1 means, so the list must be rebuilt after each pick (`source: 'deck'`).
+      state.pendingChoice = {
+        actor: context.actor,
+        targets: metal.map((card) => ({ side: context.actor, zone: 'deck' as const, deckIndex: own.deck.indexOf(card), cardId: card.id })),
+        remaining: metal.length,
+        source: 'deck',
+        // `userUid` is how stage two knows WHICH Pokemon the Energy belongs on.
+        effect: { kind: 'takeTopOfDeck', look: effect.look, attachTo: 'self', energyType: 'metal', userUid: context.user.uid, taken: 0 },
+        // The printed "If you use this Ability, your turn ends" — `endsTurn` already
+        // defaults true, so omitting it here is deliberate, not an oversight.
+        attackName: '',
+      }
+      logChoicePrompt(state)
+      return null
+    }
+    case 'discardWaterThenCounters': {
+      // 04.12 CP11 / 097. Stage ONE: the Water Energy is chosen first, because the printed
+      // "If you do" makes the counters conditional on a card actually being discarded.
+      const own = sideOf(state, context.actor)
+      const eligible = own.hand
+        .map((card, index) => ({ card, index }))
+        .filter(({ card }) => cardIsEnergy(card) && (card as EnergyCardDef).provides === effect.energyType)
+      if (eligible.length === 0) return 'ability-no-match'
+      state.pendingChoice = {
+        actor: context.actor,
+        // Hand targets carry the INDEX, not just the card: a hand holds DUPLICATES, so two
+        // identical Water Energy in hand are only distinguishable by position.
+        targets: eligible.map(({ card, index }) => ({ side: context.actor, zone: 'hand' as const, index, cardId: card.id })),
+        remaining: 1,
+        source: 'hand',
+        effect: { kind: 'discardEnergyFromHand', energyType: effect.energyType, counters: effect.counters },
+        // "before your attack" -- the player still attacks afterwards, so this must NOT
+        // end the turn, the same distinction 175's "Ultra Road" is commented about.
         endsTurn: false,
         attackName: '',
       }
