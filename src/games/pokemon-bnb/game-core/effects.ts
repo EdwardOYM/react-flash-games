@@ -13,7 +13,7 @@ import { DAMAGE_PER_COUNTER, MAX_BENCH } from './constants'
 import { cardIsEnergy, cardIsPokemon, cardIsStadium, cardIsTrainer, isBasicPokemon, type AttackDef, type CardDef, type CardType, type EnergyCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { createRng, randomInt } from '../rng'
-import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
+import { damageCounters, drawCards, foeOf, inPlayList, isKnockedOut, isUnreadableDamageValue, logChoicePrompt, logEvent, parseResistanceValue, parseWeaknessValue, sideOf, tailLog } from './helpers'
 import { addDuration, durationDamageAdjustment, durationTurnFor, findDuration, hasPassive } from './helpers'
 import { STATUS_CONDITIONS, type BattleLogEntry, type BattleState, type ChoiceTarget, type DurationEffect, type InPlayPokemon, type PendingChoice, type SearchAttachEnergyClause, type StatusCondition } from './types'
 import { applyDeckOutLoss, performBenchKo, performKo, prizesTaken, takePrizeCard } from './turns'
@@ -2545,10 +2545,7 @@ export function applyAbilityEffect(
         endsTurn: false,
         attackName: '',
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', {
-        player: context.actor,
-        count: host.bench.length,
-      })
+      logChoicePrompt(state)
       return null
     }
     case 'unsupported':
@@ -2779,7 +2776,7 @@ export function applyEffect(
         effect: { kind: 'chooseStatusCondition', conditions: effect.conditions },
         attackName: context.attackName,
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: context.actor, count: effect.conditions.length })
+      logChoicePrompt(state)
       break
     }
     case 'moveAttachedEnergyToBench': {
@@ -2812,7 +2809,7 @@ export function applyEffect(
         effect: { kind: 'moveAttachedEnergyToBench' },
         attackName: context.attackName,
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: context.actor, count: bench.length })
+      logChoicePrompt(state)
       break
     }
     case 'status': {
@@ -3573,7 +3570,7 @@ export function resolveAttack(
             : { kind: 'damagePerCounter', amountPerCounter: flat.amountPerCounter },
         attackName: context.attackName,
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: bench.length })
+      logChoicePrompt(state)
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no legal target' })
     }
@@ -3613,7 +3610,7 @@ export function resolveAttack(
         effect: { kind: 'searchDeck', filter: search.filter },
         attackName: context.attackName,
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
+      logChoicePrompt(state)
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no matching card in deck' })
     }
@@ -3650,7 +3647,7 @@ export function resolveAttack(
         effect: { kind: 'pickFromDiscard', to: 'hand' },
         attackName: context.attackName,
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
+      logChoicePrompt(state)
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no cards to choose from' })
     }
@@ -3678,7 +3675,7 @@ export function resolveAttack(
         effect: { kind: 'healChosen', amount: healTarget.amount },
         attackName: context.attackName,
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: bench.length })
+      logChoicePrompt(state)
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Benched Pokemon to heal' })
     }
@@ -3711,7 +3708,7 @@ export function resolveAttack(
           effect: { kind: 'healChosen', amount: derived * DAMAGE_PER_COUNTER },
           attackName: context.attackName,
         }
-        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: bench.length })
+        logChoicePrompt(state)
       } else {
         // No matching Energy attached: the printed amount is zero, so the heal is a legal
         // no-op. Logging rather than parking an empty picker, for the soft-lock reason above.
@@ -3749,7 +3746,7 @@ export function resolveAttack(
         },
         attackName: context.attackName,
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: targets.length })
+      logChoicePrompt(state)
     } else {
       // No Energy attached anywhere: the printed damage is still the bare `base`, and the
       // clause is a no-op. Logging rather than parking an unpickable choice.
@@ -3780,7 +3777,7 @@ export function resolveAttack(
         },
         attackName: context.attackName,
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: offered.length })
+      logChoicePrompt(state)
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Energy of either type attached' })
     }
@@ -3830,7 +3827,7 @@ export function resolveAttack(
         probe.remaining = Math.min(cap, eligible)
         probe.targets = refreshChoiceTargets(state, probe)
         state.pendingChoice = probe
-        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: probe.targets.length })
+        logChoicePrompt(state)
       }
     }
   }
@@ -3854,7 +3851,7 @@ export function resolveAttack(
         effect: selfShuffle,
         attackName: context.attackName,
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: 1 })
+      logChoicePrompt(state)
     }
   }
 
@@ -3879,7 +3876,7 @@ export function resolveAttack(
       } else {
         probe.targets = available
         state.pendingChoice = probe
-        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: available.length })
+        logChoicePrompt(state)
       }
     }
   }
@@ -3934,7 +3931,7 @@ export function resolveAttack(
         probe.remaining = Math.min(bounded, available.length)
         probe.targets = available
         state.pendingChoice = probe
-        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: probe.targets.length })
+        logChoicePrompt(state)
       }
     }
   }
@@ -3960,7 +3957,7 @@ export function resolveAttack(
           effect: { kind: 'searchAnyToHand', coin: anyCard.coin },
           attackName: context.attackName,
         }
-        logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: deck.length })
+        logChoicePrompt(state)
       }
     }
   }
@@ -3985,7 +3982,7 @@ export function resolveAttack(
         effect: { kind: 'switchActive', side: swap.foe ? 'defender' : 'attacker', optional: swap.optional },
         attackName: context.attackName,
       }
-      logEvent(state, 'pokemonBnb.log.chooseTarget', { player: actor, count: bench.length })
+      logChoicePrompt(state)
     } else {
       logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Benched Pokemon to switch with' })
     }

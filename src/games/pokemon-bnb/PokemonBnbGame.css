@@ -136,6 +136,18 @@
 .bnb-side-name { color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; text-transform: uppercase; }
 .bnb-battle-log { list-style: none; margin: 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #33454a; background: #16222a; color: #aeb9b9; font-family: 'DM Mono', monospace; font-size: .62rem; line-height: 1.4; }
 .bnb-battle-log li:last-child { color: #f5f0e8; }
+  /*
+   * 04.12 CP9 F4: the log auto-scrolls to the newest line, so the OLDEST visible line is
+   * always sliced in half by the top edge ("Request." / "Host's Shining Celebi" in the QA
+   * shots). That is just where a scroll container happens to rest, but it reads as broken
+   * TEXT rather than as "there is more above". A short fade at the top edge makes the
+   * partial line read as scrollable history. Bottom is deliberately NOT masked — the newest
+   * line is the one the player just caused and must stay fully crisp.
+   */
+  .bnb-battle-log {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  }
 
 /* CP8-E: turn action bar — flex-wrap toolbar capped at 960px, mirroring .bnb-actions rhythm. */
 .bnb-action-bar { display: flex; flex-direction: column; gap: 6px; width: min(100%, 960px); margin: 0 auto; padding: 8px 10px; border: 1px solid #33454a; background: #16222a; }
@@ -191,6 +203,15 @@
 /* The finish affordance must never be the thing that scrolls out of reach. */
 .bnb-choice-list:has(.bnb-choice-finish) { flex: 0 0 auto; overflow: visible; }
 .bnb-choice-list button { flex: 1 1 12rem; min-width: 0; padding: 10px 12px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
+  /*
+   * 04.12 CP9 F3: the basis is 12rem, which fits only FOUR buttons per row at 960 wide --
+   * so 161's five wrapped onto a second row and the popup grew to 155px, pushing both lanes
+   * 56px below the fold. The labels are short ("Discard Metal Energy #4 from Metagross" is
+   * long, but it wraps inside its own button), so a narrower basis buys a single row. An
+   * 8rem basis fits six. Fewer rows beats scrolling the picker: the whole point of the
+   * popup was that the board stays visible, and a scrolled list hides the options instead.
+   */
+  .bnb-choice-list button { flex: 1 1 8rem; padding: 7px 8px; font-size: .6rem; line-height: 1.25; }
 .bnb-choice-list button:hover, .bnb-choice-list button:focus-visible { border-color: #ffc857; color: #ffc857; }
 
 /*
@@ -282,9 +303,16 @@
     padding: 4px 8px;
   }
   .bnb-choice-gate .bnb-hint { display: none; }
-  .bnb-choice-title { margin: 0; flex: 0 0 auto; }
+  .bnb-choice-title { margin: 0; flex: 0 0 auto; font-size: .6rem; }
+  /* The final 5px at 844x390 with 161's five long labels: the popup's own padding, not
+     any card or label. */
+  .bnb-choice-gate { padding: 3px 6px; }
+  /* TRIED AND REVERTED: a negative margin on the turn banner here was meant to reclaim the
+     last 3px, but it made the overflow WORSE (3px -> 6px) — the banner is a flex child, so
+     pulling its margin tight re-flowed the siblings rather than removing space. */
+  /* .bnb-battle-head { margin-bottom: -3px; } */
   .bnb-choice-list { margin-top: 0; flex: 1 1 auto; }
-  .bnb-choice-list button { flex: 1 1 0; padding: 5px 6px; font-size: .6rem; }
+  .bnb-choice-list button { flex: 1 1 0; padding: 5px 4px; font-size: .52rem; line-height: 1.15; }
 }
 
 /* Narrow portrait (<=520px): panels stack, the log strip drops below them. */

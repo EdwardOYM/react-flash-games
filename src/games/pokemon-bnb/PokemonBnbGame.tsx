@@ -2329,10 +2329,28 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                           : statusLabel ? 'statusCondition'
                           : looseCard ? 'looseCard'
                           : 'inPlay'
-                        const pick = choiceTemplateKey(shape, battle.pendingChoice!.effect.kind)
+                        const pick = choiceTemplateKey(
+                          shape,
+                          battle.pendingChoice!.effect.kind,
+                          // 04.12 CP9 F3: name the Pokemon the Energy is ON, so 161's
+                          // five buttons stop reading as three identical "Discard this
+                          // Lightning Energy" rows.
+                          attachedHolder?.card.name,
+                          // 04.12 CP9 F3: the slot number, but ONLY when that holder has
+                          // more than one attachment. All five of 161's Energy sit on one
+                          // Pokemon, so the holder alone cannot tell them apart.
+                          attachedHolder && attachedHolder.attachedEnergy.length > 1 && attachedTarget
+                            ? String(attachedTarget.index + 1)
+                            : undefined,
+                        )
                         if (pick && pick.key) {
                           return pick.usesName || shape === 'energyType'
-                            ? substituteParams(t(pick.key as never), { name, type: energyTypeName ?? '' })
+                            ? substituteParams(t(pick.key as never), {
+                                name,
+                                type: energyTypeName ?? '',
+                                holder: attachedHolder?.card.name ?? '',
+                                slot: String((attachedTarget?.index ?? 0) + 1),
+                              })
                             : name
                         }
                         return substituteParams(

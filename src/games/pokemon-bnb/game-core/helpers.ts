@@ -25,6 +25,27 @@ export function foeOf(slot: PlayerSlot): PlayerSlot {
  * Append one structured log entry. Templates are translation keys, never
  * player-facing English, so the UI owns the copy (card names stay data).
  */
+import { choiceLogKey } from '../choice-labels'
+
+/**
+ * 04.12 CP9 F2: announce a parked choice with a line that names what is ACTUALLY being
+ * chosen, then log it.
+ *
+ * **This exists so the shape can never drift from the copy.** Sixteen call sites used to
+ * each emit `pokemonBnb.log.chooseTarget` by hand, which is exactly how three of them came
+ * to announce "choose 1 of N Pokemon in play" while offering five attached Energy cards.
+ * They now all funnel through here, and the key is derived from `state.pendingChoice`
+ * rather than passed in — so a caller cannot forget it, and the count is always the target
+ * list the engine will validate against.
+ *
+ * Callers must assign `state.pendingChoice` BEFORE calling this; every site does.
+ */
+export function logChoicePrompt(state: BattleState): void {
+  const choice = state.pendingChoice
+  if (!choice) return
+  logEvent(state, choiceLogKey(choice), { player: choice.actor, count: choice.targets.length })
+}
+
 export function logEvent(state: BattleState, key: string, params?: Record<string, string | number>): void {
   state.log.push(params ? { key, params } : { key })
 }
