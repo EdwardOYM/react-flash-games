@@ -15,7 +15,7 @@
 import type { BattleState, SideState } from './game-core'
 import type { PlayerSlot } from './net/protocol'
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type AttackDef } from './cards'
-import { MAX_BENCH, canEvolveOnto, canPayCost, effectiveRetreatCost, findDuration, inPlayOf, isAttackLocked } from './game-core'
+import { MAX_BENCH, canEvolveOnto, canPayCost, effectiveRetreatCost, findDuration, inPlayOf, isAttackLocked, liveEnergyOverride, parseAttackEffects } from './game-core'
 
 export type ControlId =
   | 'attachEnergy'
@@ -267,7 +267,20 @@ export function attackControl(state: BattleState, actor: PlayerSlot, attack: Att
   const active = state[actor].active
   if (!active) return blocked('no-active')
   if (isAttackLocked(state, active.uid, attack.name)) return blocked('duration-cant-attack')
-  if (!canPayCost(active.attachedEnergy, attack.cost)) return blocked('insufficient-energy')
+  // 04.12 CP15: the same GX gate `declareAttack` enforces, asked here so the BUTTON is
+  // disabled rather than offering an attack the engine will refuse. Button and engine read
+  // the same flag, which is what `controls.ts` exists for.
+  if (parseAttackEffects(attack.text).some((effect) => effect.kind === 'gxOncePerGame') && state[actor].gxAttackUsedThisGame) {
+    return blocked('gx-limit')
+  }
+  // 04.12 CP10-B / CP15: the `overrideTo` argument was added to `canPayCost` for Charizard's
+  // "Energy Burn" but this call site was never given it — so the button ignored an override
+  // the engine was honouring, and a Fire attack read as unaffordable on a burning Charizard
+  // while the engine would have accepted it. **Found while adding the GX gate**, because
+  // this is the only place a player asks "can I afford this".
+  if (!canPayCost(active.attachedEnergy, attack.cost, liveEnergyOverride(state, actor, active.uid))) {
+    return blocked('insufficient-energy')
+  }
   return OK
 }
 

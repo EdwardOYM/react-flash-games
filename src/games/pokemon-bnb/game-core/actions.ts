@@ -501,6 +501,16 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
   if (isAttackLocked(next, active.uid, attack.name)) return failure(state, 'duration-cant-attack')
   if (state.turn === 1 && state.setup.firstPlayer === actor) return failure(state, 'first-turn-attack')
   if (side.attackedThisTurn) return failure(state, 'already-attacked')
+  // 04.12 CP15 / 166-171-175: "(You can't use more than 1 GX attack in a game.)"
+  //
+  // Checked HERE, at declaration, and BEFORE anything is spent — so a refused second GX
+  // returns the ORIGINAL state and the player still has their normal attacks. Enforcing it
+  // at the effect site instead would burn the attack and then refuse to resolve.
+  //
+  // The clause is read from the ATTACK's own parsed text, so a non-GX attack on the same
+  // card is unaffected: Pikachu & Zekrom GX can still use its ordinary attack afterwards.
+  const gxClause = parseAttackEffects(attack.text).find((effect) => effect.kind === 'gxOncePerGame')
+  if (gxClause && side.gxAttackUsedThisGame) return failure(state, 'gx-limit')
   if (!canPayCost(active.attachedEnergy, attack.cost, liveEnergyOverride(next, actor, active.uid))) return failure(state, 'insufficient-energy')
 
   // 04.11 CP8 / 159: an attack whose EXTRA cost is paid by DISCARDING Energy.
@@ -531,6 +541,10 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
 
   const logStart = next.log.length
   side.attackedThisTurn = true
+  // 04.12 CP15: the GX is spent HERE, when the attack is declared — not when its effect
+  // resolves. An attack that parks a choice can be walked away from, and a GX refunded by a
+  // cancelled pick would be a free re-roll of the strongest attack on the card.
+  if (gxClause) side.gxAttackUsedThisGame = true
   logEvent(next, 'pokemonBnb.log.attack', { player: actor, card: active.card.name, attack: attack.name })
 
   // Confused (rulebook): roll first — tails means the attack does nothing and

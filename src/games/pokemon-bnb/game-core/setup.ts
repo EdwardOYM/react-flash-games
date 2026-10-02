@@ -72,6 +72,8 @@ export function sideEmpty(): SideState {
     abilityUsedNames: {},
     // 04.12 CP10-B: a VSTAR Power is once per GAME, so this never resets.
     vstarPowerUsedThisGame: false,
+    // 04.12 CP15: a GX attack is once per GAME, independent of the VSTAR Power.
+    gxAttackUsedThisGame: false,
     // 04.12 CP10-B: "for the rest of the turn" -- starts empty and is cleared by the turn.
     energyTypeOverride: [],
     setupActive: null,

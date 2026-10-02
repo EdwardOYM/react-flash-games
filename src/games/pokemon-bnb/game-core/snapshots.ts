@@ -121,8 +121,8 @@ export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
     // guest, so a stale override cannot be read as live by a rebuilt view that never ran the
     // turn change. `vstarPowerUsedThisGame` is kept as-is — it is per GAME and never expires.
     sideOverrides: [
-      { vstarPowerUsedThisGame: state.host.vstarPowerUsedThisGame, energyTypeOverride: state.host.energyTypeOverride.filter((e) => e.turn === state.turn).map((e) => ({ ...e })) },
-      { vstarPowerUsedThisGame: state.guest.vstarPowerUsedThisGame, energyTypeOverride: state.guest.energyTypeOverride.filter((e) => e.turn === state.turn).map((e) => ({ ...e })) },
+      { vstarPowerUsedThisGame: state.host.vstarPowerUsedThisGame, gxAttackUsedThisGame: state.host.gxAttackUsedThisGame, energyTypeOverride: state.host.energyTypeOverride.filter((e) => e.turn === state.turn).map((e) => ({ ...e })) },
+      { vstarPowerUsedThisGame: state.guest.vstarPowerUsedThisGame, gxAttackUsedThisGame: state.guest.gxAttackUsedThisGame, energyTypeOverride: state.guest.energyTypeOverride.filter((e) => e.turn === state.turn).map((e) => ({ ...e })) },
     ],
     // 04.9 CP5: the FIRST field 04.9 puts on the wire. A duration names a `uid`, an
     // effect and a turn number — never a card in a hidden zone — so both seats
@@ -178,6 +178,8 @@ function snapshotSideToState(snapshot: SnapshotSide, overrides?: Snapshot['sideO
     // 04.12 CP10-B: defaults when the field is absent, so a snapshot from an older host
     // restores to an UNUSED VSTAR Power rather than throwing.
     vstarPowerUsedThisGame: overrides?.vstarPowerUsedThisGame ?? false,
+    // 04.12 CP15: same `?? false` discipline — an older host's snapshot has no such field.
+    gxAttackUsedThisGame: overrides?.gxAttackUsedThisGame ?? false,
     energyTypeOverride: (overrides?.energyTypeOverride ?? []).map((e) => ({ ...e })),
   }
 }

@@ -590,6 +590,7 @@
       "targetCannotBeHealed": "当 Yveltal 在场上时，该宝可梦无法被治疗。",
       "alreadyAttacked": "你的出战宝可梦本回合已经攻击过。",
       "insufficientEnergy": "所贴能量不足以支付攻击费用。",
+      "gxLimit": "整局游戏中只能使用 1 次 GX 攻击。",
       "noAttack": "那只宝可梦不会这个招式。",
       "unknownAction": "该操作无效。",
       "setupIncomplete": "完成设置后才能执行回合操作。",

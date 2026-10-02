@@ -228,8 +228,25 @@ export function slotOwning(state: BattleState, pokemon: InPlayPokemon): PlayerSl
  * applied unconditionally, because a wrong effect is worse than a missing one.
  */
 export type ParsedEffect =
+  /**
+   * 04.12 CP15 / 166-171-175: "(You can't use more than 1 GX attack in a game.)"
+   *
+   * A LIMIT rather than an effect — it changes nothing about the damage, which is why it is
+   * its own kind and not folded into a `bonusDamage*`. It is enforced at DECLARATION
+   * (`declareAttack`), so by the time any effect is applied the GX is already spent.
+   */
+  | { kind: 'gxOncePerGame' }
   | { kind: 'bonusDamage'; amount: number; coin: boolean }
   | { kind: 'bonusDamagePerPrize'; amount: number }
+  /**
+   * 04.12 CP15 / 171 Buzzwole GX: "40 damage for each of your remaining Prize cards."
+   *
+   * A SEPARATE kind from `bonusDamagePerPrize` ("for each prize card you have taken")
+   * because the two counts are opposite readings of the same number and never coincide:
+   * taken + remaining = the configured total. A boolean would be a flag that can be set
+   * backwards, which is how "remaining" quietly becomes "taken" and inverts a whole attack.
+   */
+  | { kind: 'bonusDamagePerRemainingPrize'; amount: number }
   // -- 04.7: damage maths over board state the engine already holds. Every one
   // of these reads a printed "for each" / "if ... , this attack does N more
   // damage" clause. All 04.7 cards print a base damage of 0, so the clause IS
@@ -545,7 +562,7 @@ export function effectTiming(kind: ParsedEffect['kind']): EffectTiming {
   // still "worked" because an unsupported-looking 0 is indistinguishable from tails.
   // **A clause that parses but is never routed is the quietest failure in this engine.**
   if (
-    kind === 'bonusDamage' || kind === 'bonusDamagePerPrize' || kind === 'noDamageOnTails'
+    kind === 'bonusDamage' || kind === 'bonusDamagePerPrize' || kind === 'bonusDamagePerRemainingPrize' || kind === 'noDamageOnTails'
     || kind === 'discardAllToolsOnDefender' || kind === 'damageTimesHeads'
     || kind === 'bonusDamageIfAllHeads' || kind === 'bonusDamageIfDefenderIsEvolved'
   ) {
@@ -2001,7 +2018,14 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     // destination, so 007 can put both on one Pokemon or split them across two.
     // Dropping the phrase would silently narrow it to 063's rule — a wrong effect.
     const energyGift = sentence.match(
-      /^search your deck for up to (\d+) basic energy cards and attach them to your pokemon in any way you like\.$/i,
+      // 04.12 CP15 / 175 Solgaleo GX: "basic" is made OPTIONAL here rather than by adding a
+      // second near-identical pattern. 175 prints "up to 5 ENERGY cards"; 007 prints "up to 2
+      // BASIC Energy cards". **Two patterns differing only by one optional word drift apart
+      // the first time either is edited** — which is precisely what happened the first time
+      // I wrote this as a separate 175 pattern: it included "Then, shuffle your deck", but
+      // the parser splits SENTENCES, so that clause arrives separately and the pattern could
+      // never match. Widening this one keeps the pair together.
+      /^search your deck for up to (\d+) (?:basic )?energy cards and attach them to your pokemon in any way you like\.?$/i,
     )
     if (energyGift) {
       effects.push({
@@ -2441,6 +2465,29 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     const perPrize = sentence.match(/^this attack does (\d+) damage for each prize card you have taken\.?$/i)
     if (perPrize) {
       effects.push({ kind: 'bonusDamagePerPrize', amount: Number(perPrize[1]) })
+      pendingCoin = false
+      continue
+    }
+    // 04.12 CP15 / 171 Buzzwole GX: "for each of your remaining Prize cards."
+    //
+    // **REMAINING, not taken — and the difference is the whole card.** `prizeCount` is what
+    // is still face-down, so the count is the number the player HAS NOT taken. This reads
+    // the same board field as the older "for each prize card you have taken" clause and the
+    // two are complementary: taken + remaining = the configured total. They are separate
+    // patterns rather than one with a flag because "taken" and "remaining" are the same
+    // number for nobody, and a flag is a boolean that can be set backwards.
+    const perRemainingPrize = sentence.match(
+      /^this attack does (\d+) damage for each of your remaining prize cards\.?$/i,
+    )
+    if (perRemainingPrize) {
+      effects.push({ kind: 'bonusDamagePerRemainingPrize', amount: Number(perRemainingPrize[1]) })
+      pendingCoin = false
+      continue
+    }
+    // 04.12 CP15 / 166-171-175: the shared GX limit.
+    const gxLimit = sentence.match(/^\(?you can't use more than 1 gx attack in a game\.?\)?$/i)
+    if (gxLimit) {
+      effects.push({ kind: 'gxOncePerGame' })
       pendingCoin = false
       continue
     }
@@ -3425,6 +3472,15 @@ export function resolveAttack(
       logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: effect.amount })
     } else if (effect.kind === 'bonusDamagePerPrize') {
       const bonus = effect.amount * prizesTaken(state, actor)
+      base += bonus
+      logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'bonusDamagePerRemainingPrize') {
+      // 04.12 CP15 / 171: `prizeCount` is what is STILL face-down, so this is the number the
+      // player has NOT taken — the complement of `prizesTaken`. Reading `prizesTaken` here
+      // would scale the attack the wrong way, so the distinction is made by the KIND and not
+      // by a flag that could be set backwards.
+      const remaining = sideOf(state, actor).prizeCount
+      const bonus = effect.amount * remaining
       base += bonus
       logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
     } else if (effect.kind === 'bonusDamagePerEnergyType') {

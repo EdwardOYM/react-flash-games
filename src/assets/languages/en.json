@@ -590,6 +590,7 @@
       "targetCannotBeHealed": "That Pokemon cannot be healed while Yveltal is in play.",
       "alreadyAttacked": "Your Active Pokemon already attacked this turn.",
       "insufficientEnergy": "Not enough Energy is attached to pay the attack cost.",
+      "gxLimit": "You can only use 1 GX attack in a game.",
       "noAttack": "That Pokemon does not know that attack.",
       "unknownAction": "That action is not valid here.",
       "setupIncomplete": "Finish setup before taking turn actions.",

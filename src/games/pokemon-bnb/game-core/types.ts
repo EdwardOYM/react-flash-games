@@ -486,6 +486,23 @@ export type SideState = {
    * Rayquaza that leaves play must not hand the Power back.
    */
   vstarPowerUsedThisGame: boolean
+  /**
+   * 04.12 CP15 / 166-171-175: "(You can't use more than 1 GX attack in a game.)"
+   *
+   * **PER GAME, per SEAT — the same discipline as `vstarPowerUsedThisGame`, for the same
+   * reason.** A single boolean rather than a set of card ids: the printed limit is ONE GX
+   * attack per game regardless of WHICH GX, so recording "which" would be state the card
+   * does not describe. A `Record<cardId, true>` would read as though each GX had its own
+   * allowance, which is the opposite of what the card says.
+   *
+   * Kept SEPARATE from `vstarPowerUsedThisGame` even though both are once per game: a
+   * player may have spent their VSTAR Power and still hold their GX, so merging them would
+   * let one card's text spend another's allowance.
+   *
+   * Only this seat's own use is recorded; the opponent's GX usage is never disclosed, which
+   * matches `abilityUsedNames` and names no hidden zone.
+   */
+  gxAttackUsedThisGame: boolean
   /** Face-down setup Active selected from this side's private hand. */
   setupActive: PokemonCardDef | null
   /** Face-down setup Bench selected from this side's private hand. */
@@ -646,6 +663,7 @@ export type Snapshot = {
    */
   sideOverrides: {
     vstarPowerUsedThisGame: boolean
+    gxAttackUsedThisGame: boolean
     energyTypeOverride: { uid: string; provides: string; turn: number }[]
   }[]
   /**

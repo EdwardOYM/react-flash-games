@@ -590,6 +590,7 @@
       "switch": "{in} menggantikan {out} di Slot Aktif.",
       "alreadyAttacked": "Pokemon Aktif anda sudah menyerang giliran ini.",
       "insufficientEnergy": "Tenaga tidak cukup untuk membayar kos serangan.",
+      "gxLimit": "Anda hanya boleh menggunakan 1 serangan GX dalam satu permainan.",
       "noAttack": "Pokemon itu tidak tahu serangan itu.",
       "unknownAction": "Tindakan itu tidak sah di sini.",
       "setupIncomplete": "Selesaikan persediaan sebelum tindakan giliran.",
