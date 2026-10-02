@@ -881,19 +881,22 @@ export type PassiveAbility =
 
 const PASSIVE_EFFECTS: { match: RegExp; build: (plain: string) => PassiveAbility }[] = [
   /*
-   * 04.12 CP11 — 083 Rotom "Memory Helix" is DELIBERATELY NOT REGISTERED HERE, and the
-   * omission is the honest state rather than an oversight.
+   * 04.12 CP13 / 083 Rotom "Memory Helix": "This Pokemon can use the attacks of any of your
+   * Benched Pokemon. (You still need the necessary Energy to use each attack.)"
    *
-   * The rule is recognised correctly ("This Pokemon can use the attacks of any of your
-   * Benched Pokemon"), and a `useAnyBenchedAttack` member of the union with a matching
-   * pattern would move coverage 18/22 -> 19/22 in one edit. **It is left out because the
-   * printed rule cannot be honoured by this registry at all**: the registry answers "what is
-   * true about the board", but Memory Helix changes which ATTACKS the Active may declare.
-   * That needs `useAttack` to carry WHICH Pokemon the attack was read from, plus the action
-   * bar listing another Pokemon's attacks — an action-contract change and a UI change, not a
-   * passive one. Registering it now would report a number the game cannot deliver, which is
-   * the exact parser-vs-implementation gap `trainerCoverageReport` was built to keep visible.
+   * Registered in CP13, after CP11/CP12 deliberately left it out. The earlier reason still
+   * holds and is the reason it is a real change rather than a new pattern: honouring this
+   * needed `useAttack` to carry WHICH Pokemon the attack was read from, plus the action bar to
+   * list another Pokemon's attacks. Both landed, so the rule is now playable and counting it is
+   * honest.
    */
+  {
+    // Anchored INCLUDING the parenthetical: "you still need the necessary Energy" is half
+    // the rule, not decoration, and dropping it would let a reworded card match by accident.
+    match: /^this pokemon can use the attacks of any of your benched pokemon\. \(you still need the necessary energy to use each attack\.\)$/i,
+    build: () => ({ id: 'useAnyBenchedAttack' }),
+  },
+
   // 002/129. The energy type and count are read from the printed text rather than
   // hard-coded, so a sibling card printing a different type still works.
   {

@@ -440,6 +440,7 @@
     "chooseDiscardAttachedAction": "Discard this {name}",
     "chooseDiscardAttachedFromAction": "Discard this {name} from {holder}",
     "chooseDiscardAttachedSlotAction": "Discard {name} #{slot} from {holder}",
+    "borrowedAttackOwner": "via {name}",
     "chooseMoveEnergyAction": "Move Energy to {name}",
     "chooseConditionAction": "Make it {name}",
     "chooseSwitchAction": "Switch in {name}",

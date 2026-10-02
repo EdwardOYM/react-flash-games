@@ -7,7 +7,7 @@
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type EnergyCardDef, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
-import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, isPlasmaEnergy, liveEnergyOverride, logChoicePrompt, logEvent, sideOf, tailLog } from './helpers'
+import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, hasPassive, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, isPlasmaEnergy, liveEnergyOverride, logChoicePrompt, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState, ChoiceTarget, PendingChoice, SideState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, ownInPlay, parseAttackEffects, recordAttackDamageOn, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
@@ -365,7 +365,7 @@ export function beginAttack(state: BattleState, actor: PlayerSlot): ActionResult
   return { state: next, log: [] }
 }
 
-export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex: number): ActionResult {
+export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex: number, attackFromUid?: string): ActionResult {
   const blocked = checkAttackDeclaration(state, actor)
   if (blocked) return failure(state, blocked)
   const next = cloneBattleState(state)
@@ -376,7 +376,20 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
   const side = sideOf(next, actor)
   const active = side.active
   if (!active) return failure(state, 'no-active')
-  const attack = active.card.attacks[attackIndex]
+  // 04.12 CP13 / 083 Rotom "Memory Helix": the attack may be READ from a Benched Pokemon.
+  // Three separate refusals, because each is a DIFFERENT mistake and merging them would
+  // make one of them silently do the wrong thing:
+  //  - the Active must actually carry the Ability (a forged uid is not permission),
+  //  - the uid must resolve to a Pokemon still on the Bench,
+  //  - that Pokemon must HAVE an attack at this index.
+  let source = active
+  if (attackFromUid !== undefined) {
+    if (!hasPassive(active, 'useAnyBenchedAttack')) return failure(state, 'ability-ineligible')
+    const borrowed = side.bench.find((pokemon) => pokemon.uid === attackFromUid)
+    if (!borrowed) return failure(state, 'no-target')
+    source = borrowed
+  }
+  const attack = source.card.attacks[attackIndex]
   if (!attack) return failure(state, 'no-attack')
   if (active.conditions.asleep || active.conditions.paralyzed) return failure(state, 'cannot-attack')
   // 04.9 CP5: a live `cantAttack` / `cantUseAttack` duration (060/106/134/151/157)
@@ -547,7 +560,7 @@ export function processAction(state: BattleState, actor: PlayerSlot, action: Bat
     case 'beginAttack':
       return beginAttack(state, actor)
     case 'useAttack':
-      return declareAttack(state, actor, action.attackIndex)
+      return declareAttack(state, actor, action.attackIndex, action.attackFromUid)
     case 'pass':
       return pass(state, actor)
     case 'promoteActive':

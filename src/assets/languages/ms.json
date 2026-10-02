@@ -440,6 +440,7 @@
     "chooseDiscardAttachedAction": "Buang {name} ini",
     "chooseDiscardAttachedFromAction": "Buang {name} ini daripada {holder}",
     "chooseDiscardAttachedSlotAction": "Buang {name} #{slot} daripada {holder}",
+    "borrowedAttackOwner": "melalui {name}",
     "chooseMoveEnergyAction": "Pindahkan Energy ke {name}",
     "chooseConditionAction": "Jadikan {name}",
     "chooseSwitchAction": "Tukar masuk {name}",

@@ -450,6 +450,8 @@ type PkmBnbTranslationKey =
   // attached Energy card, so it needs its own template for the same reason — otherwise it
   // falls through to the damage template and reads "Deal 0 damage to Fire Energy".
   | 'chooseDiscardAttachedAction'
+  // 04.12 CP13: Memory Helix's borrowed attacks carry their owner's name.
+  | 'borrowedAttackOwner'
   // 04.11 CP15 / 180: the button for an Energy-move destination. The pick names where
   // Energy goes, not a victim, so it needs its own template rather than the damage one.
   | 'chooseMoveEnergyAction'

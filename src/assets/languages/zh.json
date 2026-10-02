@@ -440,6 +440,7 @@
     "chooseDiscardAttachedAction": "弃置此 {name}",
     "chooseDiscardAttachedFromAction": "从 {holder} 弃置此 {name}",
     "chooseDiscardAttachedSlotAction": "从 {holder} 弃置 {name} #{slot}",
+    "borrowedAttackOwner": "借用自 {name}",
     "chooseMoveEnergyAction": "将能量移动到 {name}",
     "chooseConditionAction": "使其{cname}",
     "chooseSwitchAction": "换上 {name}",

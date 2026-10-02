@@ -9,7 +9,7 @@ import { readConfig } from '../../config'
 import { SettingsModal, type AdditionalKeyBinding } from '../../settings'
 import { isBasicPokemon, cardIsEnergy, type CardDef, type CardRarity, type SetId } from './cards'
 import { DECK_SIZE, buildPoolIsValid, poolHasBasic, serializeDeck, type DeckLegalityReason, type EnergySelection } from './deck'
-import { applySnapshot, applyTimeout, classifyAbility, HIDDEN_CARD, processAction, setupBattle, STATUS_CONDITIONS, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type InPlayPokemon, type SideState, type Snapshot } from './game-core'
+import { applySnapshot, applyTimeout, classifyAbility, hasPassive, HIDDEN_CARD, processAction, setupBattle, STATUS_CONDITIONS, toSnapshot, type BattleAction, type BattleLogEntry, type BattleState, type InPlayPokemon, type SideState, type Snapshot } from './game-core'
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
 import { basicEnergyCatalog, openPacks, buildPool, seatSeed, type OpenedCard, type OpenedPool } from './pack'
@@ -2420,6 +2420,29 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                 const isMyTurn = !battle.over && battle.pendingPromotion === null && battle.activePlayer === (localMode ? battle.activePlayer : mySlot)
                 const controls = controlStates(battle, actor, { handIndex: selHand, benchIndex: selBench })
                 const attacks = selfSide.active?.card.attacks ?? []
+                /**
+                 * 04.12 CP13 / 083 Rotom "Memory Helix": the Active may also use the attacks
+                 * of ANY Benched Pokemon. Modelled as a SECOND list rather than by
+                 * concatenating into `attacks`, because the borrowed attacks are NOT the
+                 * Active's own — concatenating would render them identically and lose the
+                 * only thing that tells the player which Pokemon an attack belongs to.
+                 *
+                 * Each entry carries the borrowing Pokémon's uid, which is what the engine
+                 * keys on (`attackFromUid`): a uid and not a bench index, because a switch
+                 * moves the Pokemon mid-turn.
+                 *
+                 * EMPTY unless the Active actually carries the Ability, so a normal board
+                 * renders exactly what it did before CP13.
+                 */
+                const borrowedAttacks: { attack: (typeof attacks)[number]; ownerUid: string; ownerName: string }[] =
+                  selfSide.active && hasPassive(selfSide.active, 'useAnyBenchedAttack')
+                    ? selfSide.bench.flatMap((pokemon) =>
+                        pokemon.card.attacks.map((attack) => ({
+                          attack,
+                          ownerUid: pokemon.uid,
+                          ownerName: pokemon.card.name,
+                        })))
+                    : []
                 /** Translate one control id into the intent it dispatches. */
                 const onControl = (id: ControlId) => {
                   if (selHand === null && id !== 'retreat' && id !== 'beginAttack' && id !== 'pass') return
@@ -2493,6 +2516,46 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                             {attack.name}
                             {!attackState.enabled && attackReason && (
                               <span className="bnb-control-reason" id={attackReasonId}>{attackReason}</span>
+                            )}
+                          </button>
+                        )
+                      })}
+                      {/*
+                       * 04.12 CP13 / 083 Rotom "Memory Helix": the borrowed attacks.
+                       *
+                       * `attackControl` is asked the same question as for the Active's own
+                       * attacks and against the SAME Energy pool, which is the printed rule --
+                       * "you still need the necessary Energy to use each attack" -- so a
+                       * borrowed attack the Active cannot pay for is disabled with the same
+                       * reason rather than being offered and then refused by the engine.
+                       *
+                       * The OWNER'S NAME is in the label. Two Pokemon can both print
+                       * "Tackle", and a button reading only the attack name would be ambiguous
+                       * in exactly the way F3 was, so what distinguishes these rows is spelled
+                       * out rather than implied by position.
+                       */}
+                      {borrowedAttacks.map(({ attack, ownerUid, ownerName }, index) => {
+                        const borrowedState = attackControl(battle, actor, attack)
+                        const borrowedReason = borrowedState.reason
+                          ? t(reasonKey(borrowedState.reason) as TranslationKey)
+                          : null
+                        const borrowedReasonId = `bnb-reason-borrowed-${index}`
+                        return (
+                          <button
+                            key={`${ownerUid}-${attack.name}-${index}`}
+                            type="button"
+                            className="bnb-borrowed-attack"
+                            disabled={!borrowedState.enabled}
+                            title={borrowedReason ?? undefined}
+                            aria-describedby={!borrowedState.enabled && borrowedReason ? borrowedReasonId : undefined}
+                            onClick={() => runBattleAction(actor, { type: 'useAttack', attackIndex: index, attackFromUid: ownerUid })}
+                          >
+                            {attack.name}
+                            <span className="bnb-borrowed-owner">
+                              {substituteParams(t('pokemonBnb.borrowedAttackOwner'), { name: ownerName })}
+                            </span>
+                            {!borrowedState.enabled && borrowedReason && (
+                              <span className="bnb-control-reason" id={borrowedReasonId}>{borrowedReason}</span>
                             )}
                           </button>
                         )

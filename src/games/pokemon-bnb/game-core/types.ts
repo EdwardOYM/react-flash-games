@@ -767,7 +767,23 @@ export type BattleAction =
   | { type: 'retreatToBench'; benchIndex: number }
   | { type: 'beginAttack' }
   | { type: 'pass' }
-  | { type: 'useAttack'; attackIndex: number }
+  /**
+   * 04.12 CP13 / 083 Rotom "Memory Helix".
+   *
+   * `attackFromUid` names the BENCHED Pokemon whose attack list `attackIndex` indexes.
+   * Undefined means the Active's own attacks, which is every pre-CP13 call unchanged — so
+   * the added field is genuinely optional and no existing caller had to be rewritten.
+   *
+   * **A `uid`, never a bench index.** A switch moves the Pokemon between bench slots
+   * mid-turn, so a stored index would silently read a different Pokémon's attack list after
+   * a switch — a wrong attack rather than a refused one, which this engine ranks worse.
+   *
+   * The attack is still PAID FOR and PERFORMED BY the Active: the borrowed cost is checked
+   * against the Active's own Energy ("you still need the necessary Energy"), and the
+   * Attacking Pokemon for Weakness/Retreat/damage purposes remains the Active. Only the
+   * attack's TEXT, name and effects come from the Benched Pokemon.
+   */
+  | { type: 'useAttack'; attackIndex: number; attackFromUid?: string }
   | { type: 'promoteActive'; benchIndex: number }
   /** 04.8 CP2: resolve the pending choice by INDEX into its stored target list,
    *  never a forged zone — the engine re-validates the entry it already agreed. */
