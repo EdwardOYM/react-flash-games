@@ -157,9 +157,39 @@
  * inventing a second overlay shape: same 960px cap, same dashed-gold frame, and a
  * wrapping button row so six targets still fit at 960x540 and in landscape.
  */
-.bnb-choice-gate { width: min(100%, 960px); margin: 0 auto; padding: 10px 12px; border: 1px dashed #ffc857; background: #1a262b; }
+.bnb-choice-gate {
+  /*
+   * 04.12 CP9 F1: the picker is a popup pinned to the TOP of the stage and its option
+   * list scrolls, instead of an inline row that grew the stage. Inline, a wide picker
+   * (six targets, or a 30-card deck search) added its full height to `.bnb-battle`
+   * and pushed both lanes below the fold -- the dialog cost more than the board.
+   * `sticky` (not `absolute`) is deliberate: the gate is a child of the stage's own
+   * scroll container, so an absolute panel would scroll away with the board. It is
+   * deliberately NOT a full-screen modal -- a modal hides the very cards being
+   * targeted, which is worse than a scroll.
+   */
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 46%;
+  width: min(100%, 960px);
+  margin: 0 auto;
+  padding: 8px 10px;
+  border: 1px dashed #ffc857;
+  background: #1a262b;
+}
 .bnb-choice-title { margin: 0 0 6px; color: #ffc857; font-family: 'DM Mono', monospace; font-size: .72rem; text-transform: uppercase; }
-.bnb-choice-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+/*
+ * The option list is the only part that scrolls. `flex: 1 1 auto` + `min-height: 0`
+ * is what lets a 30-card deck search scroll INSIDE the pinned gate rather than
+ * growing the gate, which is the whole point of the popup shape.
+ */
+.bnb-choice-list { display: flex; flex: 1 1 auto; flex-wrap: wrap; gap: 6px; min-height: 0; margin-top: 6px; overflow-y: auto; overscroll-behavior: contain; }
+/* The finish affordance must never be the thing that scrolls out of reach. */
+.bnb-choice-list:has(.bnb-choice-finish) { flex: 0 0 auto; overflow: visible; }
 .bnb-choice-list button { flex: 1 1 12rem; min-width: 0; padding: 10px 12px; border: 1px solid #50676a; color: #f5f0e8; background: transparent; font-family: 'DM Mono', monospace; font-size: .68rem; text-transform: uppercase; cursor: pointer; }
 .bnb-choice-list button:hover, .bnb-choice-list button:focus-visible { border-color: #ffc857; color: #ffc857; }
 
@@ -219,6 +249,12 @@
   .bnb-battle { height: auto; }
   .bnb-battle-main { grid-template-columns: 1fr; }
   .bnb-battle-log { max-height: clamp(120px, 26vh, 220px); }
+
+  /*
+   * Narrow portrait: the gate is capped lower than the 46% default. The stage is tall
+   * here, but the two lanes are stacked, so the popup must not claim half of it.
+   */
+  .bnb-choice-gate { max-height: 34%; }
   /* CP8-E portrait: two-column action bar + compact bench grids, no h-scroll. */
   .bnb-action-bar .bnb-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bnb-bench-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }

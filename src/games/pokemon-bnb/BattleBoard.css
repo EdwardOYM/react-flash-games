@@ -114,6 +114,40 @@
   align-items: start;
   justify-items: center;
 }
+
+/* 04.12 CP9-F1 — SHORT-VIEWPORT LANES SIT SIDE BY SIDE.
+ *
+ * **What was actually wrong, after measuring rather than assuming.** At the 960x540
+ * reference embed the two lanes STACKED, giving the stage 899px of content inside a
+ * 442px client box: the player's own side began ~450px below the fold and needed
+ * scrolling inside `.bnb-battle` to reach. An earlier note on this defect claimed the
+ * board "cannot scroll" at all — that was WRONG, and it came from measuring only the
+ * page while the stage is its own scroll container. The real fault is FIT, not access.
+ *
+ * **Two lanes beside each other, because height here is the SUM of stacked lanes.**
+ * Shrinking the cards instead would have driven the .62rem zone labels past legibility
+ * long before the board fitted.
+ *
+ * `min-width: 0` on each lane is load-bearing: `.bnb-side` has `overflow-y: auto`, so
+ * without it a lane refuses to shrink below its content and the row overflows anyway.
+ *
+ * **The Bench is pinned to five tracks so it cannot wrap.** Auto-fit wrapped the Bench
+ * onto a second row inside a narrower lane, which made each lane TALLER than it was
+ * when stacked — the first attempt at this fix cut the stage from 899px to 767px and
+ * then went no further, because the narrower lanes cost more rows than they saved in
+ * height. Five tracks is also the honest shape: the Bench is capped at five anyway.
+ *
+ * **The zone row caps its OWN card token.** The Deck zone draws a real face-down
+ * `PokemonCard`, and at the stage's token that card was ~87px tall — the single tallest
+ * thing in the lane after the Bench. Scoping `--pkm-card-w` to the row shrinks only
+ * those cards, so it needs no knowledge of PokemonCard's internal class names.
+ */
+@media (orientation: landscape) and (max-height: 600px) {
+  .bnb-board-lanes { flex-direction: row; align-items: stretch; }
+  .bnb-side { flex: 1 1 0; min-width: 0; }
+  .bnb-bench-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .bnb-side-zones-row { --pkm-card-w: 30px; }
+}
 .bnb-bench-list li, .bnb-hand-list li { margin: 0; padding: 0; min-width: 0; }
 .bnb-bench-pick { display: block; width: 100%; padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; text-align: inherit; }
 .bnb-bench-pick:hover { border-color: #50676a; }
@@ -257,6 +291,29 @@
 
 .bnb-side-hand .bnb-hand-list { flex: 1; min-width: 0; }
 
+/*
+ * 04.12 CP9 F1: the hand is the ONE row that used to wrap, and it was expensive --
+ * measured 180px (7 cards over two rows) against 77px for Active and 92px for the
+ * Bench, i.e. the hand alone was taller than the Pokemon it belongs to. Its cards are
+ * pure count indicators here (no targets, no energy attachment), so the hand carries
+ * its OWN narrower token rather than shrinking the whole lane. Sizing from the track
+ * count instead of a fixed px is what keeps 7 cards on one row at 960 wide.
+ */
+/*
+ * `width` is set explicitly, not just via the token: CP11-E gave `.pkm-card` a fixed
+ * `width: var(--pkm-card-w)` + `flex: none` so a card can never be stretched by a
+ * container. Left at the default the hand cards measured 62px wide (not the 42px the
+ * token asked for) and the row was 87px tall. The hand is the one place a card is
+ * allowed to be a count indicator rather than a card, so it opts out of that rule here.
+ */
+.bnb-side-hand { --pkm-card-w: clamp(24px, 3.6vw, 34px); }
+.bnb-side-hand .bnb-hand-list { display: flex; flex-wrap: nowrap; gap: 3px; overflow: hidden; }
+/* `.bnb-hand-slot` carries its OWN 62px `--pkm-card-w`, set directly on the slot, so it
+   shadows anything inherited from `.bnb-side-hand`. Without overriding here the cards
+   stayed 62px and the row 87px tall. */
+.bnb-side-hand .bnb-hand-slot { --pkm-card-w: clamp(24px, 3.6vw, 34px); }
+.bnb-side-hand .pkm-card { flex: 0 0 auto; width: var(--pkm-card-w, 34px); min-width: 0; }
+
 /* Mobile landscape: the board is the only tall element, so it shrinks with the
    stage rather than scrolling. */
 @media (orientation: landscape) and (max-height: 600px) {
@@ -272,5 +329,8 @@
 @media (max-width: 520px) {
   .bnb-side-zones-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
   .bnb-side-zone { flex-direction: column; align-items: flex-start; gap: 2px; }
-  .bnb-side-active, .bnb-side-bench, .bnb-side-hand { flex-wrap: wrap; }
+  /* Active and Bench may wrap here (they are the lane's real targets and keep their
+     full-size card). The hand is deliberately EXCLUDED: it carries its own narrow
+     token and `nowrap`, and re-wrapping it is what made the lane 180px tall. */
+  .bnb-side-active, .bnb-side-bench { flex-wrap: wrap; }
 }
