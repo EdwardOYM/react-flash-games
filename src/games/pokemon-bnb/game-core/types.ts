@@ -142,6 +142,24 @@ export type PendingChoice = {
    * trip that 04.8 CP6 established.
    */
   remaining: number
+  /**
+   * 04.12 CP10 — whether resolving this choice ENDS the turn.
+   *
+   * **Every choice that existed before this field ended the turn**, because every one of
+   * them was an ATTACK clause and attacking ends the turn. So the default is `true` and
+   * it is read as `choice.endsTurn !== false` — one existing choice keeps its exact
+   * behaviour without being touched, and a new caller opts IN to not ending the turn.
+   *
+   * 175 Solgaleo GX's "Ultra Road" is the first: *"Once during your turn (before your
+   * attack), you may switch your Active Pokémon with 1 of your Benched Pokémon."* The
+   * printed "before your attack" is load-bearing — the player still attacks afterwards —
+   * so reusing the attack-path `switchActive` verbatim would have ended the turn on
+   * activation and **silently removed the player's attack for the rest of the turn**.
+   *
+   * Carried verbatim by `applySnapshot` (it spreads the whole choice), so a guest sees
+   * the same flag the host resolved against.
+   */
+  endsTurn?: boolean
   /** Which zone `targets` lives in, so the list can be re-derived after a pick. */
   source: 'deck' | 'discard' | 'hand' | 'inPlay'
   /**

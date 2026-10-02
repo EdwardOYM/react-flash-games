@@ -984,6 +984,12 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
       in: incoming.card.name,
       out: outgoing.card.name,
     })
+    // 04.12 CP10: `endsTurn` defaults to true, so every ATTACHMENT-parked switch keeps
+    // its exact pre-existing behaviour (attacking ends the turn). 175's ability switch
+    // sets it false, because its printed text says "before your attack" — closing the
+    // turn here would take the player's attack away for the rest of the turn, which is a
+    // wrong-rules bug and not a missing feature.
+    if (choice.endsTurn === false) return { state: next, log: tailLog(next, logStart) }
     const closedSwitch = next.over ? next : applyEndTurn(next, actor)
     return { state: closedSwitch, log: tailLog(closedSwitch, logStart) }
   }
@@ -1275,6 +1281,10 @@ export function finishChoice(state: BattleState, actor: PlayerSlot): ActionResul
   }
   // Whatever was already taken STAYS taken; only the chance to take more is declined.
   next.pendingChoice = null
+  // 04.12 CP10: the same `endsTurn` rule as the resolve path. Declining 175's "you may
+  // switch" is NOT an attack, so it must not close the turn — otherwise refusing the
+  // Ability costs the player their attack, which is the opposite of what "you may" means.
+  if (choice.endsTurn === false) return { state: next, log: tailLog(next, logStart) }
   const closed = next.over ? next : applyEndTurn(next, actor)
   return { state: closed, log: tailLog(closed, logStart) }
 }

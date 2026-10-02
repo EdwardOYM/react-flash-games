@@ -590,6 +590,15 @@ export type AbilityEffect =
   | { id: 'searchEnergyToAttach'; energyType: string; count: number; benchOnly: boolean }
   /** Heal the chosen Pokemon of the controller. */
   | { id: 'healChosen'; amount: number }
+  /**
+   * 04.12 CP10 / 175 Solgaleo GX — "Ultra Road": swap your Active for 1 of your Benched.
+   *
+   * **The FIRST player-triggered Ability that PARKS A CHOICE rather than resolving in one
+   * step**, which is the whole reason this checkpoint had to touch the engine at all: the
+   * other three effects are single synchronous mutations, and every one of the seven
+   * outstanding Abilities is blocked on the same missing seam.
+   */
+  | { id: 'switchOwnActiveWithBenched' }
   | { id: 'unsupported'; text: string }
 
 const ABILITY_EFFECTS: { match: RegExp; build: (plain: string) => AbilityEffect }[] = [
@@ -624,6 +633,18 @@ const ABILITY_EFFECTS: { match: RegExp; build: (plain: string) => AbilityEffect 
   {
     match: /^once during your turn, you may use this ability\. heal (\d+) damage from 1 of your pokemon/i,
     build: (plain) => ({ id: 'healChosen', amount: Number(plain.match(/heal (\d+)/i)?.[1] ?? 0) }),
+  },
+  // 04.12 CP10 / 175 Solgaleo GX "Ultra Road". The printed text carries LITERAL TABS
+  // ("Once during your turn\t\t(before your attack)") and `plainCardText` folds every
+  // whitespace run to one space, so the pattern reads a single space — the same accent-
+  // and whitespace-folding discipline every other pattern here relies on.
+  //
+  // `(before your attack)` is matched, not stripped: it is the clause that decides whether
+  // the choice ends the turn, so dropping it would lose the difference between this and
+  // an attacking "switch this Pokemon with 1 of your Benched Pokemon".
+  {
+    match: /^once during your turn \(before your attack\), you may switch your active pokemon with 1 of your benched pokemon\.$/i,
+    build: () => ({ id: 'switchOwnActiveWithBenched' }),
   },
 ]
 
@@ -2492,6 +2513,42 @@ export function applyAbilityEffect(
       if (healed === 0) return 'ability-no-match'
       target.damage -= healed
       logEvent(state, 'pokemonBnb.log.abilityHeal', { player: context.actor, target: target.card.name, amount: healed })
+      return null
+    }
+    case 'switchOwnActiveWithBenched': {
+      // 04.12 CP10 / 175 Solgaleo GX "Ultra Road" — the parking seam.
+      //
+      // **Targets are the actor's OWN BENCH, never the Active.** `resolveChoice`'s
+      // `switchActive` arm looks the pick up with `side.bench.find(...)`, so offering an
+      // in-play target the way `inPlayTargets` does would offer a row the engine then
+      // refuses — a clickable target that does nothing, which is the wrong-target failure
+      // this engine ranks above a missing one.
+      //
+      // **AN EMPTY BENCH PARKS NOTHING.** `applySwitchInPlace` needs a benchIndex, so with
+      // no Benched Pokemon there is no legal pick; parking an empty picker would refuse
+      // every later action with nothing to tap, i.e. a soft-lock.
+      const host = sideOf(state, context.actor)
+      if (host.bench.length === 0) {
+        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no Benched Pokemon to switch in' })
+        return null
+      }
+      state.pendingChoice = {
+        actor: context.actor,
+        targets: host.bench.map((pokemon, index) => ({ side: context.actor, zone: index, uid: pokemon.uid })),
+        remaining: 1,
+        source: 'inPlay',
+        // `optional: true` because the card prints "you may", which is what puts the
+        // dialog's Finish button on screen AND lets `finishChoice` refuse it.
+        effect: { kind: 'switchActive', side: 'attacker', optional: true },
+        // The load-bearing bit: an ATTACK switch ends the turn, this one must not, or the
+        // player loses the attack the card says it happens "before".
+        endsTurn: false,
+        attackName: '',
+      }
+      logEvent(state, 'pokemonBnb.log.chooseTarget', {
+        player: context.actor,
+        count: host.bench.length,
+      })
       return null
     }
     case 'unsupported':
