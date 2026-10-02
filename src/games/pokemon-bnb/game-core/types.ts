@@ -392,6 +392,17 @@ export type PendingChoice = {
      * the wrong Pokemon rather than fail.
      */
     | { kind: 'switchFoeBenchWithActive' }
+    /**
+     * 04.12 CP16 / 178: the PARKED form of `attachedEnergyToLostZone`. `applyEffect` only
+     * chooses WHICH Energy; this is the resolve step that removes them and writes the Lost
+     * Zone.
+     *
+     * A SEPARATE kind from the parsed clause rather than reusing it, because the two mean
+     * different moments: the parsed clause says "this attack offers a pick", this one says
+     * "this pick is being answered". Collapsing them would make `resolveChoice` unable to
+     * tell an offer from a resolution.
+     */
+    | { kind: 'sendAttachedEnergyToLostZone'; count: number }
   /** Printed attack that asked for the choice, for the log line. */
   attackName: string
 }
@@ -568,6 +579,20 @@ export type BattleState = {
   activePlayer: PlayerSlot
   /** Turn counter; turn 1 is the first player's opening turn. */
   turn: number
+  /**
+   * 04.12 CP16 / 178: the turn on which "put that Pokemon and all cards attached to it in the
+   * Lost Zone instead of discarding it" is in force, or -1 when it is not.
+   *
+   * **ON `BattleState`, NOT on a side**, because the printed rule belongs to the ATTACKER's
+   * attack while the cards that move belong to the DEFENDER — and the KO site reads it while
+   * holding the defender. A per-side flag would mean looking up across seats at the one moment
+   * where choosing wrong is unrecoverable.
+   *
+   * A turn STAMP, like `koByAttackTurn`, because "by damage from THIS attack" is a WINDOW and
+   * a boolean cannot be shown to have expired. Cleared at Between-Turns beside the Energy Burn
+   * overrides.
+   */
+  koToLostZoneTurn: number
   phase: TurnPhase
   winner: PlayerSlot | null
   winReason: 'prizes' | 'deck-out' | 'no-pokemon' | null
@@ -619,6 +644,20 @@ export type SnapshotSide = {
   prizesTaken: number
   prizeCount: number
   discard: CardDef[]
+  /**
+   * 04.12 CP16 / 176-178: the LOST ZONE, copied VERBATIM for both seats.
+   *
+   * **Public, and deliberately so.** The Lost Zone is a face-up zone in the printed rules:
+   * both players can see what is in it, which is exactly why 178 can print "put that Pokemon
+   * and all cards attached to it in the Lost Zone instead of discarding it" as public
+   * information. Hiding it would be inventing a secrecy the card does not describe.
+   *
+   * This is NOT the same as the opponent's HAND (126/163/176#0 look there), and that
+   * distinction is the plan's recorded privacy blocker: a snapshot that reveals the opponent's
+   * hand must not leak it back to that opponent's own view. The Lost Zone reveals nothing
+   * hidden, so it crosses no line.
+   */
+  lostZone: CardDef[]
   active: InPlayPokemon | null
   bench: InPlayPokemon[]
   hand: CardDef[] | null
@@ -642,6 +681,12 @@ export type SnapshotSide = {
 export type Snapshot = {
   activePlayer: PlayerSlot
   turn: number
+  /**
+   * 04.12 CP16 / 178: carried verbatim so a rebuilt view reads the same Lost Zone routing the
+   * host enforces. Public — both players watched the Knock Out happen — and it names no
+   * hidden zone, so the privacy boundary is unchanged.
+   */
+  koToLostZoneTurn: number
   phase: TurnPhase
   winner: PlayerSlot | null
   winReason: BattleState['winReason']

@@ -65,6 +65,10 @@ function snapshotSide(side: SideState, isViewer: boolean, prizeTotal: number): S
     prizesTaken: Math.max(0, prizeTotal - side.prizeCount),
     prizeCount: side.prizeCount,
     discard: [...side.discard],
+    // 04.12 CP16: public for BOTH seats — see the SnapshotSide note. A `[...]` shallow copy
+    // is right (matching `discard`): the CardDef objects are immutable engine data, and the
+    // array itself is what must not be shared.
+    lostZone: [...side.lostZone],
     active: side.active ? cloneInPlay(side.active) : null,
     bench: side.bench.map(cloneInPlay),
     hand: isViewer ? [...side.hand] : null,
@@ -100,6 +104,8 @@ export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
   return {
     activePlayer: state.activePlayer,
     turn: state.turn,
+    // 04.12 CP16: carried verbatim, and it names no hidden zone.
+    koToLostZoneTurn: state.koToLostZoneTurn,
     phase: state.phase,
     winner: state.winner,
     winReason: state.winReason,
@@ -157,7 +163,9 @@ function snapshotSideToState(snapshot: SnapshotSide, overrides?: Snapshot['sideO
     prizes: fillHidden(snapshot.prizeCount),
     prizeCount: snapshot.prizeCount,
     discard: [...snapshot.discard],
-    lostZone: [],
+    // 04.12 CP16: `?? []` so an older host's snapshot restores rather than throwing — the same
+    // discipline `durations` and `koByAttackTurn` use.
+    lostZone: [...(snapshot.lostZone ?? [])],
     supporterPlayedTurn: false,
     energyAttachedThisTurn: 0,
     attackedThisTurn: false,
@@ -194,6 +202,9 @@ export function applySnapshot(snapshot: Snapshot): BattleState {
   return {
     activePlayer: snapshot.activePlayer,
     turn: snapshot.turn,
+    // 04.12 CP16: carried verbatim so a rebuilt view reads the same Lost Zone routing the
+    // host enforces. `?? -1` for an older host's snapshot, matching `koByAttackTurn`.
+    koToLostZoneTurn: snapshot.koToLostZoneTurn ?? -1,
     phase: snapshot.phase,
     winner: snapshot.winner,
     winReason: snapshot.winReason,

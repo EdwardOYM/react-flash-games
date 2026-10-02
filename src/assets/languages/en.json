@@ -510,6 +510,8 @@
       "durationAdded": "{card} gained an effect lasting until the end of a turn ({source}).",
       "effectBonusDamage": "Bonus damage: +{amount}.",
       "effectDiscardEnergy": "{player} discarded {count} Energy.",
+      "effectLostZone": "{player} put {card} into the Lost Zone.",
+      "effectLostZoneRouting": "{player}'s Knock Outs go to the Lost Zone this turn.",
       "chooseTarget": "{player} must choose 1 of {count} Pokemon in play.",
       "chooseAttachedEnergy": "{player} must choose 1 attached Energy card to discard.",
       "chooseEnergyType": "{player} must choose 1 attached Energy type to discard.",

@@ -1178,7 +1178,40 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closedCounters, log: tailLog(closedCounters, logStart) }
   }
 
-  // 04.12 CP10-B / 100 Pidgeot "Red Signal": the opponent's chosen Benched Pokemon comes in
+  // 04.12 CP16 / 178: the picked Energy leaves play for the LOST ZONE.
+  if (choice.effect.kind === 'sendAttachedEnergyToLostZone') {
+    if (target.zone !== 'attachedEnergy') return failure(state, 'no-target')
+    const own = sideOf(next, actor)
+    const holder = [own.active, ...own.bench].find((pokemon) => pokemon && pokemon.uid === target.uid)
+    if (!holder) return failure(state, 'no-target')
+    // Re-check the id: an attachment list is a list, and the INDEX SHIFTS as cards leave, so
+    // a stale index would move a DIFFERENT card than the player tapped. Same guard 161 uses.
+    const found = holder.attachedEnergy[target.index]
+    if (!found || found.id !== target.cardId) return failure(state, 'no-target')
+    holder.attachedEnergy.splice(target.index, 1)
+    own.lostZone.push(found)
+    logEvent(next, 'pokemonBnb.log.effectLostZone', { player: actor, card: found.name })
+    // Re-park while picks remain: "Choose 2" is two decisions, and the list is rebuilt
+    // because the attachment indices just shifted.
+    const left = choice.remaining - 1
+    const stillThere = holder.attachedEnergy
+    if (left > 0 && stillThere.length > 0) {
+      next.pendingChoice = {
+        ...choice,
+        remaining: left,
+        targets: stillThere.map((card, index) => ({
+          side: actor, zone: 'attachedEnergy' as const, uid: holder.uid, index, cardId: card.id,
+        })),
+      }
+      logChoicePrompt(next)
+      return { state: next, log: tailLog(next, logStart) }
+    }
+    next.pendingChoice = null
+    const closed = next.over ? next : applyEndTurn(next, actor)
+    return { state: closed, log: tailLog(closed, logStart) }
+  }
+
+  // 04.12 CP16 / 100 Pidgeot "Red Signal": the opponent's chosen Benched Pokemon comes in
   // as THEIR Active. Their old Active is Benched, not discarded -- a switch never discards.
   if (choice.effect.kind === 'switchFoeBenchWithActive') {
     if (!isInPlayTarget(target)) return failure(state, 'no-target')

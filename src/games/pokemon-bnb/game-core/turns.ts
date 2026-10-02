@@ -25,6 +25,10 @@ export function applyEndTurn(state: BattleState, actor: PlayerSlot): BattleState
   // the engine state is authoritative and the filter is what protects a rebuilt guest view.
   state.host.energyTypeOverride = []
   state.guest.energyTypeOverride = []
+  // 04.12 CP16: 178's Lost Zone routing expires with the turn, alongside the Energy Burn
+  // overrides. "By damage from THIS attack" is a window; leaving the stamp set would route
+  // the NEXT turn's unrelated Knock Out to the Lost Zone as well.
+  state.koToLostZoneTurn = -1
   applyCheckup(state, actor)
   if (state.over) return state
   const next = foeOf(actor)
@@ -142,8 +146,21 @@ export function takePrizeCard(state: BattleState, slot: PlayerSlot): void {
 }
 
 /** Move a knocked-out Pokemon and everything attached to it into the discard. */
-function discardKnockedOut(side: ReturnType<typeof sideOf>, knockedOut: InPlayPokemon): void {
-  side.discard.push(
+/**
+ * Send a knocked-out Pokemon and everything attached to it to its destination.
+ *
+ * 04.12 CP16 / 178: `toLostZone` routes them to the LOST ZONE instead of the discard pile.
+ * **This is the single sink every Knock Out passes through** — Active, Bench, attack damage,
+ * poison, Burn — so the branch is here rather than in a second KO implementation. A card that
+ * is "instead of discarding it" is changing THIS function's destination, and implementing it
+ * anywhere else would leave the ordinary KO path silently disagreeing.
+ *
+ * The Pokemon and its attached cards travel TOGETHER, which is what 178 prints: "that
+ * Pokemon and all cards attached to it in the Lost Zone".
+ */
+function discardKnockedOut(side: ReturnType<typeof sideOf>, knockedOut: InPlayPokemon, toLostZone = false): void {
+  const destination = toLostZone ? side.lostZone : side.discard
+  destination.push(
     knockedOut.card,
     ...knockedOut.attachedEnergy,
     ...(knockedOut.attachedTool ? [knockedOut.attachedTool] : []),
@@ -193,7 +210,7 @@ export function performKo(state: BattleState, koSlot: PlayerSlot): void {
   const knockedOut = koSide.active
   if (!knockedOut) return
   koSide.active = null
-  discardKnockedOut(koSide, knockedOut)
+  discardKnockedOut(koSide, knockedOut, state.koToLostZoneTurn === state.turn)
   logEvent(state, 'pokemonBnb.log.knockOut', { player: koSlot, card: knockedOut.card.name })
 
   const beneficiary = foeOf(koSlot)
@@ -230,7 +247,7 @@ export function performBenchKo(
   const index = koSide.bench.indexOf(knockedOut)
   if (index < 0) return
   koSide.bench.splice(index, 1)
-  discardKnockedOut(koSide, knockedOut)
+  discardKnockedOut(koSide, knockedOut, state.koToLostZoneTurn === state.turn)
   logEvent(state, 'pokemonBnb.log.knockOut', { player: koSlot, card: knockedOut.card.name })
   settleKnockOutPrizes(state, foeOf(koSlot), knockedOut)
   if (state.over) return

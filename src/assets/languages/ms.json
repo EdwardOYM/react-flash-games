@@ -510,6 +510,8 @@
       "durationAdded": "{card} mendapat kesan sehingga akhir satu giliran ({source}).",
       "effectBonusDamage": "Kerosakan bonus: +{amount}.",
       "effectDiscardEnergy": "{player} membuang {count} Tenaga.",
+      "effectLostZone": "{player} meletakkan {card} ke dalam Zon Hilang.",
+      "effectLostZoneRouting": "Knock Out {player} masuk ke Zon Hilang pada giliran ini.",
       "chooseTarget": "{player} mesti memilih 1 daripada {count} Pokemon di medan.",
       "chooseAttachedEnergy": "{player} mesti memilih 1 kad Tenaga yang dilampirkan pada Pokemon untuk dilucutkan.",
       "chooseEnergyType": "{player} mesti memilih 1 jenis Tenaga yang dilampirkan untuk dilucutkan.",

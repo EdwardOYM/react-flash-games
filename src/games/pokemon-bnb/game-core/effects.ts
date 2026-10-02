@@ -525,6 +525,29 @@ export type ParsedEffect =
   // `cost` alone is not the whole price of the attack: the attacker needs `cost.length +
   // count` cards attached, and the extra `count` are moved to the discard pile.
   | { kind: 'discardEnergyCost'; count: number }
+  /**
+   * 04.12 CP16 / 178 Darkrai & Cresselia LEGEND: "Choose 2 Energy attached to Darkrai &
+   * Cresselia LEGEND and put them into the Lost Zone."
+   *
+   * `count` is the PRINTED number ("2"), resolved to a FINITE pick — never `Infinity`, for
+   * the snapshot reason `PendingChoice.remaining` documents.
+   *
+   * A NEW kind rather than a flag on `discardEnergyCost` because the two are opposite
+   * destinations that behave differently afterwards: a DISCARDED Energy can be retrieved by
+   * a later effect, a Lost Zone one cannot be reached again by anything this engine models.
+   * A boolean on one shared kind is a flag that can be set backwards, and the difference
+   * between the two zones is unrecoverable once it is wrong.
+   */
+  | { kind: 'attachedEnergyToLostZone'; count: number }
+    // 04.12 CP16: 178's SECOND sentence — "If any of your opponent's Pokemon would be Knocked
+    // Out by damage from this attack, put that Pokemon and all cards attached to it in the
+    // Lost Zone INSTEAD OF DISCARDING it."
+    //
+    // A FLAG, not a mechanism: it changes where `performKo` sends the cards, and the KO path
+    // is shared by every damage source, so the honest shape is one flag read at the KO site
+    // rather than a second KO implementation. `forTurn` is stamped at APPLY time and read at
+    // KO time, which is the only window in which it is true.
+    | { kind: 'koToLostZoneInsteadOfDiscard'; forTurn: number }
   // 04.11 CP11 / 174: the DEFERRED-damage shape. Both printed sentences are folded into
   // ONE clause because they are inseparable — the damage is a function of the count the
   // first sentence produces, and two clauses would each need to know about the other
@@ -2491,6 +2514,33 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.12 CP16 / 178, second sentence: route this turn's Knock Outs to the Lost Zone.
+    const koToLost = sentence.match(
+      /^if any of your opponent's pokemon would be knocked out by damage from this attack, put that pokemon and all cards attached to it in the lost zone instead of discarding it\.?$/i,
+    )
+    if (koToLost) {
+      effects.push({ kind: 'koToLostZoneInsteadOfDiscard', forTurn: -1 })
+      pendingCoin = false
+      continue
+    }
+    // 04.12 CP16 / 178 Darkrai & Cresselia LEGEND "Lost Crisis": "Choose 2 Energy attached to
+    // <this Pokemon> and put them into the Lost Zone."
+    //
+    // The card names ITSELF ("attached to Darkrai & Cresselia LEGEND") rather than "this
+    // Pokemon", so the pattern accepts any word sequence there — the target is the ATTACKER,
+    // resolved by `attacker` at apply time, never by the printed name. A pattern hard-coded
+    // to the card's own name would silently stop matching the moment the string is refolded.
+    const toLostZone = sentence.match(
+      // The character class MUST include `&`: the printed name is "Darkrai & Cresselia
+      // LEGEND", and `[\w ]` does not match an ampersand — so the first version of this
+      // pattern silently never matched the one card it was written for.
+      /^choose (\d+) energy attached to [\w &]+ and put them into the lost zone\.?$/i,
+    )
+    if (toLostZone) {
+      effects.push({ kind: 'attachedEnergyToLostZone', count: Number(toLostZone[1]) })
+      pendingCoin = false
+      continue
+    }
     const coinBonus = sentence.match(/^if heads, this attack does (\d+) more damage\.?$/i)
     if (coinBonus && pendingCoin) {
       effects.push({ kind: 'bonusDamage', amount: Number(coinBonus[1]), coin: true })
@@ -3220,6 +3270,46 @@ export function applyEffect(
     // 04.8 CP3-B: `searchDeck` is resolved by resolveChoice from a parked choice.
     // 04.8 CP2-C: consumed by resolveAttack from a parked choice.
     case 'shuffleDeck':
+      break
+    // 04.12 CP16 / 178 Darkrai & Cresselia LEGEND "Lost Crisis".
+    case 'attachedEnergyToLostZone': {
+      // **THE FIRST CODE IN THIS ENGINE THAT WRITES TO THE LOST ZONE.** `lostZone` existed on
+      // `SideState` from the start and was initialised to `[]`, but nothing ever put anything
+      // in it and it was not even in the snapshot — this checkpoint's whole point.
+      //
+      // "Choose 2 Energy ATTACHED to the attacker": the target is the ATTACKER, resolved here
+      // from the effect context, never by the printed card name.
+      //
+      // **THE PICK IS CAPPED AT WHAT IS ATTACHED.** The printed 2 is a maximum, not a demand:
+      // resolving `remaining` against an empty or one-card attachment list would park a choice
+      // with nothing to tap, i.e. a soft-lock.
+      const attached = context.attacker.attachedEnergy
+      const cap = Math.min(effect.count, attached.length)
+      if (cap === 0) {
+        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no attached Energy to send to the Lost Zone' })
+        break
+      }
+      state.pendingChoice = {
+        actor: context.actor,
+        // `attachedEnergy` targets carry the INDEX into the attachment list, which SHIFTS as
+        // cards are removed -- so the list is rebuilt after every pick (`source: 'inPlay'`),
+        // exactly as 161's own attached-Energy picker does.
+        targets: attached.map((card, index) => ({
+          side: context.actor, zone: 'attachedEnergy' as const, uid: context.attacker.uid, index, cardId: card.id,
+        })),
+        remaining: cap,
+        source: 'inPlay',
+        effect: { kind: 'sendAttachedEnergyToLostZone', count: cap },
+        attackName: context.attackName,
+      }
+      logChoicePrompt(state)
+      break
+    }
+    // 04.12 CP16 / 178, second sentence. NOT an effect applied to the board: it flips where
+    // this turn's Knock Outs go, which `performKo` reads through `state.koToLostZoneTurn`.
+    case 'koToLostZoneInsteadOfDiscard':
+      state.koToLostZoneTurn = state.turn
+      logEvent(state, 'pokemonBnb.log.effectLostZoneRouting', { player: context.actor })
       break
     // 04.9 CP2: parked by resolveAttack, applied by resolveChoice.
     case 'healChosenTarget':

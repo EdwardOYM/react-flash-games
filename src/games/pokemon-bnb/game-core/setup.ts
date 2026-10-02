@@ -272,6 +272,8 @@ export function setupBattle(
     activePlayer: 'host',
     turn: 0,
     phase: 'draw',
+    // 04.12 CP16: 178's Lost Zone routing is off until an attack turns it on.
+    koToLostZoneTurn: -1,
     winner: null,
     winReason: null,
     over: false,
