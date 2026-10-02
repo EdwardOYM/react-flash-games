@@ -50,7 +50,7 @@ export function attachEnergy(
     card: card.name,
     target: pokemon.card.name,
   })
-  // 04.12 CP12 / 100 Pidgeot "Red Signal": "When you attach a Plasma Energy from your hand
+  // 04.12 CP10-B / 100 Pidgeot "Red Signal": "When you attach a Plasma Energy from your hand
   // to this Pokemon…". This is a TRIGGER, so it fires HERE rather than from a button.
   //
   // The trigger is read off the DESTINATION's own abilities, not off the card being
@@ -194,7 +194,7 @@ export function activateAbility(
   // side per name; the rulebook allows each copy otherwise.
   const side = sideOf(next, actor)
   if (side.abilityUsedNames[ability.name] === next.turn) return failure(state, 'ability-limit')
-  // 04.12 CP12: a VSTAR Power is once per GAME, so it is gated on the SIDE and never on
+  // 04.12 CP10-B: a VSTAR Power is once per GAME, so it is gated on the SIDE and never on
   // `turn`. `abilityUsedTurn`/`abilityUsedNames` both key on the turn number and would reset
   // at Between-Turns, silently turning "once per game" into "once per turn" and letting a
   // player use two VSTAR Powers. Checked here, before `applyAbilityEffect`, so the refusal
@@ -212,7 +212,7 @@ export function activateAbility(
 
   pokemon.abilityUsedTurn = next.turn
   side.abilityUsedNames = { ...side.abilityUsedNames, [ability.name]: next.turn }
-  // 04.12 CP12: spent at the moment of USE, not at resolution. If the ability parks a choice
+  // 04.12 CP10-B: spent at the moment of USE, not at resolution. If the ability parks a choice
   // the player can walk away from, the Power is still spent — the printed limit is on
   // "use", and letting a cancelled pick refund it would be a free re-roll.
   if (classifyAbility(ability.text).id === 'vstarSearchUpTo') side.vstarPowerUsedThisGame = true
@@ -376,7 +376,7 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
   const side = sideOf(next, actor)
   const active = side.active
   if (!active) return failure(state, 'no-active')
-  // 04.12 CP13 / 083 Rotom "Memory Helix": the attack may be READ from a Benched Pokemon.
+  // 04.12 CP10-C / 083 Rotom "Memory Helix": the attack may be READ from a Benched Pokemon.
   // Three separate refusals, because each is a DIFFERENT mistake and merging them would
   // make one of them silently do the wrong thing:
   //  - the Active must actually carry the Ability (a forged uid is not permission),
@@ -1001,7 +1001,7 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closedUpTo, log: tailLog(closedUpTo, logStart) }
   }
 
-  // 04.12 CP11 / 097 Starmie "Giant Water Shuriken", STAGE ONE: discard the chosen Energy,
+  // 04.12 CP10-A / 097 Starmie "Giant Water Shuriken", STAGE ONE: discard the chosen Energy,
   // then RE-PARK for the Pokemon. Resolved before the damage paths because the counters it
   // leads to are a separate kind and must not fall through to them.
   if (choice.effect.kind === 'discardEnergyFromHand') {
@@ -1037,7 +1037,7 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: next, log: tailLog(next, logStart) }
   }
 
-  // 04.12 CP11 / 097, STAGE TWO: the counters land. Weakness deliberately does NOT apply —
+  // 04.12 CP10-A / 097, STAGE TWO: the counters land. Weakness deliberately does NOT apply —
   // the card prints COUNTERS, and counters bypass the multiplier that an attack's damage
   // would take.
   if (choice.effect.kind === 'placeCountersOnChosen') {
@@ -1063,7 +1063,7 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closedCounters, log: tailLog(closedCounters, logStart) }
   }
 
-  // 04.12 CP12 / 100 Pidgeot "Red Signal": the opponent's chosen Benched Pokemon comes in
+  // 04.12 CP10-B / 100 Pidgeot "Red Signal": the opponent's chosen Benched Pokemon comes in
   // as THEIR Active. Their old Active is Benched, not discarded -- a switch never discards.
   if (choice.effect.kind === 'switchFoeBenchWithActive') {
     if (!isInPlayTarget(target)) return failure(state, 'no-target')
@@ -1082,7 +1082,7 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: next, log: tailLog(next, logStart) }
   }
 
-  // 04.12 CP11 / 158 Intrepid Sword: lift the chosen card off the top of the deck and
+  // 04.12 CP10-A / 158 Intrepid Sword: lift the chosen card off the top of the deck and
   // attach it, then RE-PARK while any Metal remains in the window.
   if (choice.effect.kind === 'takeTopOfDeck') {
     // Captured into a local because the spread below (`...choice.effect`) breaks TS's

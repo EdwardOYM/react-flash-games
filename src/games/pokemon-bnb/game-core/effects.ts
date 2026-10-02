@@ -600,7 +600,7 @@ export type AbilityEffect =
    */
   | { id: 'switchOwnActiveWithBenched' }
   /**
-   * 04.12 CP11 / 158 Intrepid Sword: look at the TOP 3 of your deck, attach ANY NUMBER of
+   * 04.12 CP10-A / 158 Intrepid Sword: look at the TOP 3 of your deck, attach ANY NUMBER of
    * the Metal Energy among them to this Pokemon, put the rest into your hand, and the
    * turn ENDS.
    *
@@ -612,7 +612,7 @@ export type AbilityEffect =
    */
   | { id: 'attachMetalFromTopOfDeck'; look: number }
   /**
-   * 04.12 CP11 / 097 Starmie "Giant Water Shuriken": discard a Water Energy from your
+   * 04.12 CP10-A / 097 Starmie "Giant Water Shuriken": discard a Water Energy from your
    * hand; if you do, put 6 damage counters on 1 of your opponent's Pokemon.
    *
    * **Two-stage for the same reason 007's attach is: the conditional.** "If you do" means
@@ -622,17 +622,17 @@ export type AbilityEffect =
    */
   | { id: 'discardWaterThenCounters'; energyType: string; counters: number }
   /**
-   * 04.12 CP12 / 100 Rayquaza VSTAR "Starbirth": search up to 2 cards into hand, then
+   * 04.12 CP10-B / 100 Rayquaza VSTAR "Starbirth": search up to 2 cards into hand, then
    * shuffle, once per GAME.
    */
   | { id: 'vstarSearchUpTo'; max: number }
   /**
-   * 04.12 CP12 / 083 Charizard "Energy Burn": all Energy attached to THIS Pokemon reads as
+   * 04.12 CP10-B / 083 Charizard "Energy Burn": all Energy attached to THIS Pokemon reads as
    * Fire for the rest of the turn. "As often as you like" — no once-per-turn marker.
    */
   | { id: 'turnAttachedEnergyInto' }
   /**
-   * 04.12 CP12 / 100 Pidgeot "Red Signal": on attaching a Plasma Energy, switch 1 of the
+   * 04.12 CP10-B / 100 Pidgeot "Red Signal": on attaching a Plasma Energy, switch 1 of the
    * OPPONENT's Benched with their Active.
    *
    * A TRIGGER, not an activation: the printed text is "When you attach…", so there is no
@@ -640,7 +640,7 @@ export type AbilityEffect =
    */
   | { id: 'switchFoeOnPlasmaAttach' }
   /**
-   * 04.12 CP12 / 083 Rotom "Memory Helix": use the attacks of any of your Benched Pokemon.
+   * 04.12 CP10-B / 083 Rotom "Memory Helix": use the attacks of any of your Benched Pokemon.
    *
    * This is NOT a turn action — nothing is clicked and nothing is logged. It changes what
    * the ACTIVE may attack with, so it is a PASSIVE rule that happens to be about attacks;
@@ -695,14 +695,14 @@ const ABILITY_EFFECTS: { match: RegExp; build: (plain: string) => AbilityEffect 
     match: /^once during your turn \(before your attack\), you may switch your active pokemon with 1 of your benched pokemon\.$/i,
     build: () => ({ id: 'switchOwnActiveWithBenched' }),
   },
-  // 04.12 CP11 / 158 Intrepid Sword. The count is READ from the printed "top 3" rather than
+  // 04.12 CP10-A / 158 Intrepid Sword. The count is READ from the printed "top 3" rather than
   // hard-coded, so a sibling card printing a different number works. "any number of" is
   // what forces a choice rather than an automatic attach.
   {
     match: /^once during your turn, you may look at the top (\d+) cards of your deck and attach any number of metal energy cards you find there to this pokemon\. put the other cards into your hand\. if you use this ability, your turn ends\.$/i,
     build: (plain) => ({ id: 'attachMetalFromTopOfDeck', look: Number(plain.match(/top (\d+) cards/i)?.[1] ?? 3) }),
   },
-  // 04.12 CP11 / 097 Starmie.
+  // 04.12 CP10-A / 097 Starmie.
 //
 // **TWO defects in the real printed text this pattern has to absorb**, both found by
 // classifying the card and reading the failure rather than by re-reading the source:
@@ -724,7 +724,7 @@ const ABILITY_EFFECTS: { match: RegExp; build: (plain: string) => AbilityEffect 
       }
     },
   },
-  // 04.12 CP12 / 100 Rayquaza VSTAR "Starbirth".
+  // 04.12 CP10-B / 100 Rayquaza VSTAR "Starbirth".
   //
   // **NOTE the opener: "During your turn", NOT "Once during your turn."** That is what makes
   // it a VSTAR Power (limited to once per GAME) rather than an ordinary once-per-turn
@@ -735,7 +735,7 @@ const ABILITY_EFFECTS: { match: RegExp; build: (plain: string) => AbilityEffect 
     match: /^during your turn, you may search your deck for up to (\d+) cards and put them into your hand\. then, shuffle your deck\. \(you can't use more than 1 vstar power in a game\.\)$/i,
     build: (plain) => ({ id: 'vstarSearchUpTo', max: Number(plain.match(/up to (\d+) cards/i)?.[1] ?? 2) }),
   },
-  // 04.12 CP12 / 083 Charizard "Energy Burn".
+  // 04.12 CP10-B / 083 Charizard "Energy Burn".
   //
   // **The trailing rider is matched AND enforced, not skipped.** The card prints "This power
   // can't be used if Charizard is Asleep, Confused, or Paralyzed", which is a condition the
@@ -748,7 +748,7 @@ const ABILITY_EFFECTS: { match: RegExp; build: (plain: string) => AbilityEffect 
     match: /^as often as you like during your turn \(before your attack\), you may turn all energy attached to (?:this pokemon|\w+) into fire energy for the rest of the turn\. this power can't be used if \w+ is asleep, confused, or paralyzed\.$/i,
     build: () => ({ id: 'turnAttachedEnergyInto' }),
   },
-  // 04.12 CP12 / 100 Pidgeot "Red Signal". The second sentence (the "can't be used if…"
+  // 04.12 CP10-B / 100 Pidgeot "Red Signal". The second sentence (the "can't be used if…"
   // rider) is deliberately NOT matched: this engine has no equivalent of that condition, so
   // anchoring on the whole text would leave the card permanently unsupported rather than
   // implementing the part the engine can honour. The rider is recorded here instead.
@@ -773,7 +773,7 @@ export function classifyAbility(text: string): AbilityEffect {
 /** True when the printed text permits the player to trigger the Ability. */
 export function isPlayerTriggeredAbility(text: string): boolean {
   const plain = plainCardText(text)
-  // 04.12 CP12: "During your turn" is ALSO player-triggered, and it is NOT a typo to allow
+  // 04.12 CP10-B: "During your turn" is ALSO player-triggered, and it is NOT a typo to allow
   // it. Every ordinary Ability in this set opens with "Once during your turn"; the VSTAR
   // Powers open with "During your turn" precisely BECAUSE they are limited to once per
   // GAME rather than once per turn. Without this arm, Starbirth classified correctly but
@@ -864,7 +864,7 @@ export type PassiveAbility =
    */
   | { id: 'coinFlipKnockOutAttackerOnKo' }
   /**
-   * 04.12 CP11 / 083 Rotom "Memory Helix": "This Pokemon can use the attacks of any of your
+   * 04.12 CP10-A / 083 Rotom "Memory Helix": "This Pokemon can use the attacks of any of your
    * Benched Pokemon. (You still need the necessary Energy to use each attack.)"
    *
    * **A passive, not an action, and the printed text is the proof.** Every player-triggered
@@ -881,7 +881,7 @@ export type PassiveAbility =
 
 const PASSIVE_EFFECTS: { match: RegExp; build: (plain: string) => PassiveAbility }[] = [
   /*
-   * 04.12 CP13 / 083 Rotom "Memory Helix": "This Pokemon can use the attacks of any of your
+   * 04.12 CP10-C / 083 Rotom "Memory Helix": "This Pokemon can use the attacks of any of your
    * Benched Pokemon. (You still need the necessary Energy to use each attack.)"
    *
    * Registered in CP13, after CP11/CP12 deliberately left it out. The earlier reason still
@@ -1013,7 +1013,7 @@ export function abilityCoverageReport(abilities: { name: string; text: string }[
   for (const ability of abilities) {
     if (seen.has(ability.text)) continue
     seen.add(ability.text)
-    // 04.12 CP12: the FIRST question is no longer "is this player-triggered?" but "does the
+    // 04.12 CP10-B: the FIRST question is no longer "is this player-triggered?" but "does the
     // engine understand this text AT ALL?" — a rule can be a TRIGGER ("When you attach…",
     // 100 Pidgeot Red Signal) that is never pressed by the player, so routing it through the
     // passive registry would report it unsupported while `classifyAbility` resolves it
@@ -2706,7 +2706,7 @@ export function applyAbilityEffect(
       return null
     }
     case 'attachMetalFromTopOfDeck': {
-      // 04.12 CP11 / 158. The TOP window only -- never a deck-wide search.
+      // 04.12 CP10-A / 158. The TOP window only -- never a deck-wide search.
       //
       // **AN EMPTY/ALL-NON-METAL WINDOW PARKS NOTHING.** "Attach any number" includes zero,
       // so with no Metal among the top 3 there is no legal pick; parking an empty picker
@@ -2736,7 +2736,7 @@ export function applyAbilityEffect(
       return null
     }
     case 'discardWaterThenCounters': {
-      // 04.12 CP11 / 097. Stage ONE: the Water Energy is chosen first, because the printed
+      // 04.12 CP10-A / 097. Stage ONE: the Water Energy is chosen first, because the printed
       // "If you do" makes the counters conditional on a card actually being discarded.
       const own = sideOf(state, context.actor)
       const eligible = own.hand
@@ -2760,7 +2760,7 @@ export function applyAbilityEffect(
       return null
     }
     case 'vstarSearchUpTo': {
-      // 04.12 CP12 / 100 Rayquaza VSTAR. The per-GAME limit is enforced by the CALLER
+      // 04.12 CP10-B / 100 Rayquaza VSTAR. The per-GAME limit is enforced by the CALLER
       // (`useAbility`, before `applyAbilityEffect` is reached), so this arm never re-checks
       // it -- two checks would be two places to disagree.
       const own = sideOf(state, context.actor)
@@ -2787,7 +2787,7 @@ export function applyAbilityEffect(
       return null
     }
     case 'turnAttachedEnergyInto': {
-      // 04.12 CP12 / 083 Charizard. An OVERRIDE, not a mutation -- see the type's note.
+      // 04.12 CP10-B / 083 Charizard. An OVERRIDE, not a mutation -- see the type's note.
       // Re-pressing replaces rather than stacking, because "as often as you like" is about
       // being allowed to repeat, not about accumulating a second copy of the same effect.
       //
@@ -2804,7 +2804,7 @@ export function applyAbilityEffect(
       return null
     }
     case 'switchFoeOnPlasmaAttach': {
-      // 04.12 CP12 / 100 Pidgeot. Reached from the ATTACH action, not a button -- see the
+      // 04.12 CP10-B / 100 Pidgeot. Reached from the ATTACH action, not a button -- see the
       // union member's note. An empty opposing bench parks nothing: the printed "1 of your
       // opponent's Benched Pokemon" has nothing to point at, and parking an empty picker is
       // the soft-lock `switchOwnActiveWithBenched` is written to avoid.

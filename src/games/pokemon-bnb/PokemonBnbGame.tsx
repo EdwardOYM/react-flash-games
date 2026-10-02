@@ -1,4 +1,4 @@
-﻿// Pokemon TCG B&B mini — peer-to-peer Build & Battle limited format.
+// Pokemon TCG B&B mini — peer-to-peer Build & Battle limited format.
 // CP7-E-c: the deck-ready handshake (deckIds, one entry per copy) feeds
 // beginBattle(), which runs setupBattle from the shared seed with both decks
 // resolved against the identical opened pool; the loading view holds for a
@@ -2421,7 +2421,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                 const controls = controlStates(battle, actor, { handIndex: selHand, benchIndex: selBench })
                 const attacks = selfSide.active?.card.attacks ?? []
                 /**
-                 * 04.12 CP13 / 083 Rotom "Memory Helix": the Active may also use the attacks
+                 * 04.12 CP10-C / 083 Rotom "Memory Helix": the Active may also use the attacks
                  * of ANY Benched Pokemon. Modelled as a SECOND list rather than by
                  * concatenating into `attacks`, because the borrowed attacks are NOT the
                  * Active's own — concatenating would render them identically and lose the
@@ -2521,7 +2521,7 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
                         )
                       })}
                       {/*
-                       * 04.12 CP13 / 083 Rotom "Memory Helix": the borrowed attacks.
+                       * 04.12 CP10-C / 083 Rotom "Memory Helix": the borrowed attacks.
                        *
                        * `attackControl` is asked the same question as for the Active's own
                        * attacks and against the SAME Energy pool, which is the printed rule --

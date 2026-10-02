@@ -152,7 +152,7 @@ export function passiveAbilitiesInPlay(state: BattleState): LivePassive[] {
 }
 
 /**
- * 04.12 CP12: the live "Energy Burn" override for a Pokemon, or undefined when none.
+ * 04.12 CP10-B: the live "Energy Burn" override for a Pokemon, or undefined when none.
  *
  * A SINGLE reader so the override cannot be honoured in one place and missed in another —
  * `declareAttack` and every future cost check ask this rather than scanning the side
@@ -165,7 +165,7 @@ export function liveEnergyOverride(state: BattleState, slot: PlayerSlot, uid: st
   return entry.provides as CardType
 }
 
-/** 04.12 CP12 / 100 Pidgeot "Red Signal": is this card a Plasma Energy?
+/** 04.12 CP10-B / 100 Pidgeot "Red Signal": is this card a Plasma Energy?
  *
  * 30C's local energy catalog is the 8 BASIC types only, so Plasma is not a `provides` value
  * and cannot be matched by type. It is matched by NAME, which is the only signal the card
@@ -503,7 +503,7 @@ export function isInPlayTarget(
 }
 
 export function canPayCost(attached: EnergyCardDef[], cost: CardType[], overrideTo?: CardType): boolean {
-  // 04.12 CP12: `overrideTo` is 083 Charizard's "Energy Burn" — "turn all Energy attached
+  // 04.12 CP10-B: `overrideTo` is 083 Charizard's "Energy Burn" — "turn all Energy attached
   // to this Pokemon into Fire Energy for the rest of the turn". Applied HERE, at the single
   // place Energy type is read for a cost, so no second copy of "what type is this card"
   // exists to disagree with this one. The cards themselves are NOT mutated (see the

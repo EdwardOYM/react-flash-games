@@ -16,7 +16,7 @@ import { flipCoin } from './effects'
  */
 export function applyEndTurn(state: BattleState, actor: PlayerSlot): BattleState {
   state.phase = 'between'
-  // 04.12 CP12: "Energy Burn ... FOR THE REST OF THE TURN" expires HERE, and only here.
+  // 04.12 CP10-B: "Energy Burn ... FOR THE REST OF THE TURN" expires HERE, and only here.
   //
   // Cleared on BOTH sides, not just the actor's: the printed text is scoped to the ability's
   // own Pokemon, but the override is stored per SIDE, and leaving the opponent's stale

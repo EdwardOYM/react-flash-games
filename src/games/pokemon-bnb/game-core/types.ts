@@ -344,7 +344,7 @@ export type PendingChoice = {
     // which is what lets `finishChoice` decline it; 032's mandatory swap has it false.
     | { kind: 'switchActive'; side: 'attacker' | 'defender'; optional: boolean }
     /**
-     * 04.12 CP11 / 158 Intrepid Sword, stage ONE: lift a card off the top of the deck.
+     * 04.12 CP10-A / 158 Intrepid Sword, stage ONE: lift a card off the top of the deck.
      *
      * A genuinely new source rather than a `searchDeckUpTo` variant with a flag: the
      * printed "look at the TOP 3" exposes a FIXED window, so the target list is
@@ -368,13 +368,13 @@ export type PendingChoice = {
      */
     | { kind: 'takeTopOfDeck'; look: number; attachTo: 'self'; energyType: string; userUid: string; taken: number }
     /**
-     * 04.12 CP11 / 097 Starmie, stage ONE: discard a matching Energy from hand. Stage two
+     * 04.12 CP10-A / 097 Starmie, stage ONE: discard a matching Energy from hand. Stage two
      * is `placeCountersOnChosen` below. Kept as two kinds rather than one with a phase
      * counter, so `resolveChoice` has no "am I on stage one?" branch to get wrong.
      */
     | { kind: 'discardEnergyFromHand'; energyType: string; counters: number }
     /**
-     * 04.12 CP11 / 097 Starmie, stage TWO: put the counters on the chosen Pokemon.
+     * 04.12 CP10-A / 097 Starmie, stage TWO: put the counters on the chosen Pokemon.
      *
      * COUNTERS, not damage, because the card prints "6 damage counters" and the engine's
      * only counter unit is `DAMAGE_PER_COUNTER`. Weakness therefore does NOT apply, which
@@ -383,7 +383,7 @@ export type PendingChoice = {
      */
     | { kind: 'placeCountersOnChosen'; counters: number }
     /**
-     * 04.12 CP12 / 100 Pidgeot "Red Signal": move the OPPONENT's chosen Benched Pokemon in
+     * 04.12 CP10-B / 100 Pidgeot "Red Signal": move the OPPONENT's chosen Benched Pokemon in
      * as their Active, replacing theirs.
      *
      * A separate kind from `switchActive`, which moves the ACTING seat's own board. The two
@@ -472,7 +472,7 @@ export type SideState = {
   /** Ability names used this turn by this side, for once-per-name restrictions. */
   abilityUsedNames: Record<string, number>
   /**
-   * 04.12 CP12 / 100 Rayquaza VSTAR "Starbirth": "(You can't use more than 1 VSTAR Power in
+   * 04.12 CP10-B / 100 Rayquaza VSTAR "Starbirth": "(You can't use more than 1 VSTAR Power in
    * a game.)"
    *
    * **PER GAME, not per turn**, which is why it cannot reuse `abilityUsedTurn` or
@@ -519,7 +519,7 @@ export type SideState = {
    */
   koByAttackTurn: number
   /**
-   * 04.12 CP12 / 083 Charizard "Energy Burn": "you may turn all Energy attached to
+   * 04.12 CP10-B / 083 Charizard "Energy Burn": "you may turn all Energy attached to
    * Charizard into Fire Energy FOR THE REST OF THE TURN."
    *
    * **"For the rest of the turn" is the whole rule, and it is why this is an override and
@@ -639,7 +639,7 @@ export type Snapshot = {
    *  still-blocked decision. */
   pendingChoice: PendingChoice | null
   /**
-   * 04.12 CP12: the per-side boards the snapshot carries, including the new once-per-game
+   * 04.12 CP10-B: the per-side boards the snapshot carries, including the new once-per-game
    * VSTAR marker and the turn-scoped Energy-type override. Both are PUBLIC (a player knows
    * their own Power is spent and what their own Energy became), so neither names a hidden
    * zone and the privacy boundary is unchanged.
@@ -768,7 +768,7 @@ export type BattleAction =
   | { type: 'beginAttack' }
   | { type: 'pass' }
   /**
-   * 04.12 CP13 / 083 Rotom "Memory Helix".
+   * 04.12 CP10-C / 083 Rotom "Memory Helix".
    *
    * `attackFromUid` names the BENCHED Pokemon whose attack list `attackIndex` indexes.
    * Undefined means the Active's own attacks, which is every pre-CP13 call unchanged — so

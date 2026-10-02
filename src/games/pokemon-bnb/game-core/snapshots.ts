@@ -113,7 +113,7 @@ export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
     pendingChoice: state.pendingChoice
       ? { ...state.pendingChoice, targets: state.pendingChoice.targets.map((t) => ({ ...t })) }
       : null,
-    // 04.12 CP12: the new per-side fields travel in ONE array, not as two more top-level
+    // 04.12 CP10-B: the new per-side fields travel in ONE array, not as two more top-level
     // Snapshot fields, so a future per-side field cannot be added to `SideState` and
     // silently fail to reach the guest.
     //
@@ -175,7 +175,7 @@ function snapshotSideToState(snapshot: SnapshotSide, overrides?: Snapshot['sideO
     // field) from rebuilding to `undefined`, which would compare false against
     // `turn - 1` for the rest of the match and silently disable the card.
     koByAttackTurn: snapshot.koByAttackTurn ?? -1,
-    // 04.12 CP12: defaults when the field is absent, so a snapshot from an older host
+    // 04.12 CP10-B: defaults when the field is absent, so a snapshot from an older host
     // restores to an UNUSED VSTAR Power rather than throwing.
     vstarPowerUsedThisGame: overrides?.vstarPowerUsedThisGame ?? false,
     energyTypeOverride: (overrides?.energyTypeOverride ?? []).map((e) => ({ ...e })),
@@ -207,7 +207,7 @@ export function applySnapshot(snapshot: Snapshot): BattleState {
     pendingChoice: snapshot.pendingChoice
       ? { ...snapshot.pendingChoice, targets: snapshot.pendingChoice.targets.map((t) => ({ ...t })) }
       : null,
-    // 04.12 CP12: the two new per-side fields are NOT returned here — they are applied onto
+    // 04.12 CP10-B: the two new per-side fields are NOT returned here — they are applied onto
     // the rebuilt sides via `snapshotSideToState(side, overrides)` above. A `Snapshot`
     // field echoed into a `BattleState` would be a second, unwatched copy that can drift
     // from the side it describes.
