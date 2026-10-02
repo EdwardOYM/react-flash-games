@@ -113,6 +113,17 @@ export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
     pendingChoice: state.pendingChoice
       ? { ...state.pendingChoice, targets: state.pendingChoice.targets.map((t) => ({ ...t })) }
       : null,
+    // 04.12 CP12: the new per-side fields travel in ONE array, not as two more top-level
+    // Snapshot fields, so a future per-side field cannot be added to `SideState` and
+    // silently fail to reach the guest.
+    //
+    // Entries whose `turn` has passed are DROPPED here rather than sent and filtered on the
+    // guest, so a stale override cannot be read as live by a rebuilt view that never ran the
+    // turn change. `vstarPowerUsedThisGame` is kept as-is — it is per GAME and never expires.
+    sideOverrides: [
+      { vstarPowerUsedThisGame: state.host.vstarPowerUsedThisGame, energyTypeOverride: state.host.energyTypeOverride.filter((e) => e.turn === state.turn).map((e) => ({ ...e })) },
+      { vstarPowerUsedThisGame: state.guest.vstarPowerUsedThisGame, energyTypeOverride: state.guest.energyTypeOverride.filter((e) => e.turn === state.turn).map((e) => ({ ...e })) },
+    ],
     // 04.9 CP5: the FIRST field 04.9 puts on the wire. A duration names a `uid`, an
     // effect and a turn number — never a card in a hidden zone — so both seats
     // already know everything it carries and the privacy boundary is unchanged.
@@ -127,7 +138,7 @@ export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
   }
 }
 
-function snapshotSideToState(snapshot: SnapshotSide): SideState {
+function snapshotSideToState(snapshot: SnapshotSide, overrides?: Snapshot['sideOverrides'][number]): SideState {
   return {
     // 04.8 CP3: the viewer's own deck rides the snapshot and is restored as real
     // cards; the other side's is still placeholders, so a rebuilt state can only
@@ -164,6 +175,10 @@ function snapshotSideToState(snapshot: SnapshotSide): SideState {
     // field) from rebuilding to `undefined`, which would compare false against
     // `turn - 1` for the rest of the match and silently disable the card.
     koByAttackTurn: snapshot.koByAttackTurn ?? -1,
+    // 04.12 CP12: defaults when the field is absent, so a snapshot from an older host
+    // restores to an UNUSED VSTAR Power rather than throwing.
+    vstarPowerUsedThisGame: overrides?.vstarPowerUsedThisGame ?? false,
+    energyTypeOverride: (overrides?.energyTypeOverride ?? []).map((e) => ({ ...e })),
   }
 }
 
@@ -192,6 +207,10 @@ export function applySnapshot(snapshot: Snapshot): BattleState {
     pendingChoice: snapshot.pendingChoice
       ? { ...snapshot.pendingChoice, targets: snapshot.pendingChoice.targets.map((t) => ({ ...t })) }
       : null,
+    // 04.12 CP12: the two new per-side fields are NOT returned here — they are applied onto
+    // the rebuilt sides via `snapshotSideToState(side, overrides)` above. A `Snapshot`
+    // field echoed into a `BattleState` would be a second, unwatched copy that can drift
+    // from the side it describes.
     // 04.9 CP5: restored so the guest's board shows the same locks the host
     // enforces. The rebuilt state is `viewOnly`, so only the host expires these.
     durations: (snapshot.durations ?? []).map((duration) => ({ ...duration, effect: { ...duration.effect } })),
@@ -201,7 +220,7 @@ export function applySnapshot(snapshot: Snapshot): BattleState {
     viewOnly: true,
     log: [...snapshot.log],
     rngDraws: 0,
-    host: snapshotSideToState(snapshot.host),
-    guest: snapshotSideToState(snapshot.guest),
+    host: snapshotSideToState(snapshot.host, snapshot.sideOverrides?.[0]),
+    guest: snapshotSideToState(snapshot.guest, snapshot.sideOverrides?.[1]),
   }
 }

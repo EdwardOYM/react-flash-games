@@ -151,6 +151,31 @@ export function passiveAbilitiesInPlay(state: BattleState): LivePassive[] {
   return live
 }
 
+/**
+ * 04.12 CP12: the live "Energy Burn" override for a Pokemon, or undefined when none.
+ *
+ * A SINGLE reader so the override cannot be honoured in one place and missed in another —
+ * `declareAttack` and every future cost check ask this rather than scanning the side
+ * themselves. The `turn === state.turn` test means an override that somehow outlived its
+ * window reads as absent, so expiry is enforced at the READ as well as at the turn change.
+ */
+export function liveEnergyOverride(state: BattleState, slot: PlayerSlot, uid: string): CardType | undefined {
+  const entry = sideOf(state, slot).energyTypeOverride.find((e) => e.uid === uid)
+  if (!entry || entry.turn !== state.turn) return undefined
+  return entry.provides as CardType
+}
+
+/** 04.12 CP12 / 100 Pidgeot "Red Signal": is this card a Plasma Energy?
+ *
+ * 30C's local energy catalog is the 8 BASIC types only, so Plasma is not a `provides` value
+ * and cannot be matched by type. It is matched by NAME, which is the only signal the card
+ * data carries here. Recorded as a known limitation: a Plasma Energy introduced later as a
+ * typed entry would need this widened, and the name match would then silently stop firing.
+ */
+export function isPlasmaEnergy(card: CardDef): boolean {
+  return /plasma/i.test(card.name)
+}
+
 /** True when a Pokémon carries a given supported passive rule. */
 export function hasPassive(pokemon: InPlayPokemon, id: PassiveAbility['id']): boolean {
   return pokemon.card.abilities.some((ability) => {
@@ -477,8 +502,14 @@ export function isInPlayTarget(
   return target.zone === 'active' || typeof target.zone === 'number'
 }
 
-export function canPayCost(attached: EnergyCardDef[], cost: CardType[]): boolean {
-  const pool: CardType[] = attached.map((energy) => energy.provides ?? 'colorless')
+export function canPayCost(attached: EnergyCardDef[], cost: CardType[], overrideTo?: CardType): boolean {
+  // 04.12 CP12: `overrideTo` is 083 Charizard's "Energy Burn" — "turn all Energy attached
+  // to this Pokemon into Fire Energy for the rest of the turn". Applied HERE, at the single
+  // place Energy type is read for a cost, so no second copy of "what type is this card"
+  // exists to disagree with this one. The cards themselves are NOT mutated (see the
+  // `energyTypeOverride` note in `types.ts`) — only this READ changes, which is what makes
+  // the effect expire.
+  const pool: CardType[] = attached.map((energy) => overrideTo ?? energy.provides ?? 'colorless')
   const used: boolean[] = pool.map(() => false)
   let colorlessNeeded = 0
   for (const requirement of cost) {

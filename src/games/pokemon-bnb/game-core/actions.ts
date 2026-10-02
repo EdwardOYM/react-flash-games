@@ -7,7 +7,7 @@
 import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type EnergyCardDef, type PokemonCardDef } from '../cards'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
-import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, logChoicePrompt, logEvent, sideOf, tailLog } from './helpers'
+import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, isPlasmaEnergy, liveEnergyOverride, logChoicePrompt, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState, ChoiceTarget, PendingChoice, SideState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, ownInPlay, parseAttackEffects, recordAttackDamageOn, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
@@ -50,6 +50,19 @@ export function attachEnergy(
     card: card.name,
     target: pokemon.card.name,
   })
+  // 04.12 CP12 / 100 Pidgeot "Red Signal": "When you attach a Plasma Energy from your hand
+  // to this Pokemon…". This is a TRIGGER, so it fires HERE rather than from a button.
+  //
+  // The trigger is read off the DESTINATION's own abilities, not off the card being
+  // attached: the printed text says "to this Pokemon", and the attaching card is a Plasma
+  // Energy that knows nothing about the holder.
+  for (const ability of pokemon.card.abilities) {
+    const classified = classifyAbility(ability.text)
+    if (classified.id !== 'switchFoeOnPlasmaAttach') continue
+    if (!isPlasmaEnergy(card)) continue
+    applyAbilityEffect(next, classified, { actor, user: pokemon, chosen: null })
+    break
+  }
   return { state: next, log: tailLog(next, logStart) }
 }
 
@@ -181,6 +194,14 @@ export function activateAbility(
   // side per name; the rulebook allows each copy otherwise.
   const side = sideOf(next, actor)
   if (side.abilityUsedNames[ability.name] === next.turn) return failure(state, 'ability-limit')
+  // 04.12 CP12: a VSTAR Power is once per GAME, so it is gated on the SIDE and never on
+  // `turn`. `abilityUsedTurn`/`abilityUsedNames` both key on the turn number and would reset
+  // at Between-Turns, silently turning "once per game" into "once per turn" and letting a
+  // player use two VSTAR Powers. Checked here, before `applyAbilityEffect`, so the refusal
+  // returns the ORIGINAL state and spends nothing.
+  if (classifyAbility(ability.text).id === 'vstarSearchUpTo' && side.vstarPowerUsedThisGame) {
+    return failure(state, 'ability-limit')
+  }
 
   const chosen = targetIndex === undefined ? null : inPlayOf(sideOf(next, actor), targetIndex)
   if (targetIndex !== undefined && !chosen) return failure(state, 'no-target')
@@ -191,6 +212,10 @@ export function activateAbility(
 
   pokemon.abilityUsedTurn = next.turn
   side.abilityUsedNames = { ...side.abilityUsedNames, [ability.name]: next.turn }
+  // 04.12 CP12: spent at the moment of USE, not at resolution. If the ability parks a choice
+  // the player can walk away from, the Power is still spent — the printed limit is on
+  // "use", and letting a cancelled pick refund it would be a free re-roll.
+  if (classifyAbility(ability.text).id === 'vstarSearchUpTo') side.vstarPowerUsedThisGame = true
   logEvent(next, 'pokemonBnb.log.useAbility', { player: actor, pokemon: pokemon.card.name, ability: ability.name })
   return { state: next, log: tailLog(next, logStart) }
 }
@@ -362,7 +387,7 @@ export function declareAttack(state: BattleState, actor: PlayerSlot, attackIndex
   if (isAttackLocked(next, active.uid, attack.name)) return failure(state, 'duration-cant-attack')
   if (state.turn === 1 && state.setup.firstPlayer === actor) return failure(state, 'first-turn-attack')
   if (side.attackedThisTurn) return failure(state, 'already-attacked')
-  if (!canPayCost(active.attachedEnergy, attack.cost)) return failure(state, 'insufficient-energy')
+  if (!canPayCost(active.attachedEnergy, attack.cost, liveEnergyOverride(next, actor, active.uid))) return failure(state, 'insufficient-energy')
 
   // 04.11 CP8 / 159: an attack whose EXTRA cost is paid by DISCARDING Energy.
   //
@@ -1023,6 +1048,25 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     }
     const closedCounters = next.over ? next : applyEndTurn(next, actor)
     return { state: closedCounters, log: tailLog(closedCounters, logStart) }
+  }
+
+  // 04.12 CP12 / 100 Pidgeot "Red Signal": the opponent's chosen Benched Pokemon comes in
+  // as THEIR Active. Their old Active is Benched, not discarded -- a switch never discards.
+  if (choice.effect.kind === 'switchFoeBenchWithActive') {
+    if (!isInPlayTarget(target)) return failure(state, 'no-target')
+    const foeSide = sideOf(next, target.side)
+    const incoming = foeSide.bench.find((pokemon) => pokemon.uid === target.uid)
+    if (!incoming) return failure(state, 'no-target')
+    const benchIndex = foeSide.bench.indexOf(incoming)
+    const outgoing = foeSide.active
+    foeSide.bench.splice(benchIndex, 1)
+    if (outgoing) foeSide.bench.push(outgoing)
+    foeSide.active = incoming
+    next.pendingChoice = null
+    logEvent(next, 'pokemonBnb.log.effectSwitch', { player: target.side, target: incoming.card.name })
+    // Firing from an attach must NOT end the turn -- `endsTurn: false` at park time, honoured
+    // here by deliberately not calling `applyEndTurn`.
+    return { state: next, log: tailLog(next, logStart) }
   }
 
   // 04.12 CP11 / 158 Intrepid Sword: lift the chosen card off the top of the deck and

@@ -382,6 +382,16 @@ export type PendingChoice = {
      * distinction `countersOnAttackerWhenDamaged` already draws.
      */
     | { kind: 'placeCountersOnChosen'; counters: number }
+    /**
+     * 04.12 CP12 / 100 Pidgeot "Red Signal": move the OPPONENT's chosen Benched Pokemon in
+     * as their Active, replacing theirs.
+     *
+     * A separate kind from `switchActive`, which moves the ACTING seat's own board. The two
+     * look alike and are deliberately not merged: one target is the actor's Bench and the
+     * other is the OPPONENT's Bench, and a shared arm that picked the wrong side would move
+     * the wrong Pokemon rather than fail.
+     */
+    | { kind: 'switchFoeBenchWithActive' }
   /** Printed attack that asked for the choice, for the log line. */
   attackName: string
 }
@@ -461,6 +471,21 @@ export type SideState = {
   mulliganedHands: CardDef[][]
   /** Ability names used this turn by this side, for once-per-name restrictions. */
   abilityUsedNames: Record<string, number>
+  /**
+   * 04.12 CP12 / 100 Rayquaza VSTAR "Starbirth": "(You can't use more than 1 VSTAR Power in
+   * a game.)"
+   *
+   * **PER GAME, not per turn**, which is why it cannot reuse `abilityUsedTurn` or
+   * `abilityUsedNames` — both are keyed on `turn` and would silently reset at Between-Turns,
+   * making the restriction "once per turn" and letting a player use two VSTAR Powers.
+   *
+   * A boolean rather than a count: the printed cap is exactly 1, so a number would carry an
+   * unrepresentable state (>1 is unreachable) for no gain.
+   *
+   * Persisted on the SIDE, not on the Pokemon, because "a game" outlives any one card — a
+   * Rayquaza that leaves play must not hand the Power back.
+   */
+  vstarPowerUsedThisGame: boolean
   /** Face-down setup Active selected from this side's private hand. */
   setupActive: PokemonCardDef | null
   /** Face-down setup Bench selected from this side's private hand. */
@@ -493,6 +518,23 @@ export type SideState = {
    * Between-Turns poison KO satisfying it would be a wrong effect.
    */
   koByAttackTurn: number
+  /**
+   * 04.12 CP12 / 083 Charizard "Energy Burn": "you may turn all Energy attached to
+   * Charizard into Fire Energy FOR THE REST OF THE TURN."
+   *
+   * **"For the rest of the turn" is the whole rule, and it is why this is an override and
+   * not a mutation.** Burning the cards in place would make it permanent; the printed text
+   * expires it, so the cards are left untouched and this READS as `fire` for every Energy
+   * check until the turn ends. Storing it is what makes the expiry guaranteed rather than
+   * merely intended.
+   *
+   * Keyed by `uid`, never by position: a switch moves the Pokemon, so an override that
+   * followed a slot would apply to whichever Pokemon arrived there next.
+   *
+   * `turn` is carried so a rebuilt snapshot can tell whether the override is live rather
+   * than trusting a stale flag from a turn that has since ended.
+   */
+  energyTypeOverride: { uid: string; provides: string; turn: number }[]
 }
 
 /**
@@ -596,6 +638,16 @@ export type Snapshot = {
    *  the opponent's hand stay hidden, which is why deck search stays a separate,
    *  still-blocked decision. */
   pendingChoice: PendingChoice | null
+  /**
+   * 04.12 CP12: the per-side boards the snapshot carries, including the new once-per-game
+   * VSTAR marker and the turn-scoped Energy-type override. Both are PUBLIC (a player knows
+   * their own Power is spent and what their own Energy became), so neither names a hidden
+   * zone and the privacy boundary is unchanged.
+   */
+  sideOverrides: {
+    vstarPowerUsedThisGame: boolean
+    energyTypeOverride: { uid: string; provides: string; turn: number }[]
+  }[]
   /**
    * 04.9 CP5: the same live durations, carried verbatim so the guest's board
    * renders the same locks and damage modifiers the host applies. Read-only for

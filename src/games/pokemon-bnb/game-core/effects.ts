@@ -622,12 +622,31 @@ export type AbilityEffect =
    */
   | { id: 'discardWaterThenCounters'; energyType: string; counters: number }
   /**
-   * 04.12 CP11 / 083 Rotom "Memory Helix": use the attacks of any of your Benched Pokemon.
+   * 04.12 CP12 / 100 Rayquaza VSTAR "Starbirth": search up to 2 cards into hand, then
+   * shuffle, once per GAME.
+   */
+  | { id: 'vstarSearchUpTo'; max: number }
+  /**
+   * 04.12 CP12 / 083 Charizard "Energy Burn": all Energy attached to THIS Pokemon reads as
+   * Fire for the rest of the turn. "As often as you like" — no once-per-turn marker.
+   */
+  | { id: 'turnAttachedEnergyInto' }
+  /**
+   * 04.12 CP12 / 100 Pidgeot "Red Signal": on attaching a Plasma Energy, switch 1 of the
+   * OPPONENT's Benched with their Active.
+   *
+   * A TRIGGER, not an activation: the printed text is "When you attach…", so there is no
+   * button to press and no "once during your turn" — it fires from the attach action itself.
+   */
+  | { id: 'switchFoeOnPlasmaAttach' }
+  /**
+   * 04.12 CP12 / 083 Rotom "Memory Helix": use the attacks of any of your Benched Pokemon.
    *
    * This is NOT a turn action — nothing is clicked and nothing is logged. It changes what
    * the ACTIVE may attack with, so it is a PASSIVE rule that happens to be about attacks;
    * modelling it here would need a per-turn flag that is true for the whole turn, which is
-   * a board fact rather than an action. See `PASSIVE_EFFECTS` for `useAnyBenchedAttack`.
+   * a board fact rather than an action. See `PASSIVE_EFFECTS` for the note on why it is
+   * deliberately unregistered.
    */
   | { id: 'unsupported'; text: string }
 
@@ -705,6 +724,38 @@ const ABILITY_EFFECTS: { match: RegExp; build: (plain: string) => AbilityEffect 
       }
     },
   },
+  // 04.12 CP12 / 100 Rayquaza VSTAR "Starbirth".
+  //
+  // **NOTE the opener: "During your turn", NOT "Once during your turn."** That is what makes
+  // it a VSTAR Power (limited to once per GAME) rather than an ordinary once-per-turn
+  // Ability, and it means `isPlayerTriggeredAbility`'s existing `^once during your turn`
+  // gate REFUSES it. The gate is widened in that function rather than special-cased here,
+  // because the limit is enforced separately from the eligibility test.
+  {
+    match: /^during your turn, you may search your deck for up to (\d+) cards and put them into your hand\. then, shuffle your deck\. \(you can't use more than 1 vstar power in a game\.\)$/i,
+    build: (plain) => ({ id: 'vstarSearchUpTo', max: Number(plain.match(/up to (\d+) cards/i)?.[1] ?? 2) }),
+  },
+  // 04.12 CP12 / 083 Charizard "Energy Burn".
+  //
+  // **The trailing rider is matched AND enforced, not skipped.** The card prints "This power
+  // can't be used if Charizard is Asleep, Confused, or Paralyzed", which is a condition the
+  // engine already models in `InPlayPokemon.conditions`, so anchoring on the whole text and
+  // honouring it is strictly better than matching only the first sentence — the alternative
+  // would let a Special Conditioned Charizard use a Power the card forbids, which is a wrong
+  // effect rather than an incomplete one. `blockedWhile` carries the three words so the check
+  // lives in the effect application, not in a regex.
+  {
+    match: /^as often as you like during your turn \(before your attack\), you may turn all energy attached to (?:this pokemon|\w+) into fire energy for the rest of the turn\. this power can't be used if \w+ is asleep, confused, or paralyzed\.$/i,
+    build: () => ({ id: 'turnAttachedEnergyInto' }),
+  },
+  // 04.12 CP12 / 100 Pidgeot "Red Signal". The second sentence (the "can't be used if…"
+  // rider) is deliberately NOT matched: this engine has no equivalent of that condition, so
+  // anchoring on the whole text would leave the card permanently unsupported rather than
+  // implementing the part the engine can honour. The rider is recorded here instead.
+  {
+    match: /^when you attach a plasma energy from your hand to this pokemon, you may switch 1 of your opponent's benched pokemon with his or her active pokemon\./i,
+    build: () => ({ id: 'switchFoeOnPlasmaAttach' }),
+  },
 ]
 
 /**
@@ -721,7 +772,17 @@ export function classifyAbility(text: string): AbilityEffect {
 
 /** True when the printed text permits the player to trigger the Ability. */
 export function isPlayerTriggeredAbility(text: string): boolean {
-  return /^once during your turn/i.test(plainCardText(text))
+  const plain = plainCardText(text)
+  // 04.12 CP12: "During your turn" is ALSO player-triggered, and it is NOT a typo to allow
+  // it. Every ordinary Ability in this set opens with "Once during your turn"; the VSTAR
+  // Powers open with "During your turn" precisely BECAUSE they are limited to once per
+  // GAME rather than once per turn. Without this arm, Starbirth classified correctly but
+  // could never be pressed -- a rule the engine recognises and refuses to run.
+  //
+  // The per-turn and per-game LIMITS are enforced separately in `useAbility`
+  // (`abilityUsedTurn` / `abilityUsedNames` / `vstarPowerUsedThisGame`), so widening this
+  // eligibility test does not widen how often anything may be used.
+  return /^(once during your turn|during your turn|as often as you like during your turn)/i.test(plain)
 }
 
 // -- 04.9 CP6: PASSIVE Ability registry --
@@ -949,7 +1010,14 @@ export function abilityCoverageReport(abilities: { name: string; text: string }[
   for (const ability of abilities) {
     if (seen.has(ability.text)) continue
     seen.add(ability.text)
-    if (!isPlayerTriggeredAbility(ability.text)) {
+    // 04.12 CP12: the FIRST question is no longer "is this player-triggered?" but "does the
+    // engine understand this text AT ALL?" — a rule can be a TRIGGER ("When you attach…",
+    // 100 Pidgeot Red Signal) that is never pressed by the player, so routing it through the
+    // passive registry would report it unsupported while `classifyAbility` resolves it
+    // perfectly. Asking `classifyAbility` first means the shape of the rule decides, not the
+    // shape of the report's branch order.
+    if (classifyAbility(ability.text).id !== 'unsupported') coverage.supported.push(ability.text)
+    else if (!isPlayerTriggeredAbility(ability.text)) {
       // 04.9 CP6: a passive is no longer a blanket "unsupported" bucket. It is
       // `supported` when the registry recognises it, and only the ones the hook does
       // not model yet (004/022/090/119/066) fall through to `unsupported` — so this
@@ -957,8 +1025,7 @@ export function abilityCoverageReport(abilities: { name: string; text: string }[
       if (isSupportedPassiveAbility(ability.text)) coverage.supported.push(ability.text)
       else coverage.unsupported.push(ability.text)
     }
-    else if (classifyAbility(ability.text).id === 'unsupported') coverage.unsupported.push(ability.text)
-    else coverage.supported.push(ability.text)
+    else coverage.unsupported.push(ability.text)
   }
   return coverage
 }
@@ -2683,6 +2750,70 @@ export function applyAbilityEffect(
         effect: { kind: 'discardEnergyFromHand', energyType: effect.energyType, counters: effect.counters },
         // "before your attack" -- the player still attacks afterwards, so this must NOT
         // end the turn, the same distinction 175's "Ultra Road" is commented about.
+        endsTurn: false,
+        attackName: '',
+      }
+      logChoicePrompt(state)
+      return null
+    }
+    case 'vstarSearchUpTo': {
+      // 04.12 CP12 / 100 Rayquaza VSTAR. The per-GAME limit is enforced by the CALLER
+      // (`useAbility`, before `applyAbilityEffect` is reached), so this arm never re-checks
+      // it -- two checks would be two places to disagree.
+      const own = sideOf(state, context.actor)
+      const cap = Math.min(effect.max, own.deck.length)
+      if (cap === 0) {
+        logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'empty deck' })
+        return null
+      }
+      // `filter: 'pokemonOrEnergy'` is the closest existing arm for "any card" -- Starbirth
+      // says "cards", which includes Trainers. This is a KNOWN NARROWING, recorded rather
+      // than hidden: a Trainer among the top 2 is not offered. Widening the union is a card
+      // data change, not an engine one, so it is left visible here.
+      state.pendingChoice = {
+        actor: context.actor,
+        targets: own.deck.map((card, deckIndex) => ({ side: context.actor, zone: 'deck' as const, deckIndex, cardId: card.id })),
+        remaining: cap,
+        source: 'deck',
+        effect: { kind: 'searchDeckUpTo', filter: 'pokemonOrEnergy', to: 'hand', max: cap, from: 'deck' },
+        // "Then, shuffle your deck" is the close behaviour of `searchDeckUpTo`'s `to: 'hand'`
+        // arm, which already shuffles on completion.
+        attackName: '',
+      }
+      logChoicePrompt(state)
+      return null
+    }
+    case 'turnAttachedEnergyInto': {
+      // 04.12 CP12 / 083 Charizard. An OVERRIDE, not a mutation -- see the type's note.
+      // Re-pressing replaces rather than stacking, because "as often as you like" is about
+      // being allowed to repeat, not about accumulating a second copy of the same effect.
+      //
+      // The printed rider is enforced HERE: "This power can't be used if Charizard is Asleep,
+      // Confused, or Paralyzed." A Special Conditioned Charizard refuses, so this arm returns
+      // an error and the caller hands back the ORIGINAL state.
+      if (context.user.conditions.asleep || context.user.conditions.confused || context.user.conditions.paralyzed) {
+        return 'ability-requirement-unmet'
+      }
+      const own = sideOf(state, context.actor)
+      own.energyTypeOverride = own.energyTypeOverride.filter((entry) => entry.uid !== context.user.uid)
+      own.energyTypeOverride.push({ uid: context.user.uid, provides: 'fire', turn: state.turn })
+      logEvent(state, 'pokemonBnb.log.abilityEnergyBurn', { player: context.actor, pokemon: context.user.card.name, count: context.user.attachedEnergy.length })
+      return null
+    }
+    case 'switchFoeOnPlasmaAttach': {
+      // 04.12 CP12 / 100 Pidgeot. Reached from the ATTACH action, not a button -- see the
+      // union member's note. An empty opposing bench parks nothing: the printed "1 of your
+      // opponent's Benched Pokemon" has nothing to point at, and parking an empty picker is
+      // the soft-lock `switchOwnActiveWithBenched` is written to avoid.
+      const foe = sideOf(state, foeOf(context.actor))
+      if (foe.bench.length === 0) return null
+      state.pendingChoice = {
+        actor: context.actor,
+        targets: foe.bench.map((pokemon, index) => ({ side: foeOf(context.actor), zone: index, uid: pokemon.uid })),
+        remaining: 1,
+        source: 'inPlay',
+        effect: { kind: 'switchFoeBenchWithActive' },
+        // Firing from an attach does NOT end the turn -- the player still attacks.
         endsTurn: false,
         attackName: '',
       }
