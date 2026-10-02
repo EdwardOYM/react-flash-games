@@ -13,6 +13,8 @@ import { applySnapshot, applyTimeout, classifyAbility, HIDDEN_CARD, processActio
 import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySettings, type LobbySettings, type NetMessage, type PlayerSlot } from './net/protocol'
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
 import { basicEnergyCatalog, openPacks, buildPool, seatSeed, type OpenedCard, type OpenedPool } from './pack'
+// 04.12 CP9: the dev/QA-only seeded board that finally puts 161/174/180/182 on screen.
+import { DEV_BOARD_SEED, buildDevBoard } from './dev-board'
 // 04.11 CP19: kept in its own module so the label decision can be checked without
 // dragging JSX, CSS and the DOM into a Node process. See choice-labels.ts.
 import { choiceTemplateKey } from './choice-labels'
@@ -461,6 +463,34 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('local') === '1',
     [],
   )
+
+  /**
+   * 04.12 CP9 dev/QA board: `?local=1&board=161` (dev/QA only, same precedent and the
+   * same "never player-facing" rule as `?local=1`).
+   *
+   * The four deferred-damage / multi-pick dialogs (161, 174, 180, 182) had no route to
+   * the screen at all: `?local=1` builds its deck by opening packs, and the
+   * one-Energy-per-turn rule means "3 Water attached" is three turns of real play. This
+   * parameter seeds the board so the dialog can finally be LOOKED AT.
+   *
+   * **Read only when `localMode` is on**, so the parameter cannot affect a real lobby
+   * even if it is left in a shared URL.
+   */
+  const devBoardParam = useMemo(() => {
+    if (typeof window === 'undefined') return null
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('local') !== '1') return null
+    const board = params.get('board')
+    return board && /^\d+$/.test(board) ? board : null
+  }, [])
+
+  /** `?seed=N` overrides the dev board's fixed seed — 182's dialog is COIN-GATED. */
+  const devBoardSeed = useMemo(() => {
+    if (typeof window === 'undefined') return undefined
+    const raw = new URLSearchParams(window.location.search).get('seed')
+    const parsed = raw === null ? Number.NaN : Number(raw)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }, [])
   useEffect(() => {
     // Host-authoritative play (CP9-B) keeps the live engine state in
     // `battleRef`; the rendered `battle` is a view-only snapshot there, so it
@@ -668,9 +698,29 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
     const catalog = basicEnergyCatalog(entry.id)
     // Each seat builds from its own stream, so the harness exercises the same
     // distinct-pool path a real lobby does.
+    //
+    // 04.12 CP9 — **THIS LINE WAS A CRASH SINCE CP2, AND THIS IS THE FIX.**
+    // CP2 raised `LOBBY_LIMITS.maxPacks` from 6 to 36, and CP2's own note warned that
+    // this harness "derives its decks from maxPacks, so that harness changes behaviour
+    // too and must be re-checked, not assumed affected". It was not re-checked.
+    //
+    // A 30c pack holds 5 cards (4 non-Energy + 1 basic Energy), so 36 packs open 180
+    // cards. The old code only ever ADDED Energy to reach the deck size —
+    // `Math.max(0, DECK_SIZE - nonEnergy.length)` clamps to 0 rather than trimming an
+    // oversized pool — so the harness built a 144-card deck, `setupBattle`'s exact-40
+    // check threw `RangeError`, and because it threw inside a mount effect the WHOLE
+    // React tree died: `?local=1` rendered a blank page with no error UI at all.
+    //
+    // The trim is the honest reading now that a pool can exceed a deck: take the first
+    // 40 opened non-Energy cards, then fill the remainder with Energy as before.
     const deckFor = (seat: PlayerSlot): CardDef[] => {
       const opened = openPacks(entry.data.cards, entry.pack, LOBBY_LIMITS.maxPacks, createRng(seatSeed(seed, seat)))
-      const nonEnergy = opened.map((item) => item.card).filter((card) => !cardIsEnergy(card))
+      const nonEnergy = opened
+        .map((item) => item.card)
+        .filter((card) => !cardIsEnergy(card))
+        .slice(0, DECK_SIZE)
+      // `Math.max` is kept as a belt-and-braces guard: `slice` already bounds this, and
+      // a negative length would make `Array.from` throw a second, different error.
       const energyNeeded = Math.max(0, DECK_SIZE - nonEnergy.length)
       return [...nonEnergy, ...Array.from({ length: energyNeeded }, () => catalog[0])]
     }
@@ -1037,8 +1087,53 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
   useEffect(() => {
     if (!localMode || localStartedRef.current) return
     localStartedRef.current = true
+    // 04.12 CP9: the seeded-board route takes over entirely when `?board=` is present.
+    if (devBoardParam) {
+      const entry = getSet(settingsRef.current.set)
+      if (!entry) return
+      const board = buildDevBoard(
+        entry.data.cards,
+        settingsRef.current,
+        devBoardParam,
+        devBoardSeed ?? DEV_BOARD_SEED,
+      )
+      if (!board) return
+      /**
+       * **THE ATTACK IS DECLARED THROUGH `processAction`, NOT HAND-BUILT.** The dialog
+       * CP9 exists to photograph has to be the one the engine really parks — clause
+       * parsing, the target list, the park and the labels are all the shipped code path.
+       * A purpose-built dialog would have proved nothing.
+       */
+      const attacked = processAction(board.state, 'host', {
+        type: 'useAttack',
+        attackIndex: board.attackIndex,
+      })
+      // A refusal is surfaced, never swallowed: it is the honest answer for a board that
+      // could not be built, and a silent blank screen would be indistinguishable from a
+      // rendering bug.
+      if (attacked.error) setBattleError(attacked.error)
+      setBattle(attacked.state)
+      /**
+       * **`'playing'`, NOT `'setup'` — and that is not a detail.**
+       *
+       * The board renders at `view === 'playing' || view === 'paused'` (2044); the
+       * `view === 'setup'` branch is the SETUP CEREMONY UI only, and once
+       * `battle.setup.phase === 'complete'` none of its panels match — so that view
+       * renders a heading and nothing else. The `complete -> playing` transition lives
+       * ONLY inside `runBattleAction` (1365) and the snapshot handler (886), and this
+       * effect bypasses both by calling `processAction` directly, so it has to make the
+       * transition itself.
+       *
+       * This is the same class of finding as CP5's silent fall-through: a state the
+       * machine can reach without a route out of it. Here it is dev-only and harmless,
+       * but the dead screen is real and the browser found it in seconds where reading
+       * the code had not.
+       */
+      setView('playing')
+      return
+    }
     beginLocalBattle()
-  }, [localMode, beginLocalBattle])
+  }, [localMode, devBoardParam, devBoardSeed, beginLocalBattle])
 
   /**
    * Host a new lobby, or dial the typed code. Shared setup + callbacks.
@@ -2458,7 +2553,12 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               {battle.log.slice(-24).map((entry, index) => <li key={`${entry.key}-${index}`}>{logCopy(entry)}</li>)}
             </ol>
           </div>
-          {localMode && (
+          {localMode && !devBoardParam && (
+            // 04.12 CP9: suppressed on the seeded-board route. The harness is a wall of
+            // dev-only <select>s and buttons that shares the battle layout's grid, and
+            // at 960x540 it visibly collides with the board. A QA screenshot that has
+            // dev chrome painted over the thing being reviewed is worse than useless —
+            // it would have been reported as a board defect that does not exist.
             <div className="bnb-battle-harness">
               <p className="bnb-hint">?local=1</p>
               <div className="bnb-battle-harness-seats">
