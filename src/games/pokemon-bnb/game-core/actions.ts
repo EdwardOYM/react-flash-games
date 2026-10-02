@@ -4,11 +4,12 @@
 // Part of the game-core module split (CP7-E-a); see ./index.ts for the full
 // engine header and the re-export barrel.
 
-import { cardIsEnergy, cardIsPokemon, cardIsTrainer, isBasicPokemon, type CardDef, type EnergyCardDef, type PokemonCardDef } from '../cards'
+import { cardIsEnergy, cardIsPokemon, cardIsStadium, cardIsTrainer, isBasicPokemon, type CardDef, type EnergyCardDef, type PokemonCardDef, type TrainerCardDef } from '../cards'
+import { parseTrainerEffects, trainerClauseSupport, type ParsedTrainerEffect } from './trainers'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
 import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, hasPassive, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, isPlasmaEnergy, liveEnergyOverride, logChoicePrompt, logEvent, sideOf, tailLog } from './helpers'
-import type { ActionResult, BattleAction, BattleState, ChoiceTarget, PendingChoice, SideState } from './types'
+import type { ActionResult, BattleAction, BattleState, ChoiceTarget, InPlayPokemon, PendingChoice, SideState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, ownInPlay, parseAttackEffects, recordAttackDamageOn, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
 import { applyEndTurn, applyStartOfTurn, checkVictory, performBenchKo, performKo } from './turns'
@@ -126,7 +127,107 @@ export function playTrainer(state: BattleState, actor: PlayerSlot, handIndex: nu
   if (trainerType === 'supporter') side.supporterPlayedTurn = true
   if (trainerType === 'stadium') side.stadiumPlayedTurn = next.turn
   logEvent(next, 'pokemonBnb.log.playTrainer', { player: actor, card: card.name })
+  applyTrainerEffects(next, actor, card)
   return { state: next, log: tailLog(next, logStart) }
+}
+
+/**
+ * 04.12 CP14: 126/128's deck filter, read from the SAME data the printed card points at.
+ *
+ * "Pokémon ex, Pokémon V, etc. have Rule Boxes" — the engine's data-backed answer to "has a
+ * Rule Box" is the `suffix` field, which `prizesForKnockOut` already reads, so this is a
+ * filter rather than a new mechanism (the same reasoning 04.10 CP1 used to widen
+ * `searchDeckUpTo` instead of adding `searchDiscardUpTo`).
+ *
+ * `filter: 'pokemon'` is deliberately BROAD: it is the honest reading of "search your deck
+ * for a Pokémon" and it is what the choice's own `searchDeckUpTo.filter` says, so the two
+ * cannot disagree about what was offered.
+ */
+function trainerFilterMatches(card: CardDef, filter: 'pokemon' | 'pokemonWithoutRuleBox' | 'energy' | 'trainer'): boolean {
+  if (filter === 'energy') return cardIsEnergy(card)
+  if (filter === 'trainer') return cardIsTrainer(card) || cardIsStadium(card)
+  if (!cardIsPokemon(card)) return false
+  if (filter === 'pokemonWithoutRuleBox') return !(card as PokemonCardDef).suffix
+  return true
+}
+
+/**
+ * 04.12 CP14: run a played Trainer's parsed clauses.
+ *
+ * **This is the call site CP8 measured the absence of.** Until now `playTrainer` moved the
+ * card from hand to the discard pile and stopped, so a Trainer whose every clause already
+ * existed in the engine was still inert: 126 Poke Pad and 127 Switch were `0/5 implemented`
+ * not because their clauses were missing but because nothing called them. The coverage
+ * report said so in its own diagnostic, and the diagnostic was correct.
+ *
+ * **Only the clauses the engine can already execute are honoured.** A `needs-mechanism`
+ * clause logs the reason and is otherwise ignored, rather than being silently dropped —
+ * `trainerClauseSupport` is the single place that decides, so the gate and the report
+ * cannot disagree about which clause is which.
+ *
+ * The card has ALREADY left hand at this point (see `playTrainer`), so a clause that
+ * searches the DECK or switches the board runs against the post-play board, which is the
+ * printed order: you play the card, then its effect resolves.
+ */
+function applyTrainerEffects(state: BattleState, actor: PlayerSlot, card: CardDef): void {
+  const text = (card as TrainerCardDef).effect
+  if (!text) return
+  let parsed: ParsedTrainerEffect[]
+  try {
+    parsed = parseTrainerEffects(text)
+  } catch {
+    // A malformed clause must not take the whole play down; the card is already paid for.
+    return
+  }
+  for (const effect of parsed) {
+    if (trainerClauseSupport(effect) !== 'reusable') continue
+    switch (effect.kind) {
+      case 'searchDeckToHand': {
+        const own = sideOf(state, actor)
+        const cap = Math.min(1, own.deck.length)
+        if (cap === 0) {
+          logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'empty deck' })
+          break
+        }
+        // 126 Poke Pad / 128's search: the same `searchDeckUpTo` shape the engine already
+        // parks for 054/150, with a FINITE cap of 1 -- never `Infinity`, which would break
+        // the snapshot round trip (see the `remaining` note on PendingChoice).
+        state.pendingChoice = {
+          actor,
+          // **DECK INDICES, not filtered positions.** The filter produces a subset, so its
+          // positional index is NOT the deck index -- using it would resolve index 0 of the
+          // MATCHES rather than the card at deck position 0, silently taking the wrong card.
+          // `indexOf` on the deck itself is the only correct lookup.
+          targets: own.deck
+            .filter((entry) => trainerFilterMatches(entry, effect.filter))
+            .map((entry) => ({ side: actor, zone: 'deck' as const, deckIndex: own.deck.indexOf(entry), cardId: entry.id })),
+          remaining: cap,
+          source: 'deck',
+          effect: { kind: 'searchDeckUpTo', filter: 'pokemon', to: 'hand', max: cap, from: 'deck' },
+          attackName: '',
+        }
+        // **An empty legal set parks NOTHING.** Parking an empty picker refuses every later
+        // action with nothing to tap -- the soft-lock, and the same rule the CP10-A arms
+        // follow.
+        if (state.pendingChoice.targets.length > 0) logChoicePrompt(state)
+        else state.pendingChoice = null
+        break
+      }
+      case 'switchOwnActiveWithBenched': {
+        // 127 Switch. Reuses the CP10-A ability arm verbatim rather than re-implementing a
+        // switch: same "empty bench parks nothing" rule, same `endsTurn: false` (a played
+        // Supporter does NOT end the turn), same log line.
+        applyAbilityEffect(state, { id: 'switchOwnActiveWithBenched' }, {
+          actor,
+          user: sideOf(state, actor).active as unknown as InPlayPokemon,
+          chosen: null,
+        })
+        break
+      }
+      default:
+        break
+    }
+  }
 }
 
 /** Play a Basic Pokemon from hand onto the next open Bench slot. */

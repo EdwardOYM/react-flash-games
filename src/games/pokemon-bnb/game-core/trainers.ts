@@ -415,7 +415,13 @@ export function trainerCoverageReport(trainers: readonly unknown[]): TrainerCove
       text,
       clauses,
       recognised: !clauses.some((clause) => clause.kind === 'unsupported'),
-      implemented: clauses.length > 0 && support === 'supported',
+      // 04.12 CP14: `reusable` now COUNTS as implemented. It did not before CP14 because
+      // a reusable clause is one the engine can already execute -- and `playTrainer` never
+      // called the effect pipeline, so "executable" was a property of the clause rather
+      // than of the game. With the call site in `actions.ts` it is a property of the game,
+      // which is exactly the distinction this module exists to draw. Leaving `reusable`
+      // excluded here would report 0/5 for two cards that demonstrably work.
+      implemented: clauses.length > 0 && (support === 'supported' || support === 'reusable'),
       support,
       blockers,
     })
@@ -427,13 +433,14 @@ export function trainerCoverageReport(trainers: readonly unknown[]): TrainerCove
         + 'They are counted separately and are never reported as unsupported-by-the-engine.',
     )
   }
-  // The standing caveat, kept live rather than left in a plan file. It is the reason
-  // `implemented` is 0 even where every clause is `supported`.
-  if (entries.some((entry) => entry.recognised)) {
+  // 04.12 CP14: this diagnostic used to say the call site did not exist. It now names only
+  // what is STILL missing, so it stays useful rather than becoming a stale lie.
+  if (entries.some((entry) => !entry.implemented && entry.recognised)) {
     diagnostics.push(
-      'playTrainer applies NO trainer clause: it moves the card from hand to discard and stops. '
-        + 'A clause the attack pipeline can execute is still INERT on a Trainer card until '
-        + 'playTrainer calls the effect, so `implemented` stays 0 until that call site exists.',
+      `${entries.filter((e) => !e.implemented && e.recognised).length} trainer(s) parse fully but hold at least one `
+        + '`needs-mechanism` clause the engine cannot execute yet. `playTrainer` DOES call the effect pipeline as of '
+        + '04.12 CP14, and `reusable` clauses count as implemented -- so a remaining gap is a real missing mechanism, '
+        + 'never a missing call site.',
     )
   }
 
