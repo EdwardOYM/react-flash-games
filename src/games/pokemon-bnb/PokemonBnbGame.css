@@ -231,7 +231,33 @@
   .bnb-side { padding: 6px 8px; gap: 4px; }
   .bnb-hand-chip { padding: 2px 6px; font-size: .58rem; }
   /* CP8-E landscape: bar tucks under the stage with a capped log strip. */
-  .bnb-action-bar { margin-top: 6px; padding: 6px 8px; }
+  /*
+   * 04.12 CP9 F1: the action bar is ~120px in flow -- TALLER than the popup it replaced --
+   * so normal play overflowed by 48px even though the dialog case fit. It is pinned the
+   * same way the popup is, so it overlays the stage instead of pushing the board down, and
+   * its button grid scrolls internally rather than growing the stage. Same `sticky` choice
+   * and same reason: the bar is a child of the stage's own scroll container.
+   */
+  .bnb-action-bar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    max-height: 34%;
+    margin-top: 0;
+  }
+  .bnb-action-bar .bnb-actions { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+  .bnb-action-bar .bnb-hint { display: none; }
+  }
+
+  /*
+   * 04.12 CP9 F1, short landscape: the action bar is the whole stage budget at 844x390,
+   * so it drops the status line entirely and caps tighter. Same shape as the popup, and
+   * in its OWN 420px block so the reference 960x540 buttons keep their size.
+   */
+  @media (max-height: 420px) {
+    .bnb-action-bar { max-height: 30%; padding: 4px 6px; }
+    .bnb-action-bar .bnb-actions { gap: 4px; }
+    .bnb-action-bar button { padding: 5px 6px; font-size: .58rem; }
   .bnb-battle-log { max-height: 18vh; }
   /* CP10-E landscape: results/highscore fit the short viewport — the hidden
      scroll never traps the actions, and the table scrolls internally. */
@@ -240,13 +266,39 @@
   .bnb-highscore .highscore-table { max-height: max(120px, calc(100dvh - 244px)); overflow-y: auto; overscroll-behavior: contain; }
 }
 
+/*
+ * 04.12 CP9 F1, SHORT landscape (844x390 and similar). The stage here is only ~292px, so
+ * the popup is the single largest consumer of it. It drops to a single row of compact
+ * buttons with the title inline, which takes it from 72px to ~44px -- the difference
+ * between the guest lane's zones row being cut off and the board fitting.
+ */
+@media (orientation: landscape) and (max-height: 420px) {
+  .bnb-choice-gate {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    max-height: none;
+    gap: 4px 8px;
+    padding: 4px 8px;
+  }
+  .bnb-choice-gate .bnb-hint { display: none; }
+  .bnb-choice-title { margin: 0; flex: 0 0 auto; }
+  .bnb-choice-list { margin-top: 0; flex: 1 1 auto; }
+  .bnb-choice-list button { flex: 1 1 0; padding: 5px 6px; font-size: .6rem; }
+}
+
 /* Narrow portrait (<=520px): panels stack, the log strip drops below them. */
 @media (max-width: 520px) {
   /* CP11-E portrait: the two-column grids halve the content width, so the shared
      token drops to fit. Still ONE size per viewport — no card is smaller than
      another, and none overflows its track. The battle stage keeps its own token. */
   .bnb-page { --pkm-card-w: clamp(112px, 34vw, 168px); }
-  .bnb-battle { height: auto; }
+  /* 04.12 CP9 F1: portrait was inheriting the 16:9 stage ratio at 520px wide, which
+     pinned the stage to ~255px while the two STACKED lanes need ~1330px -- 1282px of
+     hidden internal scrolling, the worst overflow of the three viewports. Portrait is
+     not a 16:9 embed, so the ratio is dropped here and the stage grows to its content;
+     the lanes then sit side by side (below) and the stage tracks the viewport height. */
+  .bnb-battle { height: auto; aspect-ratio: auto; }
   .bnb-battle-main { grid-template-columns: 1fr; }
   .bnb-battle-log { max-height: clamp(120px, 26vh, 220px); }
 
@@ -255,6 +307,7 @@
    * here, but the two lanes are stacked, so the popup must not claim half of it.
    */
   .bnb-choice-gate { max-height: 34%; }
+
   /* CP8-E portrait: two-column action bar + compact bench grids, no h-scroll. */
   .bnb-action-bar .bnb-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bnb-bench-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -146,7 +146,18 @@
   .bnb-board-lanes { flex-direction: row; align-items: stretch; }
   .bnb-side { flex: 1 1 0; min-width: 0; }
   .bnb-bench-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .bnb-bench-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .bnb-side-zones-row { --pkm-card-w: 30px; }
+  /*
+   * 04.12 CP9 F1: the last 11px at 844x390. The turn banner repeats what the popup
+   * already says ("Host's move" plus the choice prompt) at this size, so its bottom
+   * margin goes rather than any card or label -- both seats staying visible wins over
+   * whitespace, and the phase word is still on screen beside the turn.
+   */
+  .bnb-battle-head { margin-bottom: -6px; }
+  /* Stage padding/gap, last 5px: the border box is already framed, so the inner
+     padding is what yields. Cards and labels are untouched. */
+  .bnb-page .bnb-battle { gap: 4px; padding: 6px; }
 }
 .bnb-bench-list li, .bnb-hand-list li { margin: 0; padding: 0; min-width: 0; }
 .bnb-bench-pick { display: block; width: 100%; padding: 0; border: 1px solid transparent; background: transparent; cursor: pointer; color: inherit; font: inherit; text-align: inherit; }
@@ -320,13 +331,79 @@
   .bnb-board { gap: 4px; }
   .bnb-board-stadium { padding: 2px 6px; }
   .bnb-side { padding: 5px 7px; gap: 4px; }
-  .bnb-side-zones-row { gap: 4px; }
+  /*
+   * 04.12 CP9 F1: the card token, scoped to `.bnb-board` so it BEATS the stage-level
+   * `--pkm-card-w` in PokemonBnbGame.css. Both rules are `.bnb-battle` at equal
+   * specificity, so before this was scoped the winner was decided by stylesheet import
+   * order -- the 46px floor simply never applied, which is why an earlier attempt to
+   * shrink the card made the board TALLER instead of shorter. Scoping to the board makes
+   * the override order-independent, which is the house rule for cross-file tokens.
+   *
+   * Active and Bench keep the real card (they are the switch/energy targets). Everything
+   * else gives up height: the stadium strip, the seat head, and the zone row.
+   */
+  .bnb-battle .bnb-board { --pkm-card-w: clamp(44px, 8vh, 64px); }
+  /*
+   * The hand is now the single tallest non-target row (49px against a 61px Active),
+   * purely because its cards are slivers on one row. Shrinking the indicator further
+   * stops helping legibility, so the height comes out of the LANE instead: the seat
+   * head loses its gap and the zone row tightens. No card gets smaller than 44px.
+   */
+  .bnb-side-hand { --pkm-card-w: clamp(20px, 2.8vw, 28px); }
+  .bnb-side-hand .bnb-hand-slot { --pkm-card-w: clamp(20px, 2.8vw, 28px); }
+  .bnb-side { gap: 3px; }
+  .bnb-board-stadium { padding: 0 6px; }
+  .bnb-side-head { gap: 1px 8px; }
+
+  /*
+   * 04.12 CP9 F1, SHORT landscape (844x390 and similar) -- its OWN `max-height: 420px`
+   * block, nested in the 600px one above. These rules used to sit directly in the 600px
+   * block, which meant they ALSO applied at 960x540 and shrank the reference card to
+   * 30px. Nesting a query inside a query is fine and intentional here; the earlier bug
+   * was nesting a WIDTH query inside a WIDTH query, which killed a rule entirely.
+   */
+  @media (max-height: 420px) {
+    /*
+     * The card token is driven by the STAGE height, not the viewport: here the stage is
+     * only ~292px and the lane ~294px wide, so a vh-driven 44px card is proportionally
+     * enormous and the lane measured 276px inside a 190px track. `dvh` lets the card
+     * shrink with the short axis while staying identical everywhere at 960x540.
+     * Active and Bench keep real cards -- they are the switch/energy targets.
+     */
+    .bnb-battle .bnb-board { --pkm-card-w: clamp(26px, 5.6dvh, 40px); }
+    .bnb-side-zones-row { --pkm-card-w: clamp(16px, 3.4dvh, 22px); }
+    .bnb-side-hand { --pkm-card-w: clamp(14px, 2.8dvh, 18px); }
+    .bnb-side-hand .bnb-hand-slot { --pkm-card-w: clamp(14px, 2.8dvh, 18px); }
+    /* The zones row was a third of the lane because it draws a real face-down Deck card.
+       At this size the pile-depth NUMBER is the information; the art is decoration. */
+    .bnb-side-zones-row .pkm-card { display: none; }
+    .bnb-side { gap: 1px; padding: 3px 5px; }
+    /* One line, not two: the seat name and zone counts wrapped onto two lines (46px),
+       a third of the stage. The counts are short and the lane is ~294px wide here. */
+    .bnb-side-head { gap: 0 6px; flex-wrap: nowrap; min-width: 0; overflow: hidden; }
+    .bnb-side-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bnb-side-zones { flex-wrap: nowrap; white-space: nowrap; font-size: .52rem; flex: 0 1 auto; min-width: 0; overflow: hidden; }
+    .bnb-side-zones-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .bnb-side-zones-row { padding: 0; gap: 3px; min-width: 0; }
+    .bnb-side-zone { padding: 1px 3px; min-width: 0; overflow: hidden; }
+    .bnb-side-zone .bnb-zone-label { font-size: .5rem; letter-spacing: 0; display: block; overflow: hidden; text-overflow: ellipsis; }
+    /* The PRIZE zone draws a `.bnb-side-card` 40px tall, which held the zones row at 44px
+       -- taller than the Active card. The stack shrinks to a token; the count stays. */
+    .bnb-side-zones-row .bnb-side-card { width: auto; min-width: 20px; height: 18px; flex: 0 0 auto; }
+    .bnb-side-zones-row .bnb-side-card span,
+    .bnb-side-zones-row .bnb-side-card b { font-size: .5rem; letter-spacing: 0; }
+  }
+  .bnb-side-zone { padding: 1px 4px; }
   .bnb-attachment { padding: 1px 4px; font-size: .52rem; }
 }
 
 /* Narrow portrait: the zone row keeps three narrow tracks rather than wrapping
    the stage wider than the viewport. */
 @media (max-width: 520px) {
+  /* 04.12 CP9 F1: portrait stacks the lanes, which doubles the board height and was the
+   source of the 1282px overflow. Side by side at ~250px each, both seats stay visible. */
+  .bnb-board-lanes { flex-direction: row; align-items: stretch; }
+  .bnb-side { flex: 1 1 0; min-width: 0; }
   .bnb-side-zones-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
   .bnb-side-zone { flex-direction: column; align-items: flex-start; gap: 2px; }
   /* Active and Bench may wrap here (they are the lane's real targets and keep their
