@@ -1211,6 +1211,43 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closed, log: tailLog(closed, logStart) }
   }
 
+  // 04.12 CP17 / 176 Gengar "Cursed Drop": ONE counter per pick, `remaining` picks in all,
+  // and "in any way you like" means the SAME Pokemon may be picked again — so unlike every
+  // other in-play picker the target list is NOT consumed as it is picked.
+  if (choice.effect.kind === 'placeDamageCounter') {
+    const foeSlot = foeOf(actor)
+    const foe = sideOf(next, foeSlot)
+    const holder = [foe.active, ...foe.bench].find((pokemon) => pokemon && pokemon.uid === target.uid)
+    if (!holder) return failure(state, 'no-target')
+    holder.damage += DAMAGE_PER_COUNTER
+    // NOT `recordAttackDamageOn`: 176 PLACES a counter, which the rulesbook is explicit
+    // is not "damage from an attack", so 085/138 must not see it and a KO here must not
+    // set 005/091's `koByAttackTurn` flag. Both would be wrong card interactions.
+    logEvent(next, 'pokemonBnb.log.damageCounterPlaced', {
+      player: foeSlot,
+      attack: choice.attackName,
+      target: holder.card.name,
+    })
+    const left = choice.remaining - 1
+    if (left > 0) {
+      // Re-park against the LIVE board: a pick may have Knocked Out a Pokemon, and
+      // "in any way you like" must never offer a card that is no longer in play.
+      const live = [
+        ...(foe.active ? [{ side: foeSlot, zone: 'active' as const, uid: foe.active.uid }] : []),
+        ...foe.bench.map((pokemon, index) => ({ side: foeSlot, zone: index as number, uid: pokemon.uid })),
+      ]
+      if (live.length > 0) {
+        next.pendingChoice = { ...choice, remaining: left, targets: live }
+        logChoicePrompt(next)
+        return { state: next, log: tailLog(next, logStart) }
+      }
+      logEvent(next, 'pokemonBnb.log.effectUnsupported', { text: 'no legal target' })
+    }
+    next.pendingChoice = null
+    const closed = next.over ? next : applyEndTurn(next, actor)
+    return { state: closed, log: tailLog(closed, logStart) }
+  }
+
   // 04.12 CP16 / 100 Pidgeot "Red Signal": the opponent's chosen Benched Pokemon comes in
   // as THEIR Active. Their old Active is Benched, not discarded -- a switch never discards.
   if (choice.effect.kind === 'switchFoeBenchWithActive') {

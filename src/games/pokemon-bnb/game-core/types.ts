@@ -180,6 +180,15 @@ export type PendingChoice = {
     // 04.8 CP2-C: "…for each damage counter on that Pokémon" — the amount is not
     // known until the target is picked, so it cannot be a flat number.
     | { kind: 'damagePerCounter'; amountPerCounter: number }
+    /**
+     * 04.12 CP17 / 176 Gengar "Cursed Drop": ONE damage counter per pick, over `picks`
+     * picks that MAY repeat a target ("in any way you like").
+     *
+     * Distinct from `{ kind: 'damage' }` on purpose: damage from an attack is recorded
+     * as `recordAttackDamageOn` and remembers it for cards like 085/138, but **placing**
+     * a counter is explicitly not damage from an attack, and must not set those.
+     */
+    | { kind: 'placeDamageCounter'; picks: number }
     // 04.8 CP3-B: move the chosen card out of the actor's own Deck.
     | { kind: 'searchDeck'; filter: 'pokemon' | 'trainer' | 'energy' }
     // 04.9 CP2: reduce the chosen Pokemon's damage to 0. `'all'` is the printed

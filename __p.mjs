@@ -1,0 +1,8569 @@
+// src/assets/pokemon-bnb/sets/30c/pack.json
+var pack_default = {
+  set: "30c",
+  size: 5,
+  comment: "30C pack: 5 cards - 2x common, 1x uncommon-or-better (weighted up the ladder per community pull-rate reporting), 1x guaranteed Pikachu illustration rare (1 of the 30 'Pikachu Rare' variations), 1x basic energy (synthetic pool - the set itself has no energy cards). Weights are relative within each slot; tune here without touching code.",
+  slots: [
+    {
+      id: "common-1",
+      poolRef: "common",
+      count: 1
+    },
+    {
+      id: "common-2",
+      poolRef: "common",
+      count: 1
+    },
+    {
+      id: "uncommon-or-better",
+      poolRef: "uncommonOrBetter",
+      count: 1,
+      weights: {
+        rare: 69,
+        "double rare": 17,
+        "illustration rare": 9,
+        "classic rare": 11,
+        "special illustration rare": 3,
+        "futuristic rare": 1
+      }
+    },
+    {
+      id: "pikachu-ir",
+      poolRef: "guaranteedPikachuIr",
+      count: 1
+    },
+    {
+      id: "basic-energy",
+      poolRef: "basicEnergy",
+      count: 1
+    }
+  ],
+  pools: {
+    uncommonOrBetter: {
+      comment: "Uncommon-or-better slot: uncommons are absent from TCGdex data for this set, so the ladder bottoms out at 'rare' when no uncommons exist (see pack.ts fallback).",
+      ladder: [
+        "rare",
+        "double rare",
+        "illustration rare",
+        "classic rare",
+        "special illustration rare",
+        "futuristic rare"
+      ]
+    },
+    basicEnergy: {
+      comment: "Synthetic basic-energy pool: uniform across the 8 standard basic energy types.",
+      types: [
+        "grass",
+        "fire",
+        "water",
+        "lightning",
+        "psychic",
+        "fighting",
+        "darkness",
+        "metal"
+      ]
+    }
+  }
+};
+
+// src/assets/pokemon-bnb/sets/30c/cards.json
+var cards_default = {
+  setId: "30c",
+  name: "30th Celebration",
+  releaseDate: "2026-09-16",
+  cards: [
+    {
+      id: "30c-001",
+      set: "30c",
+      number: "001",
+      name: "Exeggcute",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "grass"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Hypnosis",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Your opponent's Active Pok\xE9mon is now Asleep."
+        }
+      ],
+      abilities: [],
+      illustrator: "Nelnal"
+    },
+    {
+      id: "30c-002",
+      set: "30c",
+      number: "002",
+      name: "Alolan Exeggutor",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "grass"
+      ],
+      hp: 150,
+      stage: "Stage1",
+      retreat: 4,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Mega Drain",
+          cost: [
+            "grass",
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 150,
+          text: "Heal 50 damage from this Pok\xE9mon."
+        }
+      ],
+      abilities: [
+        {
+          name: "Scale Up",
+          text: "If this Pok\xE9mon has 6 or more Grass Energy attached, it gets +250 HP.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "Oswaldo KATO"
+    },
+    {
+      id: "30c-003",
+      set: "30c",
+      number: "003",
+      name: "Volbeat",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "grass"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Luring Glow",
+          cost: [
+            "grass"
+          ],
+          damage: 0,
+          text: "Switch in 1 of your opponent's Benched Pok\xE9mon to the Active Spot."
+        },
+        {
+          name: "Bug Buzz",
+          cost: [
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 90,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Yoriyuki Ikegami"
+    },
+    {
+      id: "30c-004",
+      set: "30c",
+      number: "004",
+      name: "Illumise",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "grass"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Ram",
+          cost: [
+            "grass",
+            "colorless"
+          ],
+          damage: 30,
+          text: ""
+        }
+      ],
+      abilities: [
+        {
+          name: "Supereffective Pheromones",
+          text: "If you have Volbeat in play, apply Weakness for both Active Pok\xE9mon as \xD73.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "Shibuzoh."
+    },
+    {
+      id: "30c-005",
+      set: "30c",
+      number: "005",
+      name: "Tropius",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "grass"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Rally Back",
+          cost: [
+            "grass",
+            "colorless"
+          ],
+          damage: 0,
+          text: "If any of your Pok\xE9mon were Knocked Out by damage from an attack during your opponent's last turn, this attack does 90 more damage."
+        },
+        {
+          name: "Cutting Wind",
+          cost: [
+            "grass",
+            "colorless",
+            "colorless"
+          ],
+          damage: 90,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Minahamu"
+    },
+    {
+      id: "30c-006",
+      set: "30c",
+      number: "006",
+      name: "Cherubi",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "grass"
+      ],
+      hp: 40,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Hide",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Flip a coin. If heads, during your opponent's next turn, prevent all damage from and effects of attacks done to this Pok\xE9mon."
+        },
+        {
+          name: "Flop",
+          cost: [
+            "grass"
+          ],
+          damage: 10,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Kurata So"
+    },
+    {
+      id: "30c-007",
+      set: "30c",
+      number: "007",
+      name: "Cherrim",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "grass"
+      ],
+      hp: 80,
+      stage: "Stage1",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Energy Gift",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Search your deck for up to 2 Basic Energy cards and attach them to your Pok\xE9mon in any way you like. Then, shuffle your deck."
+        },
+        {
+          name: "Leafage",
+          cost: [
+            "grass",
+            "colorless"
+          ],
+          damage: 50,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "takashi shiraishi"
+    },
+    {
+      id: "30c-008",
+      set: "30c",
+      number: "008",
+      name: "Vivillon",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "grass"
+      ],
+      hp: 120,
+      stage: "Stage2",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Poison Powder",
+          cost: [
+            "grass",
+            "colorless"
+          ],
+          damage: 60,
+          text: "Your opponent's Active Pok\xE9mon is now Poisoned."
+        }
+      ],
+      abilities: [
+        {
+          name: "Guiding Dance",
+          text: "Once during your turn, you may use this Ability. Flip a coin. If heads, search your deck for a Pok\xE9mon, reveal it, and put it into your hand. Then, shuffle your deck.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "Jerky"
+    },
+    {
+      id: "30c-009",
+      set: "30c",
+      number: "009",
+      name: "Vulpix",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "fire"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "water",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Wild Kick",
+          cost: [
+            "fire"
+          ],
+          damage: 30,
+          text: "Flip a coin. If tails, this attack does nothing."
+        }
+      ],
+      abilities: [],
+      illustrator: "miki kudo"
+    },
+    {
+      id: "30c-010",
+      set: "30c",
+      number: "010",
+      name: "Ninetales",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "fire"
+      ],
+      hp: 110,
+      stage: "Stage1",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "water",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Flame Tail",
+          cost: [
+            "fire"
+          ],
+          damage: 60,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "kodama"
+    },
+    {
+      id: "30c-011",
+      set: "30c",
+      number: "011",
+      name: "Moltres",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "fire"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "water",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Fire Spin",
+          cost: [
+            "fire",
+            "fire",
+            "colorless"
+          ],
+          damage: 130,
+          text: "Discard 2 Energy from this Pok\xE9mon."
+        }
+      ],
+      abilities: [
+        {
+          name: "Fiery Flapping",
+          text: "Once during your turn, if you have Articuno and Zapdos in play, you may use this Ability. Attach a Basic Fire Energy card from your hand to this Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "HYOGONOSUKE"
+    },
+    {
+      id: "30c-012",
+      set: "30c",
+      number: "012",
+      name: "Ho-Oh",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "fire"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "water",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Sacred Breath",
+          cost: [
+            "fire",
+            "fire"
+          ],
+          damage: 0,
+          text: "Discard all Energy from this Pok\xE9mon. Heal all damage from 1 of your Benched Pok\xE9mon."
+        },
+        {
+          name: "Fire Wing",
+          cost: [
+            "fire",
+            "fire",
+            "fire"
+          ],
+          damage: 100,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Anesaki Dynamic"
+    },
+    {
+      id: "30c-013",
+      set: "30c",
+      number: "013",
+      name: "Victini",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "fire"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "water",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Call for Family",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Search your deck for up to 2 Basic Pok\xE9mon and put them onto your Bench. Then, shuffle your deck."
+        },
+        {
+          name: "V-Flame",
+          cost: [
+            "fire",
+            "colorless"
+          ],
+          damage: 50,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Jiro Sasumo"
+    },
+    {
+      id: "30c-014",
+      set: "30c",
+      number: "014",
+      name: "Reshiram",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "fire"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "water",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Slash",
+          cost: [
+            "fire",
+            "colorless"
+          ],
+          damage: 50,
+          text: ""
+        },
+        {
+          name: "Laser Flame",
+          cost: [
+            "fire",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: 'If this Pok\xE9mon has any <span class="energy-symbol Lightning" title="Lightning">Lightning</span> Energy attached, this attack does 80 more damage.'
+        }
+      ],
+      abilities: [],
+      illustrator: "Uta"
+    },
+    {
+      id: "30c-015",
+      set: "30c",
+      number: "015",
+      name: "Fuecoco ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "fire"
+      ],
+      hp: 210,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "water",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Singe",
+          cost: [
+            "fire"
+          ],
+          damage: 0,
+          text: "Your opponent's Active Pok\xE9mon is now Burned."
+        },
+        {
+          name: "Cheerful Flame",
+          cost: [
+            "fire",
+            "fire",
+            "colorless"
+          ],
+          damage: 0,
+          text: "This attack does 70 damage for each Prize card you have taken."
+        }
+      ],
+      abilities: [],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-016",
+      set: "30c",
+      number: "016",
+      name: "Slowpoke",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Well-Hidden",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Flip a coin. If heads, during your opponent's next turn, prevent all damage from and effects of attacks done to this Pok\xE9mon."
+        },
+        {
+          name: "Water Gun",
+          cost: [
+            "water",
+            "colorless"
+          ],
+          damage: 20,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Uninori"
+    },
+    {
+      id: "30c-017",
+      set: "30c",
+      number: "017",
+      name: "Lapras",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "metal",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Ferry Across",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Search your deck for a Supporter card, reveal it, and put it into your hand. Then, shuffle your deck."
+        },
+        {
+          name: "Ice Beam",
+          cost: [
+            "water",
+            "colorless",
+            "colorless"
+          ],
+          damage: 80,
+          text: "Flip a coin. If heads, your opponent's Active Pok\xE9mon is now Paralyzed."
+        }
+      ],
+      abilities: [],
+      illustrator: "Masa"
+    },
+    {
+      id: "30c-018",
+      set: "30c",
+      number: "018",
+      name: "Articuno",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "metal",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Hail",
+          cost: [
+            "water",
+            "water",
+            "colorless"
+          ],
+          damage: 0,
+          text: "This attack does 30 damage to each of your opponent's Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        }
+      ],
+      abilities: [
+        {
+          name: "Frosty Flapping",
+          text: "Once during your turn, if you have Moltres and Zapdos in play, you may use this Ability. Attach a Basic Water Energy card from your hand to this Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "HYOGONOSUKE"
+    },
+    {
+      id: "30c-019",
+      set: "30c",
+      number: "019",
+      name: "Kyogre",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 140,
+      stage: "Basic",
+      retreat: 4,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Hydro Pump",
+          cost: [
+            "colorless",
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: 'This attack does 30 more damage for each <span class="energy-symbol Water" title="Water">Water</span> Energy attached to this Pok\xE9mon.'
+        }
+      ],
+      abilities: [],
+      illustrator: "Tonji Matsuno"
+    },
+    {
+      id: "30c-020",
+      set: "30c",
+      number: "020",
+      name: "Palkia",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Wormhole",
+          cost: [
+            "water",
+            "water",
+            "colorless"
+          ],
+          damage: 100,
+          text: "Switch this Pok\xE9mon with 1 of your Benched Pok\xE9mon. If you do, switch out your opponent's Active Pok\xE9mon to the Bench. <em>(Your opponent chooses the new Active Pok\xE9mon.)</em>"
+        }
+      ],
+      abilities: [],
+      illustrator: "kawayoo"
+    },
+    {
+      id: "30c-021",
+      set: "30c",
+      number: "021",
+      name: "Greninja ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 300,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Stealthy Slash",
+          cost: [
+            "water"
+          ],
+          damage: 0,
+          text: "This attack does 30 damage to 1 of your opponent's Pok\xE9mon for each damage counter on that Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        },
+        {
+          name: "Aqua Edge",
+          cost: [
+            "water",
+            "water"
+          ],
+          damage: 160,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-022",
+      set: "30c",
+      number: "022",
+      name: "Wishiwashi",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 30,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Surprise Attack",
+          cost: [
+            "water"
+          ],
+          damage: 30,
+          text: "Flip a coin. If tails, this attack does nothing."
+        }
+      ],
+      abilities: [
+        {
+          name: "Counterattack Grouping",
+          text: "If your Wishiwashi or Wishiwashi ex is in the Active Spot and is damaged by an attack from your opponent's Pok\xE9mon (even if your Pok\xE9mon		is Knocked Out), place 3 damage counters on the Attacking Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "Narano"
+    },
+    {
+      id: "30c-023",
+      set: "30c",
+      number: "023",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Thunder Shock",
+          cost: [
+            "lightning",
+            "colorless"
+          ],
+          damage: 20,
+          text: "Flip a coin. If heads, your opponent's Active Pok\xE9mon is now Paralyzed."
+        }
+      ],
+      abilities: [],
+      irVariation: 1,
+      illustrator: "Ken Sugimori"
+    },
+    {
+      id: "30c-024",
+      set: "30c",
+      number: "024",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Volt Tackle",
+          cost: [
+            "lightning",
+            "colorless",
+            "colorless"
+          ],
+          damage: 80,
+          text: "This Pok\xE9mon also does 30 damage to itself."
+        }
+      ],
+      abilities: [],
+      irVariation: 2,
+      illustrator: "danciao"
+    },
+    {
+      id: "30c-025",
+      set: "30c",
+      number: "025",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Spark",
+          cost: [
+            "lightning",
+            "colorless"
+          ],
+          damage: 20,
+          text: "This attack also does 20 damage to 1 of your opponent's Benched Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        }
+      ],
+      abilities: [],
+      irVariation: 3,
+      illustrator: "satoma"
+    },
+    {
+      id: "30c-026",
+      set: "30c",
+      number: "026",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Peer At",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Your opponent reveals their hand."
+        }
+      ],
+      abilities: [],
+      irVariation: 4,
+      illustrator: "Takeshi Nakamura"
+    },
+    {
+      id: "30c-027",
+      set: "30c",
+      number: "027",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Nap",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Heal 30 damage from this Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      irVariation: 5,
+      illustrator: "Asako Ito"
+    },
+    {
+      id: "30c-028",
+      set: "30c",
+      number: "028",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Pika Ball",
+          cost: [
+            "lightning",
+            "colorless"
+          ],
+          damage: 20,
+          text: ""
+        }
+      ],
+      abilities: [
+        {
+          name: "Lonely Gaze",
+          text: "As long as this Pok\xE9mon is in the Active Spot, attacks used by your opponent's Active Pok\xE9mon do 20 less damage (before applying Weakness and Resistance).",
+          type: "Ability"
+        }
+      ],
+      irVariation: 6,
+      illustrator: "sowsow"
+    },
+    {
+      id: "30c-029",
+      set: "30c",
+      number: "029",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Find a Friend",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Search your deck for a Pok\xE9mon, reveal it, and put it into your hand. Then, shuffle your deck."
+        }
+      ],
+      abilities: [],
+      irVariation: 7,
+      illustrator: "James Turner"
+    },
+    {
+      id: "30c-030",
+      set: "30c",
+      number: "030",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Mach Bolt",
+          cost: [
+            "lightning"
+          ],
+          damage: 30,
+          text: ""
+        }
+      ],
+      abilities: [],
+      irVariation: 8,
+      illustrator: "DOM"
+    },
+    {
+      id: "30c-031",
+      set: "30c",
+      number: "031",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 50,
+      stage: "Basic",
+      retreat: 0,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Gnaw",
+          cost: [
+            "colorless"
+          ],
+          damage: 10,
+          text: ""
+        }
+      ],
+      abilities: [],
+      irVariation: 9,
+      illustrator: "Atsushi Furusawa"
+    },
+    {
+      id: "30c-032",
+      set: "30c",
+      number: "032",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 50,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Scurry About",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Switch this Pok\xE9mon with 1 of your Benched Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      irVariation: 10,
+      illustrator: "Tomokazu Komiya"
+    },
+    {
+      id: "30c-033",
+      set: "30c",
+      number: "033",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Tiny Charge",
+          cost: [
+            "lightning"
+          ],
+          damage: 10,
+          text: ""
+        }
+      ],
+      abilities: [
+        {
+          name: "Keep Hidden",
+          text: "As long as this Pok\xE9mon is on your Bench, prevent all damage from and effects of attacks from your opponent's Pok\xE9mon done to this Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      irVariation: 11,
+      illustrator: "Narumi Sato"
+    },
+    {
+      id: "30c-034",
+      set: "30c",
+      number: "034",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Pika Chain",
+          cost: [
+            "lightning",
+            "lightning",
+            "lightning"
+          ],
+          damage: 0,
+          text: "This attack does 40 damage for each of your Pikachu and Pikachu <em>ex</em> in play."
+        }
+      ],
+      abilities: [],
+      irVariation: 12,
+      illustrator: "USGMEN"
+    },
+    {
+      id: "30c-035",
+      set: "30c",
+      number: "035",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Rollout",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 30,
+          text: ""
+        }
+      ],
+      abilities: [],
+      irVariation: 13,
+      illustrator: "Susumu Maeya"
+    },
+    {
+      id: "30c-036",
+      set: "30c",
+      number: "036",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Slight Intrusion",
+          cost: [
+            "lightning",
+            "colorless"
+          ],
+          damage: 40,
+          text: "This Pok\xE9mon also does 10 damage to itself."
+        }
+      ],
+      abilities: [],
+      irVariation: 14,
+      illustrator: "OKACHEKE"
+    },
+    {
+      id: "30c-037",
+      set: "30c",
+      number: "037",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Energized Tail",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Search your deck for an Energy card, reveal it, and put it into your hand. Then, shuffle your deck."
+        },
+        {
+          name: "Pika Punch",
+          cost: [
+            "lightning",
+            "colorless"
+          ],
+          damage: 30,
+          text: ""
+        }
+      ],
+      abilities: [],
+      irVariation: 15,
+      illustrator: "Yuu Nishida"
+    },
+    {
+      id: "30c-038",
+      set: "30c",
+      number: "038",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Targeted Spark",
+          cost: [
+            "lightning"
+          ],
+          damage: 0,
+          text: "This attack does 20 damage to 1 of your opponent's Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        }
+      ],
+      abilities: [],
+      irVariation: 16,
+      illustrator: "Tetsu Kayama"
+    },
+    {
+      id: "30c-039",
+      set: "30c",
+      number: "039",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Iron Tail",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Flip a coin until you get tails. This attack does 20 damage for each heads."
+        }
+      ],
+      abilities: [],
+      irVariation: 17,
+      illustrator: "Teeziro"
+    },
+    {
+      id: "30c-040",
+      set: "30c",
+      number: "040",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Overwriting Bolt",
+          cost: [
+            "lightning"
+          ],
+          damage: 10,
+          text: `The Defending Pok\xE9mon's Weakness is now <span class="energy-symbol Lightning" title="Lightning">Lightning</span> until the end of your next turn. <em>(Apply Weakness as \xD72.)</em>`
+        }
+      ],
+      abilities: [],
+      irVariation: 18,
+      illustrator: "Shinji Kanda"
+    },
+    {
+      id: "30c-041",
+      set: "30c",
+      number: "041",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Hang Down",
+          cost: [
+            "colorless"
+          ],
+          damage: 10,
+          text: ""
+        },
+        {
+          name: "Zap Kick",
+          cost: [
+            "lightning",
+            "colorless",
+            "colorless"
+          ],
+          damage: 40,
+          text: ""
+        }
+      ],
+      abilities: [],
+      irVariation: 19,
+      illustrator: "Rianti Hidayat"
+    },
+    {
+      id: "30c-042",
+      set: "30c",
+      number: "042",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Charge-Up Dash",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: 'Flip a coin until you get tails. Search your deck for an amount of Basic <span class="energy-symbol Lightning" title="Lightning">Lightning</span> Energy up to the number of heads and attach it to this Pok\xE9mon. Then, shuffle your deck.'
+        },
+        {
+          name: "Pika Bolt",
+          cost: [
+            "lightning",
+            "lightning",
+            "colorless"
+          ],
+          damage: 50,
+          text: ""
+        }
+      ],
+      abilities: [],
+      irVariation: 20,
+      illustrator: "Akira Komayama"
+    },
+    {
+      id: "30c-043",
+      set: "30c",
+      number: "043",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Tropical Vibes",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "This Pok\xE9mon is now Asleep. Draw cards until you have 6 cards in your hand."
+        }
+      ],
+      abilities: [],
+      irVariation: 21,
+      illustrator: "OOYAMA"
+    },
+    {
+      id: "30c-044",
+      set: "30c",
+      number: "044",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Agility",
+          cost: [
+            "colorless"
+          ],
+          damage: 10,
+          text: "Flip a coin. If heads, during your opponent's next turn, prevent all damage from and effects of attacks done to this Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      irVariation: 22,
+      illustrator: "akagi"
+    },
+    {
+      id: "30c-045",
+      set: "30c",
+      number: "045",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Nighttime Stroll",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Draw a card."
+        },
+        {
+          name: "Static Shock",
+          cost: [
+            "lightning",
+            "colorless"
+          ],
+          damage: 20,
+          text: ""
+        }
+      ],
+      abilities: [],
+      irVariation: 23,
+      illustrator: "Naoyo Kimura"
+    },
+    {
+      id: "30c-046",
+      set: "30c",
+      number: "046",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Get Some Air",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "This Pok\xE9mon recovers from all Special Conditions."
+        },
+        {
+          name: "Smash Kick",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 20,
+          text: ""
+        }
+      ],
+      abilities: [],
+      irVariation: 24,
+      illustrator: "svlt"
+    },
+    {
+      id: "30c-047",
+      set: "30c",
+      number: "047",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Play Rough",
+          cost: [
+            "colorless"
+          ],
+          damage: 10,
+          text: "Flip a coin. If heads, this attack does 20 more damage."
+        }
+      ],
+      abilities: [],
+      irVariation: 25,
+      illustrator: "Atsuko Nishida"
+    },
+    {
+      id: "30c-048",
+      set: "30c",
+      number: "048",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Store Up",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Put up to 2 Basic Energy cards from your discard pile into your hand."
+        }
+      ],
+      abilities: [],
+      irVariation: 26,
+      illustrator: "KIYOTAKA OSHIYAMA"
+    },
+    {
+      id: "30c-049",
+      set: "30c",
+      number: "049",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Fighting Lightning",
+          cost: [
+            "lightning",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "If your opponent's Active Pok\xE9mon is a Pok\xE9mon <em>ex</em>, this attack does 80 more damage."
+        }
+      ],
+      abilities: [],
+      irVariation: 27,
+      illustrator: "Nurikabe"
+    },
+    {
+      id: "30c-050",
+      set: "30c",
+      number: "050",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Satisfied Spark",
+          cost: [
+            "lightning",
+            "lightning",
+            "colorless",
+            "colorless"
+          ],
+          damage: 100,
+          text: ""
+        }
+      ],
+      abilities: [],
+      irVariation: 28,
+      illustrator: "Shimaris Yukichi"
+    },
+    {
+      id: "30c-051",
+      set: "30c",
+      number: "051",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Lightning Crash",
+          cost: [
+            "lightning",
+            "lightning",
+            "lightning"
+          ],
+          damage: 0,
+          text: `Discard all <span class="energy-symbol Lightning" title="Lightning">Lightning</span> Energy from this Pok\xE9mon, and this attack does 90 damage to 1 of your opponent's Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>`
+        }
+      ],
+      abilities: [],
+      irVariation: 29,
+      illustrator: "nagimiso"
+    },
+    {
+      id: "30c-052",
+      set: "30c",
+      number: "052",
+      name: "Pikachu",
+      rarity: "pikachu rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Angry Bolt",
+          cost: [
+            "lightning"
+          ],
+          damage: 0,
+          text: "This attack does 10 more damage for each damage counter on this Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      irVariation: 30,
+      illustrator: "Kazuki Minami"
+    },
+    {
+      id: "30c-053",
+      set: "30c",
+      number: "053",
+      name: "Pikachu ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 190,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Pika-Pika Parade",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Search your deck for any number of Basic Pok\xE9mon and put them onto your Bench. Then, shuffle your deck."
+        },
+        {
+          name: "Thunderbolt",
+          cost: [
+            "lightning",
+            "lightning",
+            "colorless"
+          ],
+          damage: 200,
+          text: "Discard all Energy from this Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-054",
+      set: "30c",
+      number: "054",
+      name: "Pikachu ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 190,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Zip-Zap Frenzy",
+          cost: [
+            "lightning"
+          ],
+          damage: 0,
+          text: "You may attach any number of Basic Energy cards from your hand to your Pok\xE9mon in any way you like."
+        },
+        {
+          name: "Thunder",
+          cost: [
+            "lightning",
+            "lightning",
+            "colorless"
+          ],
+          damage: 200,
+          text: "This Pok\xE9mon also does 30 damage to itself."
+        }
+      ],
+      abilities: [],
+      illustrator: "takuyoa"
+    },
+    {
+      id: "30c-055",
+      set: "30c",
+      number: "055",
+      name: "Zapdos",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Thundering Lightning",
+          cost: [
+            "lightning",
+            "lightning",
+            "lightning",
+            "colorless"
+          ],
+          damage: 210,
+          text: "This Pok\xE9mon also does 60 damage to itself."
+        }
+      ],
+      abilities: [
+        {
+          name: "Flash-Pop Flapping",
+          text: "Once during your turn, if you have Moltres and Articuno in play, you may use this Ability. Attach a Basic Lightning Energy card from your hand to this Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "HYOGONOSUKE"
+    },
+    {
+      id: "30c-056",
+      set: "30c",
+      number: "056",
+      name: "Zekrom",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Slash",
+          cost: [
+            "lightning",
+            "colorless"
+          ],
+          damage: 50,
+          text: ""
+        },
+        {
+          name: "Nitro Thunder",
+          cost: [
+            "lightning",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: 'If this Pok\xE9mon has any <span class="energy-symbol Fire" title="Fire">Fire</span> Energy attached, this attack does 80 more damage.'
+        }
+      ],
+      abilities: [],
+      illustrator: "akagi"
+    },
+    {
+      id: "30c-057",
+      set: "30c",
+      number: "057",
+      name: "Zeraora",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 110,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Rapid Draw",
+          cost: [
+            "colorless"
+          ],
+          damage: 20,
+          text: "Draw a card."
+        },
+        {
+          name: "Electrobullet",
+          cost: [
+            "lightning",
+            "colorless"
+          ],
+          damage: 50,
+          text: "This attack also does 20 damage to 1 of your opponent's Benched Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        }
+      ],
+      abilities: [],
+      illustrator: "Bun Toujo"
+    },
+    {
+      id: "30c-058",
+      set: "30c",
+      number: "058",
+      name: "Toxel",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Ram",
+          cost: [
+            "colorless"
+          ],
+          damage: 10,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Shimaris Yukichi"
+    },
+    {
+      id: "30c-059",
+      set: "30c",
+      number: "059",
+      name: "Toxtricity",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 130,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Mach Bolt",
+          cost: [
+            "lightning",
+            "colorless"
+          ],
+          damage: 80,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Haru Akasaka"
+    },
+    {
+      id: "30c-060",
+      set: "30c",
+      number: "060",
+      name: "Toxtricity",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 140,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Light Punch",
+          cost: [
+            "lightning"
+          ],
+          damage: 40,
+          text: ""
+        },
+        {
+          name: "Thunderous Bolt",
+          cost: [
+            "lightning",
+            "colorless",
+            "colorless"
+          ],
+          damage: 150,
+          text: "During your next turn, this Pok\xE9mon can't use attacks."
+        }
+      ],
+      abilities: [],
+      illustrator: "Yuriko Akase"
+    },
+    {
+      id: "30c-061",
+      set: "30c",
+      number: "061",
+      name: "Morpeko",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Select a Snack",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Discard the top 3 cards of your deck and put 1 of them into your hand."
+        },
+        {
+          name: "Slap",
+          cost: [
+            "lightning"
+          ],
+          damage: 30,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Naoki Saito"
+    },
+    {
+      id: "30c-062",
+      set: "30c",
+      number: "062",
+      name: "Miraidon",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Mach Bolt",
+          cost: [
+            "lightning"
+          ],
+          damage: 20,
+          text: ""
+        },
+        {
+          name: "Electro Drift",
+          cost: [
+            "lightning",
+            "lightning",
+            "colorless"
+          ],
+          damage: 140,
+          text: 'Discard 2 <span class="energy-symbol Lightning" title="Lightning">Lightning</span> Energy from this Pok\xE9mon.'
+        }
+      ],
+      abilities: [],
+      illustrator: "Kazumasa Yasukuni"
+    },
+    {
+      id: "30c-063",
+      set: "30c",
+      number: "063",
+      name: "Mewtwo",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Empower",
+          cost: [
+            "psychic"
+          ],
+          damage: 0,
+          text: "Attach up to 2 Basic Energy cards from your discard pile to 1 of your Pok\xE9mon."
+        },
+        {
+          name: "Psydrive",
+          cost: [
+            "psychic",
+            "psychic",
+            "colorless"
+          ],
+          damage: 120,
+          text: "Discard an Energy from this Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      illustrator: "nagimiso"
+    },
+    {
+      id: "30c-064",
+      set: "30c",
+      number: "064",
+      name: "Mewtwo ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 230,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Photon Bullets",
+          cost: [
+            "psychic",
+            "psychic"
+          ],
+          damage: 0,
+          text: "This attack does 50 damage to each of your opponent's Pok\xE9mon <em>ex</em>. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        },
+        {
+          name: "Psychic Powers",
+          cost: [
+            "psychic",
+            "psychic",
+            "psychic"
+          ],
+          damage: 230,
+          text: "During your next turn, this Pok\xE9mon can't use attacks."
+        }
+      ],
+      abilities: [],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-065",
+      set: "30c",
+      number: "065",
+      name: "Mew",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Psychic",
+          cost: [
+            "psychic",
+            "psychic"
+          ],
+          damage: 0,
+          text: "This attack does 40 more damage for each Energy attached to your opponent's Active Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      illustrator: "danciao"
+    },
+    {
+      id: "30c-066",
+      set: "30c",
+      number: "066",
+      name: "Mew ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 160,
+      stage: "Basic",
+      retreat: 0,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Teleportation Burst",
+          cost: [
+            "psychic"
+          ],
+          damage: 30,
+          text: "You may switch this Pok\xE9mon with 1 of your Benched Pok\xE9mon."
+        }
+      ],
+      abilities: [
+        {
+          name: "Memory Helix",
+          text: "This Pok\xE9mon can use the attacks of any of your Benched Pok\xE9mon. (You still need the necessary Energy to use each attack.)",
+          type: "Ability"
+        }
+      ],
+      illustrator: "aky CG Works"
+    },
+    {
+      id: "30c-067",
+      set: "30c",
+      number: "067",
+      name: "Marill",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "metal",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Tackle",
+          cost: [
+            "psychic",
+            "colorless"
+          ],
+          damage: 30,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Saya Tsuruta"
+    },
+    {
+      id: "30c-068",
+      set: "30c",
+      number: "068",
+      name: "Azumarill",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 130,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "metal",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Body Slam",
+          cost: [
+            "psychic",
+            "psychic",
+            "colorless"
+          ],
+          damage: 90,
+          text: "Flip a coin. If heads, your opponent's Active Pok\xE9mon is now Paralyzed."
+        }
+      ],
+      abilities: [],
+      illustrator: "Kagemaru Himeno"
+    },
+    {
+      id: "30c-069",
+      set: "30c",
+      number: "069",
+      name: "Espeon",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 110,
+      stage: "Stage1",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Miraculous Shine",
+          cost: [
+            "psychic",
+            "colorless"
+          ],
+          damage: 0,
+          text: "Devolve each of your opponent's evolved Pok\xE9mon by putting the highest Stage Evolution card on it into your opponent's hand."
+        },
+        {
+          name: "Super Psy Bolt",
+          cost: [
+            "psychic",
+            "colorless",
+            "colorless"
+          ],
+          damage: 90,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "aspara"
+    },
+    {
+      id: "30c-070",
+      set: "30c",
+      number: "070",
+      name: "Espeon ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 260,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Solar Beatdown",
+          cost: [
+            "psychic",
+            "colorless"
+          ],
+          damage: 0,
+          text: "This attack does 30 damage for each of your Pok\xE9mon in play."
+        }
+      ],
+      abilities: [],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-071",
+      set: "30c",
+      number: "071",
+      name: "Sylveon ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 270,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "metal",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Colorful Harmony",
+          cost: [
+            "psychic",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "This attack does 50 damage for each type of Basic Energy attached to all of your Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-072",
+      set: "30c",
+      number: "072",
+      name: "Unown",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Mysterious Signal",
+          cost: [
+            "psychic",
+            "psychic"
+          ],
+          damage: 40,
+          text: "If your opponent's Pok\xE9mon is Knocked Out by damage from this attack, take 1 more Prize card."
+        }
+      ],
+      abilities: [],
+      illustrator: "mingo"
+    },
+    {
+      id: "30c-073",
+      set: "30c",
+      number: "073",
+      name: "Drifloon",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Float Up",
+          cost: [
+            "psychic"
+          ],
+          damage: 20,
+          text: "You may shuffle this Pok\xE9mon and all attached cards into your deck."
+        }
+      ],
+      abilities: [],
+      illustrator: "Shinya Komatsu"
+    },
+    {
+      id: "30c-074",
+      set: "30c",
+      number: "074",
+      name: "Cresselia",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Aurora Gain",
+          cost: [
+            "psychic",
+            "colorless"
+          ],
+          damage: 30,
+          text: "Heal 30 damage from this Pok\xE9mon."
+        },
+        {
+          name: "Lunar Blast",
+          cost: [
+            "psychic",
+            "colorless",
+            "colorless"
+          ],
+          damage: 100,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "KEIICHIRO ITO"
+    },
+    {
+      id: "30c-075",
+      set: "30c",
+      number: "075",
+      name: "Chandelure",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 140,
+      stage: "Stage2",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Eerie Glow",
+          cost: [
+            "psychic",
+            "psychic"
+          ],
+          damage: 130,
+          text: "Your opponent's Active Pok\xE9mon is now Burned and Confused."
+        }
+      ],
+      abilities: [],
+      illustrator: "Yoshioka"
+    },
+    {
+      id: "30c-076",
+      set: "30c",
+      number: "076",
+      name: "Xerneas",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "metal",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Geonavigation",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Search your deck for up to 2 Stadium cards, reveal them, and put them into your hand. Then, shuffle your deck."
+        },
+        {
+          name: "Aurora Horns",
+          cost: [
+            "psychic",
+            "psychic",
+            "colorless"
+          ],
+          damage: 100,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "kodama"
+    },
+    {
+      id: "30c-077",
+      set: "30c",
+      number: "077",
+      name: "Comfey",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "metal",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Comforting Aroma",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Heal 80 damage from 1 of your Benched Pok\xE9mon."
+        },
+        {
+          name: "Magical Shot",
+          cost: [
+            "psychic"
+          ],
+          damage: 30,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "sui"
+    },
+    {
+      id: "30c-078",
+      set: "30c",
+      number: "078",
+      name: "Cosmog",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Splash",
+          cost: [
+            "colorless"
+          ],
+          damage: 10,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Mina Nakai"
+    },
+    {
+      id: "30c-079",
+      set: "30c",
+      number: "079",
+      name: "Cosmoem",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 100,
+      stage: "Stage1",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Stiffen",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "During your opponent's next turn, this Pok\xE9mon takes 60 less damage from attacks <em>(after applying Weakness and Resistance)</em>."
+        }
+      ],
+      abilities: [],
+      illustrator: "Masako Tomii"
+    },
+    {
+      id: "30c-080",
+      set: "30c",
+      number: "080",
+      name: "Lunala",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 160,
+      stage: "Stage2",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Midnight Ray",
+          cost: [
+            "psychic"
+          ],
+          damage: 0,
+          text: "This attack does 20 more damage for each Energy card in your discard pile."
+        },
+        {
+          name: "Lunar Blast",
+          cost: [
+            "psychic",
+            "colorless",
+            "colorless"
+          ],
+          damage: 120,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Bun Toujo"
+    },
+    {
+      id: "30c-081",
+      set: "30c",
+      number: "081",
+      name: "Gimmighoul",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Strolls So Much",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Flip a coin. If heads, search your deck for a card and put it into your hand. Then, shuffle your deck."
+        }
+      ],
+      abilities: [],
+      illustrator: "Fujimoto Gold"
+    },
+    {
+      id: "30c-082",
+      set: "30c",
+      number: "082",
+      name: "Groudon",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "fighting"
+      ],
+      hp: 140,
+      stage: "Basic",
+      retreat: 4,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Break Ground",
+          cost: [
+            "fighting",
+            "fighting",
+            "fighting",
+            "fighting",
+            "fighting"
+          ],
+          damage: 250,
+          text: "This attack also does 20 damage to each of your Benched Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        }
+      ],
+      abilities: [],
+      illustrator: "Takumi Wada"
+    },
+    {
+      id: "30c-083",
+      set: "30c",
+      number: "083",
+      name: "Lucario",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "fighting"
+      ],
+      hp: 120,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "psychic",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Aura Sphere",
+          cost: [
+            "fighting",
+            "fighting",
+            "colorless"
+          ],
+          damage: 100,
+          text: "This attack also does 60 damage to 1 of your opponent's Benched Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        }
+      ],
+      abilities: [],
+      illustrator: "Hideki Ishikawa"
+    },
+    {
+      id: "30c-084",
+      set: "30c",
+      number: "084",
+      name: "Seismitoad",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "fighting"
+      ],
+      hp: 160,
+      stage: "Stage2",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Quaking Fist",
+          cost: [
+            "fighting"
+          ],
+          damage: 60,
+          text: "During your opponent's next turn, whenever they try to use a Trainer card from their hand, they flip a coin. If tails, your opponent discards that Trainer card instead of using it."
+        },
+        {
+          name: "Mega Punch",
+          cost: [
+            "fighting",
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 180,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Kurata So"
+    },
+    {
+      id: "30c-085",
+      set: "30c",
+      number: "085",
+      name: "Lycanroc",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "fighting"
+      ],
+      hp: 130,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Counter",
+          cost: [
+            "fighting"
+          ],
+          damage: 0,
+          text: "If this Pok\xE9mon was damaged by an attack during your opponent's last turn, this attack does that much more damage."
+        },
+        {
+          name: "Boulder Crush",
+          cost: [
+            "fighting",
+            "fighting"
+          ],
+          damage: 80,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "matazo"
+    },
+    {
+      id: "30c-086",
+      set: "30c",
+      number: "086",
+      name: "Koraidon",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "fighting"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "psychic",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Low Kick",
+          cost: [
+            "fighting",
+            "fighting"
+          ],
+          damage: 50,
+          text: ""
+        },
+        {
+          name: "Collision Course",
+          cost: [
+            "fighting",
+            "fighting",
+            "colorless"
+          ],
+          damage: 140,
+          text: 'Discard 2 <span class="energy-symbol Fighting" title="Fighting">Fighting</span> Energy from this Pok\xE9mon.'
+        }
+      ],
+      abilities: [],
+      illustrator: "Mitsuhiro Arita"
+    },
+    {
+      id: "30c-087",
+      set: "30c",
+      number: "087",
+      name: "Nidoran\u2640",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Growl",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "During your opponent's next turn, attacks used by the Defending Pok\xE9mon do 30 less damage <em>(before applying Weakness and Resistance)</em>."
+        },
+        {
+          name: "Headbutt",
+          cost: [
+            "darkness"
+          ],
+          damage: 10,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Taira Akitsu"
+    },
+    {
+      id: "30c-088",
+      set: "30c",
+      number: "088",
+      name: "Nidorina",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 90,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Bite",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 30,
+          text: ""
+        }
+      ],
+      abilities: [
+        {
+          name: "Share Happiness",
+          text: "Once during your turn, you may use this Ability. Heal 30 damage from 1 of your Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "Miki Tanaka"
+    },
+    {
+      id: "30c-089",
+      set: "30c",
+      number: "089",
+      name: "Alolan Meowth",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Pay Day",
+          cost: [],
+          damage: 10,
+          text: "Draw a card."
+        }
+      ],
+      abilities: [],
+      illustrator: "Natsumi Yoshida"
+    },
+    {
+      id: "30c-090",
+      set: "30c",
+      number: "090",
+      name: "Gengar ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 280,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Chaotic Pain",
+          cost: [
+            "darkness",
+            "darkness"
+          ],
+          damage: 0,
+          text: "Place 13 damage counters on 1 of your opponent's Pok\xE9mon."
+        }
+      ],
+      abilities: [
+        {
+          name: "Fainting Spell",
+          text: "If this Pok\xE9mon is Knocked Out by damage from an attack from your opponent's Pok\xE9mon, flip a coin. If heads, the Attacking Pok\xE9mon is Knocked Out.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-091",
+      set: "30c",
+      number: "091",
+      name: "Umbreon",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 110,
+      stage: "Stage1",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Retaliate",
+          cost: [
+            "darkness"
+          ],
+          damage: 0,
+          text: "If any of your Pok\xE9mon were Knocked Out by damage from an attack during your opponent's last turn, this attack does 100 more damage."
+        },
+        {
+          name: "Darkness Fang",
+          cost: [
+            "darkness",
+            "colorless",
+            "colorless"
+          ],
+          damage: 100,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Iori Suzuki"
+    },
+    {
+      id: "30c-092",
+      set: "30c",
+      number: "092",
+      name: "Umbreon ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 270,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Lunatic Claw",
+          cost: [
+            "darkness",
+            "colorless"
+          ],
+          damage: 0,
+          text: "If your opponent's Active Pok\xE9mon already has any damage counters on it, this attack does 140 more damage."
+        }
+      ],
+      abilities: [],
+      illustrator: "Keisuke Azuma"
+    },
+    {
+      id: "30c-093",
+      set: "30c",
+      number: "093",
+      name: "Murkrow",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Clumsily Clutch",
+          cost: [
+            "darkness"
+          ],
+          damage: 20,
+          text: "Flip a coin. If heads, during your opponent's next turn, the Defending Pok\xE9mon can't retreat."
+        }
+      ],
+      abilities: [],
+      illustrator: "Kouki Saitou"
+    },
+    {
+      id: "30c-094",
+      set: "30c",
+      number: "094",
+      name: "Scraggy",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Nitpick",
+          cost: [
+            "darkness"
+          ],
+          damage: 0,
+          text: "Your opponent shuffles their hand into their deck and draws 4 cards."
+        },
+        {
+          name: "Corkscrew Punch",
+          cost: [
+            "darkness",
+            "colorless"
+          ],
+          damage: 30,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Souichirou Gunjima"
+    },
+    {
+      id: "30c-095",
+      set: "30c",
+      number: "095",
+      name: "Zorua",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Darkness Fang",
+          cost: [
+            "darkness",
+            "darkness"
+          ],
+          damage: 40,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Atsuya Uki"
+    },
+    {
+      id: "30c-096",
+      set: "30c",
+      number: "096",
+      name: "Zoroark",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 120,
+      stage: "Stage1",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Slashing Claw",
+          cost: [
+            "darkness",
+            "darkness",
+            "colorless"
+          ],
+          damage: 90,
+          text: ""
+        }
+      ],
+      abilities: [
+        {
+          name: "Nighttime Byway",
+          text: "As long as this Pok\xE9mon is on your Bench, your Active Pok\xE9mon's Retreat Cost is ColorlessColorless less.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "Shiburingaru"
+    },
+    {
+      id: "30c-097",
+      set: "30c",
+      number: "097",
+      name: "Deino",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Gnaw",
+          cost: [
+            "darkness"
+          ],
+          damage: 10,
+          text: ""
+        },
+        {
+          name: "Headbutt",
+          cost: [
+            "darkness",
+            "colorless"
+          ],
+          damage: 20,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Gapao"
+    },
+    {
+      id: "30c-098",
+      set: "30c",
+      number: "098",
+      name: "Zweilous",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 100,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Bite",
+          cost: [
+            "darkness"
+          ],
+          damage: 20,
+          text: ""
+        },
+        {
+          name: "Hammer In",
+          cost: [
+            "darkness",
+            "colorless"
+          ],
+          damage: 50,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "IKEDA Saki"
+    },
+    {
+      id: "30c-099",
+      set: "30c",
+      number: "099",
+      name: "Hydreigon",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 170,
+      stage: "Stage2",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Three-Headed Bite",
+          cost: [
+            "darkness"
+          ],
+          damage: 0,
+          text: "Flip 3 coins. For each heads, discard an Energy from your opponent's Active Pok\xE9mon."
+        },
+        {
+          name: "Pitch-Black Fangs",
+          cost: [
+            "darkness",
+            "colorless"
+          ],
+          damage: 140,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Ryuta Fuse"
+    },
+    {
+      id: "30c-100",
+      set: "30c",
+      number: "100",
+      name: "Yveltal",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Dark Cutter",
+          cost: [
+            "darkness",
+            "colorless",
+            "colorless"
+          ],
+          damage: 90,
+          text: ""
+        }
+      ],
+      abilities: [
+        {
+          name: "Life-Locked",
+          text: "Your opponent's Active Pok\xE9mon can't be healed.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "hncl"
+    },
+    {
+      id: "30c-101",
+      set: "30c",
+      number: "101",
+      name: "Galarian Meowth",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Pay Day",
+          cost: [
+            "colorless"
+          ],
+          damage: 10,
+          text: "Draw a card."
+        },
+        {
+          name: "Treasure Rush",
+          cost: [
+            "metal"
+          ],
+          damage: 0,
+          text: "This attack does 10 damage for each card in your hand."
+        }
+      ],
+      abilities: [],
+      illustrator: "M\xE9kayu"
+    },
+    {
+      id: "30c-102",
+      set: "30c",
+      number: "102",
+      name: "Jirachi ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      hp: 160,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Wish Granter",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Draw cards until you have 7 cards in your hand."
+        },
+        {
+          name: "Swift",
+          cost: [
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 150,
+          text: "This attack's damage isn't affected by Weakness or Resistance, or by any effects on your opponent's Active Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-103",
+      set: "30c",
+      number: "103",
+      name: "Dialga",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Reversed Clock",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Shuffle up to 3 in any combination of Pok\xE9mon and Basic Energy cards from your discard pile into your deck."
+        },
+        {
+          name: "Heavy Impact",
+          cost: [
+            "metal",
+            "metal",
+            "colorless"
+          ],
+          damage: 110,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "toriyufu"
+    },
+    {
+      id: "30c-104",
+      set: "30c",
+      number: "104",
+      name: "Ferrothorn",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      hp: 130,
+      stage: "Stage1",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Spike Sting",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 50,
+          text: ""
+        },
+        {
+          name: "Kaboom Needles",
+          cost: [
+            "metal",
+            "metal"
+          ],
+          damage: 0,
+          text: "This attack does 50 damage to each of your opponent's Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.) </em>This Pok\xE9mon also does 130 damage to itself."
+        }
+      ],
+      abilities: [],
+      illustrator: "Po-Suzuki"
+    },
+    {
+      id: "30c-105",
+      set: "30c",
+      number: "105",
+      name: "Solgaleo",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      hp: 170,
+      stage: "Stage2",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Sunsteel Strike",
+          cost: [
+            "metal",
+            "metal",
+            "colorless",
+            "colorless"
+          ],
+          damage: 220,
+          text: "Discard all Energy from this Pok\xE9mon."
+        }
+      ],
+      abilities: [
+        {
+          name: "Sunrise",
+          text: "Once during your turn, if this Pok\xE9mon is on your Bench, you may use this Ability. Search your deck for up to 2 Basic Metal Energy cards and attach them to this Pok\xE9mon. Then, shuffle your deck.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "Nurikabe"
+    },
+    {
+      id: "30c-106",
+      set: "30c",
+      number: "106",
+      name: "Zacian",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Hardened Blade",
+          cost: [
+            "metal"
+          ],
+          damage: 0,
+          text: "If this Pok\xE9mon has a Pok\xE9mon Tool attached, this attack does 40 more damage."
+        },
+        {
+          name: "Slashing Strike",
+          cost: [
+            "metal",
+            "metal",
+            "colorless"
+          ],
+          damage: 120,
+          text: "During your next turn, this Pok\xE9mon can't use Slashing Strike."
+        }
+      ],
+      abilities: [],
+      illustrator: "AKIRA EGAWA"
+    },
+    {
+      id: "30c-107",
+      set: "30c",
+      number: "107",
+      name: "Zamazenta",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Fend Off",
+          cost: [
+            "metal"
+          ],
+          damage: 20,
+          text: "Before doing damage, discard all Pok\xE9mon Tools from your opponent's Active Pok\xE9mon."
+        },
+        {
+          name: "Shield Press",
+          cost: [
+            "metal",
+            "metal",
+            "colorless"
+          ],
+          damage: 100,
+          text: "During your opponent's next turn, this Pok\xE9mon takes 50 less damage from attacks <em>(after applying Weakness and Resistance)</em>."
+        }
+      ],
+      abilities: [],
+      illustrator: "Tsuyoshi Nagano"
+    },
+    {
+      id: "30c-108",
+      set: "30c",
+      number: "108",
+      name: "Gholdengo",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      hp: 130,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Celebration",
+          cost: [
+            "metal"
+          ],
+          damage: 0,
+          text: "If you have exactly 30 cards in your hand, take 2 Prize cards. If you do, shuffle your hand into your deck."
+        },
+        {
+          name: "Triple Smash",
+          cost: [
+            "metal"
+          ],
+          damage: 0,
+          text: "Flip 3 coins. This attack does 50 damage for each heads."
+        }
+      ],
+      abilities: [],
+      illustrator: "Sanosuke Sakuma"
+    },
+    {
+      id: "30c-109",
+      set: "30c",
+      number: "109",
+      name: "Salamence ex",
+      suffix: "EX",
+      rarity: "double rare",
+      supertype: "pokemon",
+      types: [
+        "dragon"
+      ],
+      hp: 330,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [],
+      resistances: [],
+      attacks: [
+        {
+          name: "Booming Call",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: 'Put up to 3 <span class="energy-symbol Dragon" title="Dragon">Dragon</span> Pok\xE9mon from your discard pile onto your Bench.'
+        },
+        {
+          name: "Dragon Pulse",
+          cost: [
+            "fire",
+            "water"
+          ],
+          damage: 240,
+          text: "Discard the top 2 cards of your deck."
+        }
+      ],
+      abilities: [],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-110",
+      set: "30c",
+      number: "110",
+      name: "Jangmo-o",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "dragon"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [],
+      resistances: [],
+      attacks: [
+        {
+          name: "Screech",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "During your next turn, the Defending Pok\xE9mon takes 30 more damage from attacks <em>(after applying Weakness and Resistance)</em>."
+        },
+        {
+          name: "Dragon Claw",
+          cost: [
+            "lightning",
+            "fighting"
+          ],
+          damage: 40,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "miki kudo"
+    },
+    {
+      id: "30c-111",
+      set: "30c",
+      number: "111",
+      name: "Hakamo-o",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "dragon"
+      ],
+      hp: 90,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [],
+      resistances: [],
+      attacks: [
+        {
+          name: "Sharp Fang",
+          cost: [
+            "colorless"
+          ],
+          damage: 20,
+          text: ""
+        },
+        {
+          name: "Dragon Claw",
+          cost: [
+            "lightning",
+            "fighting"
+          ],
+          damage: 70,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Jiro Sasumo"
+    },
+    {
+      id: "30c-112",
+      set: "30c",
+      number: "112",
+      name: "Kommo-o",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "dragon"
+      ],
+      hp: 180,
+      stage: "Stage2",
+      retreat: 2,
+      weaknesses: [],
+      resistances: [],
+      attacks: [
+        {
+          name: "Blazing Uppercut",
+          cost: [
+            "lightning",
+            "fighting",
+            "colorless"
+          ],
+          damage: 250,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "MARINA Chikazawa"
+    },
+    {
+      id: "30c-113",
+      set: "30c",
+      number: "113",
+      name: "Meowth",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Pay Day",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 30,
+          text: "Draw a card."
+        }
+      ],
+      abilities: [],
+      illustrator: "MINAMINAMI Take"
+    },
+    {
+      id: "30c-114",
+      set: "30c",
+      number: "114",
+      name: "Kangaskhan",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Rage",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "This attack does 10 more damage for each damage counter on this Pok\xE9mon."
+        },
+        {
+          name: "Mega Punch",
+          cost: [
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 100,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Pani Kobayashi"
+    },
+    {
+      id: "30c-115",
+      set: "30c",
+      number: "115",
+      name: "Ditto",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Surprisingly Transform",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "Flip a coin. If heads, search your deck for a Pok\xE9mon and switch it with this Pok\xE9mon. Any attached cards, damage counters, Special Conditions, turns in play, and any other effects remain on the new Pok\xE9mon. If you switched a Pok\xE9mon in this way, put this card into your deck. Then, shuffle your deck."
+        }
+      ],
+      abilities: [],
+      illustrator: "Toshinao Aoki"
+    },
+    {
+      id: "30c-116",
+      set: "30c",
+      number: "116",
+      name: "Eevee",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Fetch and Hide",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Your opponent reveals their hand, and you put an Item card you find there on the bottom of your opponent's deck."
+        },
+        {
+          name: "Tackle",
+          cost: [
+            "colorless"
+          ],
+          damage: 10,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Wintr Wandr"
+    },
+    {
+      id: "30c-117",
+      set: "30c",
+      number: "117",
+      name: "Eevee",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Quick Attack",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "Flip a coin. If heads, this attack does 20 more damage."
+        }
+      ],
+      abilities: [],
+      illustrator: "En Morikura"
+    },
+    {
+      id: "30c-118",
+      set: "30c",
+      number: "118",
+      name: "Eevee",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Quick Attack",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "Flip a coin. If heads, this attack does 20 more damage."
+        }
+      ],
+      abilities: [],
+      illustrator: "Hitoshi Ariga"
+    },
+    {
+      id: "30c-119",
+      set: "30c",
+      number: "119",
+      name: "Snorlax",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 160,
+      stage: "Basic",
+      retreat: 4,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Collapse",
+          cost: [
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 130,
+          text: "This Pok\xE9mon is now Asleep."
+        }
+      ],
+      abilities: [
+        {
+          name: "Good Sleep",
+          text: "If this Pok\xE9mon remains Asleep during Pok\xE9mon Checkup, heal all damage from this Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "Aya Kusube"
+    },
+    {
+      id: "30c-120",
+      set: "30c",
+      number: "120",
+      name: "Igglybuff",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 30,
+      stage: "Basic",
+      retreat: 0,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Bouncy Circle",
+          cost: [],
+          damage: 0,
+          text: "This attack does 30 damage for each of your Benched Pok\xE9mon that has a maximum HP of 30."
+        }
+      ],
+      abilities: [],
+      illustrator: "Kanami Ogata"
+    },
+    {
+      id: "30c-121",
+      set: "30c",
+      number: "121",
+      name: "Lugia",
+      rarity: "rare",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Elemental Blast",
+          cost: [
+            "fire",
+            "water",
+            "lightning"
+          ],
+          damage: 250,
+          text: 'Discard a <span class="energy-symbol Fire" title="Fire">Fire</span> Energy, a <span class="energy-symbol Water" title="Water">Water</span> Energy, and a <span class="energy-symbol Lightning" title="Lightning">Lightning</span> Energy from this Pok\xE9mon.'
+        }
+      ],
+      abilities: [],
+      illustrator: "Kazuki Minami"
+    },
+    {
+      id: "30c-122",
+      set: "30c",
+      number: "122",
+      name: "Hisuian Zorua",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Scratch",
+          cost: [
+            "colorless"
+          ],
+          damage: 20,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Megumi Mizutani"
+    },
+    {
+      id: "30c-123",
+      set: "30c",
+      number: "123",
+      name: "Hisuian Zoroark",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 120,
+      stage: "Stage1",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Scratch",
+          cost: [
+            "colorless"
+          ],
+          damage: 30,
+          text: ""
+        },
+        {
+          name: "Swirling Resentment",
+          cost: [
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "Place damage counters on your opponent's Active Pok\xE9mon until its remaining HP is 50."
+        }
+      ],
+      abilities: [],
+      illustrator: "Kamome Shirahama"
+    },
+    {
+      id: "30c-124",
+      set: "30c",
+      number: "124",
+      name: "Minior",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 90,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Shoot Meteors",
+          cost: [
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "Discard all Energy from this Pok\xE9mon, and this attack does 120 damage to 1 of your opponent's Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        }
+      ],
+      abilities: [],
+      illustrator: "ryoma uratsuka"
+    },
+    {
+      id: "30c-125",
+      set: "30c",
+      number: "125",
+      name: "Maushold",
+      rarity: "common",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 80,
+      stage: "Stage1",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Gnaw Together",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Flip a coin for each Maushold you have in play. For each heads, discard the top 2 cards of your opponent's deck."
+        },
+        {
+          name: "Pound",
+          cost: [
+            "colorless"
+          ],
+          damage: 40,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Kariya"
+    },
+    {
+      id: "30c-126",
+      set: "30c",
+      number: "126",
+      name: "Pok\xE9 Pad",
+      rarity: "common",
+      supertype: "trainer",
+      types: [],
+      trainerType: "Item",
+      effect: "Search your deck for a Pok\xE9mon that doesn't have a Rule Box, reveal it, and put it into your hand. Then, shuffle your deck. (Pok\xE9mon ex, Pok\xE9mon V, etc. have Rule Boxes.)"
+    },
+    {
+      id: "30c-127",
+      set: "30c",
+      number: "127",
+      name: "Switch",
+      rarity: "common",
+      supertype: "trainer",
+      types: [],
+      trainerType: "Item",
+      effect: "Switch your Active Pok\xE9mon with 1 of your Benched Pok\xE9mon."
+    },
+    {
+      id: "30c-128",
+      set: "30c",
+      number: "128",
+      name: "Ultra Ball",
+      rarity: "common",
+      supertype: "trainer",
+      types: [],
+      trainerType: "Item",
+      effect: "You can use this card only if you discard 2 other cards from your hand. Search your deck for a Pok\xE9mon, reveal it, and put it into your hand. Then, shuffle your deck."
+    },
+    {
+      id: "30c-129",
+      set: "30c",
+      number: "129",
+      name: "Alolan Exeggutor",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "grass"
+      ],
+      hp: 150,
+      stage: "Stage1",
+      retreat: 4,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Mega Drain",
+          cost: [
+            "grass",
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 150,
+          text: "Heal 50 damage from this Pok\xE9mon."
+        }
+      ],
+      abilities: [
+        {
+          name: "Scale Up",
+          text: "If this Pok\xE9mon has 6 or more Grass Energy attached, it gets +250 HP.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "AYUMI ODASHIMA"
+    },
+    {
+      id: "30c-130",
+      set: "30c",
+      number: "130",
+      name: "Moltres",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "fire"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "water",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Fire Spin",
+          cost: [
+            "fire",
+            "fire",
+            "colorless"
+          ],
+          damage: 130,
+          text: "Discard 2 Energy from this Pok\xE9mon."
+        }
+      ],
+      abilities: [
+        {
+          name: "Fiery Flapping",
+          text: "Once during your turn, if you have Articuno and Zapdos in play, you may use this Ability. Attach a Basic Fire Energy card from your hand to this Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "mashu"
+    },
+    {
+      id: "30c-131",
+      set: "30c",
+      number: "131",
+      name: "Lapras",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 130,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "metal",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Ferry Across",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Search your deck for a Supporter card, reveal it, and put it into your hand. Then, shuffle your deck."
+        },
+        {
+          name: "Ice Beam",
+          cost: [
+            "water",
+            "colorless",
+            "colorless"
+          ],
+          damage: 80,
+          text: "Flip a coin. If heads, your opponent's Active Pok\xE9mon is now Paralyzed."
+        }
+      ],
+      abilities: [],
+      illustrator: "Amelicart"
+    },
+    {
+      id: "30c-132",
+      set: "30c",
+      number: "132",
+      name: "Articuno",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "metal",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Hail",
+          cost: [
+            "water",
+            "water",
+            "colorless"
+          ],
+          damage: 0,
+          text: "This attack does 30 damage to each of your opponent's Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        }
+      ],
+      abilities: [
+        {
+          name: "Frosty Flapping",
+          text: "Once during your turn, if you have Moltres and Zapdos in play, you may use this Ability. Attach a Basic Water Energy card from your hand to this Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "mashu"
+    },
+    {
+      id: "30c-133",
+      set: "30c",
+      number: "133",
+      name: "Zapdos",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Thundering Lightning",
+          cost: [
+            "lightning",
+            "lightning",
+            "lightning",
+            "colorless"
+          ],
+          damage: 210,
+          text: "This Pok\xE9mon also does 60 damage to itself."
+        }
+      ],
+      abilities: [
+        {
+          name: "Flash-Pop Flapping",
+          text: "Once during your turn, if you have Moltres and Articuno in play, you may use this Ability. Attach a Basic Lightning Energy card from your hand to this Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "mashu"
+    },
+    {
+      id: "30c-134",
+      set: "30c",
+      number: "134",
+      name: "Toxtricity",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 140,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Light Punch",
+          cost: [
+            "lightning"
+          ],
+          damage: 40,
+          text: ""
+        },
+        {
+          name: "Thunderous Bolt",
+          cost: [
+            "lightning",
+            "colorless",
+            "colorless"
+          ],
+          damage: 150,
+          text: "During your next turn, this Pok\xE9mon can't use attacks."
+        }
+      ],
+      abilities: [],
+      illustrator: "Kazumasa Yasukuni"
+    },
+    {
+      id: "30c-135",
+      set: "30c",
+      number: "135",
+      name: "Morpeko",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Select a Snack",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Discard the top 3 cards of your deck and put 1 of them into your hand."
+        },
+        {
+          name: "Slap",
+          cost: [
+            "lightning"
+          ],
+          damage: 30,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Yoshimi Miyoshi"
+    },
+    {
+      id: "30c-136",
+      set: "30c",
+      number: "136",
+      name: "Drifloon",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Float Up",
+          cost: [
+            "psychic"
+          ],
+          damage: 20,
+          text: "You may shuffle this Pok\xE9mon and all attached cards into your deck."
+        }
+      ],
+      abilities: [],
+      illustrator: "Whisker"
+    },
+    {
+      id: "30c-137",
+      set: "30c",
+      number: "137",
+      name: "Chandelure",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 140,
+      stage: "Stage2",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Eerie Glow",
+          cost: [
+            "psychic",
+            "psychic"
+          ],
+          damage: 130,
+          text: "Your opponent's Active Pok\xE9mon is now Burned and Confused."
+        }
+      ],
+      abilities: [],
+      illustrator: "YASHIRO Nanaco"
+    },
+    {
+      id: "30c-138",
+      set: "30c",
+      number: "138",
+      name: "Lycanroc",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "fighting"
+      ],
+      hp: 130,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Counter",
+          cost: [
+            "fighting"
+          ],
+          damage: 0,
+          text: "If this Pok\xE9mon was damaged by an attack during your opponent's last turn, this attack does that much more damage."
+        },
+        {
+          name: "Boulder Crush",
+          cost: [
+            "fighting",
+            "fighting"
+          ],
+          damage: 80,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Raita Kazama"
+    },
+    {
+      id: "30c-139",
+      set: "30c",
+      number: "139",
+      name: "Alolan Meowth",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Pay Day",
+          cost: [],
+          damage: 10,
+          text: "Draw a card."
+        }
+      ],
+      abilities: [],
+      illustrator: "OKUBO"
+    },
+    {
+      id: "30c-140",
+      set: "30c",
+      number: "140",
+      name: "Scraggy",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "grass",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Nitpick",
+          cost: [
+            "darkness"
+          ],
+          damage: 0,
+          text: "Your opponent shuffles their hand into their deck and draws 4 cards."
+        },
+        {
+          name: "Corkscrew Punch",
+          cost: [
+            "darkness",
+            "colorless"
+          ],
+          damage: 30,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "GOSSAN"
+    },
+    {
+      id: "30c-141",
+      set: "30c",
+      number: "141",
+      name: "Galarian Meowth",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Pay Day",
+          cost: [
+            "colorless"
+          ],
+          damage: 10,
+          text: "Draw a card."
+        },
+        {
+          name: "Treasure Rush",
+          cost: [
+            "metal"
+          ],
+          damage: 0,
+          text: "This attack does 10 damage for each card in your hand."
+        }
+      ],
+      abilities: [],
+      illustrator: "OKUBO"
+    },
+    {
+      id: "30c-142",
+      set: "30c",
+      number: "142",
+      name: "Gholdengo",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      hp: 130,
+      stage: "Stage1",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Celebration",
+          cost: [
+            "metal"
+          ],
+          damage: 0,
+          text: "If you have exactly 30 cards in your hand, take 2 Prize cards. If you do, shuffle your hand into your deck."
+        },
+        {
+          name: "Triple Smash",
+          cost: [
+            "metal"
+          ],
+          damage: 0,
+          text: "Flip 3 coins. This attack does 50 damage for each heads."
+        }
+      ],
+      abilities: [],
+      illustrator: "toriyufu"
+    },
+    {
+      id: "30c-143",
+      set: "30c",
+      number: "143",
+      name: "Kommo-o",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "dragon"
+      ],
+      hp: 180,
+      stage: "Stage2",
+      retreat: 2,
+      weaknesses: [],
+      resistances: [],
+      attacks: [
+        {
+          name: "Blazing Uppercut",
+          cost: [
+            "lightning",
+            "fighting",
+            "colorless"
+          ],
+          damage: 250,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "Gemi"
+    },
+    {
+      id: "30c-144",
+      set: "30c",
+      number: "144",
+      name: "Meowth",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Pay Day",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 30,
+          text: "Draw a card."
+        }
+      ],
+      abilities: [],
+      illustrator: "OKUBO"
+    },
+    {
+      id: "30c-145",
+      set: "30c",
+      number: "145",
+      name: "Hisuian Zorua",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Scratch",
+          cost: [
+            "colorless"
+          ],
+          damage: 20,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "0313"
+    },
+    {
+      id: "30c-146",
+      set: "30c",
+      number: "146",
+      name: "Maushold",
+      rarity: "illustration rare",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 80,
+      stage: "Stage1",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Gnaw Together",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Flip a coin for each Maushold you have in play. For each heads, discard the top 2 cards of your opponent's deck."
+        },
+        {
+          name: "Pound",
+          cost: [
+            "colorless"
+          ],
+          damage: 40,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "osare"
+    },
+    {
+      id: "30c-147",
+      set: "30c",
+      number: "147",
+      name: "Fuecoco ex",
+      suffix: "EX",
+      rarity: "special illustration rare",
+      supertype: "pokemon",
+      types: [
+        "fire"
+      ],
+      hp: 210,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "water",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Singe",
+          cost: [
+            "fire"
+          ],
+          damage: 0,
+          text: "Your opponent's Active Pok\xE9mon is now Burned."
+        },
+        {
+          name: "Cheerful Flame",
+          cost: [
+            "fire",
+            "fire",
+            "colorless"
+          ],
+          damage: 0,
+          text: "This attack does 70 damage for each Prize card you have taken."
+        }
+      ],
+      abilities: [],
+      illustrator: "Atsushi Furusawa"
+    },
+    {
+      id: "30c-148",
+      set: "30c",
+      number: "148",
+      name: "Greninja ex",
+      suffix: "EX",
+      rarity: "special illustration rare",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 300,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Stealthy Slash",
+          cost: [
+            "water"
+          ],
+          damage: 0,
+          text: "This attack does 30 damage to 1 of your opponent's Pok\xE9mon for each damage counter on that Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        },
+        {
+          name: "Aqua Edge",
+          cost: [
+            "water",
+            "water"
+          ],
+          damage: 160,
+          text: ""
+        }
+      ],
+      abilities: [],
+      illustrator: "GIDORA"
+    },
+    {
+      id: "30c-149",
+      set: "30c",
+      number: "149",
+      name: "Pikachu ex",
+      suffix: "EX",
+      rarity: "special illustration rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 190,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Pika-Pika Parade",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Search your deck for any number of Basic Pok\xE9mon and put them onto your Bench. Then, shuffle your deck."
+        },
+        {
+          name: "Thunderbolt",
+          cost: [
+            "lightning",
+            "lightning",
+            "colorless"
+          ],
+          damage: 200,
+          text: "Discard all Energy from this Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      illustrator: "kantaro"
+    },
+    {
+      id: "30c-150",
+      set: "30c",
+      number: "150",
+      name: "Pikachu ex",
+      suffix: "EX",
+      rarity: "special illustration rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 190,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Zip-Zap Frenzy",
+          cost: [
+            "lightning"
+          ],
+          damage: 0,
+          text: "You may attach any number of Basic Energy cards from your hand to your Pok\xE9mon in any way you like."
+        },
+        {
+          name: "Thunder",
+          cost: [
+            "lightning",
+            "lightning",
+            "colorless"
+          ],
+          damage: 200,
+          text: "This Pok\xE9mon also does 30 damage to itself."
+        }
+      ],
+      abilities: [],
+      illustrator: "kantaro"
+    },
+    {
+      id: "30c-151",
+      set: "30c",
+      number: "151",
+      name: "Mewtwo ex",
+      suffix: "EX",
+      rarity: "special illustration rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 230,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Photon Bullets",
+          cost: [
+            "psychic",
+            "psychic"
+          ],
+          damage: 0,
+          text: "This attack does 50 damage to each of your opponent's Pok\xE9mon <em>ex</em>. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        },
+        {
+          name: "Psychic Powers",
+          cost: [
+            "psychic",
+            "psychic",
+            "psychic"
+          ],
+          damage: 230,
+          text: "During your next turn, this Pok\xE9mon can't use attacks."
+        }
+      ],
+      abilities: [],
+      illustrator: "Yano Keiji"
+    },
+    {
+      id: "30c-152",
+      set: "30c",
+      number: "152",
+      name: "Mew ex",
+      suffix: "EX",
+      rarity: "special illustration rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 160,
+      stage: "Basic",
+      retreat: 0,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Teleportation Burst",
+          cost: [
+            "psychic"
+          ],
+          damage: 30,
+          text: "You may switch this Pok\xE9mon with 1 of your Benched Pok\xE9mon."
+        }
+      ],
+      abilities: [
+        {
+          name: "Memory Helix",
+          text: "This Pok\xE9mon can use the attacks of any of your Benched Pok\xE9mon. (You still need the necessary Energy to use each attack.)",
+          type: "Ability"
+        }
+      ],
+      illustrator: "Kuroimori"
+    },
+    {
+      id: "30c-153",
+      set: "30c",
+      number: "153",
+      name: "Sylveon ex",
+      suffix: "EX",
+      rarity: "special illustration rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 270,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "metal",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Colorful Harmony",
+          cost: [
+            "psychic",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "This attack does 50 damage for each type of Basic Energy attached to all of your Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      illustrator: "You Iribi"
+    },
+    {
+      id: "30c-154",
+      set: "30c",
+      number: "154",
+      name: "Gengar ex",
+      suffix: "EX",
+      rarity: "special illustration rare",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 280,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Chaotic Pain",
+          cost: [
+            "darkness",
+            "darkness"
+          ],
+          damage: 0,
+          text: "Place 13 damage counters on 1 of your opponent's Pok\xE9mon."
+        }
+      ],
+      abilities: [
+        {
+          name: "Fainting Spell",
+          text: "If this Pok\xE9mon is Knocked Out by damage from an attack from your opponent's Pok\xE9mon, flip a coin. If heads, the Attacking Pok\xE9mon is Knocked Out.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "CHORISO"
+    },
+    {
+      id: "30c-155",
+      set: "30c",
+      number: "155",
+      name: "Jirachi ex",
+      suffix: "EX",
+      rarity: "special illustration rare",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      hp: 160,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Wish Granter",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Draw cards until you have 7 cards in your hand."
+        },
+        {
+          name: "Swift",
+          cost: [
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 150,
+          text: "This attack's damage isn't affected by Weakness or Resistance, or by any effects on your opponent's Active Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      illustrator: "AKIRA EGAWA"
+    },
+    {
+      id: "30c-156",
+      set: "30c",
+      number: "156",
+      name: "Salamence ex",
+      suffix: "EX",
+      rarity: "special illustration rare",
+      supertype: "pokemon",
+      types: [
+        "dragon"
+      ],
+      hp: 330,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [],
+      resistances: [],
+      attacks: [
+        {
+          name: "Booming Call",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: 'Put up to 3 <span class="energy-symbol Dragon" title="Dragon">Dragon</span> Pok\xE9mon from your discard pile onto your Bench.'
+        },
+        {
+          name: "Dragon Pulse",
+          cost: [
+            "fire",
+            "water"
+          ],
+          damage: 240,
+          text: "Discard the top 2 cards of your deck."
+        }
+      ],
+      abilities: [],
+      illustrator: "Ryota Murayama"
+    },
+    {
+      id: "30c-157",
+      set: "30c",
+      number: "157",
+      name: "Mewtwo ex",
+      suffix: "EX",
+      rarity: "futuristic rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 230,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Photon Bullets",
+          cost: [
+            "psychic",
+            "psychic"
+          ],
+          damage: 0,
+          text: "This attack does 50 damage to each of your opponent's Pok\xE9mon <em>ex</em>. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        },
+        {
+          name: "Psychic Powers",
+          cost: [
+            "psychic",
+            "psychic",
+            "psychic"
+          ],
+          damage: 230,
+          text: "During your next turn, this Pok\xE9mon can't use attacks."
+        }
+      ],
+      abilities: [],
+      illustrator: "YOSHIROTTEN"
+    },
+    {
+      id: "30c-158",
+      set: "30c",
+      number: "158",
+      name: "Mew ex",
+      suffix: "EX",
+      rarity: "futuristic rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 160,
+      stage: "Basic",
+      retreat: 0,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Teleportation Burst",
+          cost: [
+            "psychic"
+          ],
+          damage: 30,
+          text: "You may switch this Pok\xE9mon with 1 of your Benched Pok\xE9mon."
+        }
+      ],
+      abilities: [
+        {
+          name: "Memory Helix",
+          text: "This Pok\xE9mon can use the attacks of any of your Benched Pok\xE9mon. (You still need the necessary Energy to use each attack.)",
+          type: "Ability"
+        }
+      ],
+      illustrator: "YOSHIROTTEN"
+    },
+    {
+      id: "30c-159",
+      set: "30c",
+      number: "159",
+      name: "Charizard",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "fire"
+      ],
+      hp: 120,
+      stage: "Stage2",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "water",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Fire Spin",
+          cost: [
+            "fire",
+            "fire",
+            "fire",
+            "fire"
+          ],
+          damage: 100,
+          text: "Discard 2 Energy cards attached to Charizard in order to use this attack."
+        }
+      ],
+      abilities: [
+        {
+          name: "Energy Burn",
+          text: "As often as you like during your turn (before your attack), you may turn all Energy attached to Charizard into Fire Energy for the rest of the turn. This power can't be used if Charizard is Asleep, Confused, or Paralyzed.",
+          type: "Pokemon Power"
+        }
+      ],
+      illustrator: "Mitsuhiro Arita"
+    },
+    {
+      id: "30c-160",
+      set: "30c",
+      number: "160",
+      name: "Delcatty",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 70,
+      stage: "Stage1",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Max Energy Source",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Does 10 damage times the amount of Energy attached to all of your Active Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      illustrator: "Atsuko Nishida"
+    },
+    {
+      id: "30c-161",
+      set: "30c",
+      number: "161",
+      name: "Metagross",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 100,
+      stage: "Stage2",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Crush and Burn",
+          cost: [
+            "lightning",
+            "metal"
+          ],
+          damage: 0,
+          text: "You may discard as many Energy cards as you like attached to your Pok\xE9mon in play. If you do, this attack does 30 damage plus 20 more damage for each Energy card you discarded."
+        }
+      ],
+      abilities: [],
+      illustrator: "Masakazu Fukuda"
+    },
+    {
+      id: "30c-162",
+      set: "30c",
+      number: "162",
+      name: "Genesect EX",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "grass"
+      ],
+      suffix: "EX",
+      hp: 170,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Megalo Cannon",
+          cost: [
+            "grass",
+            "grass",
+            "colorless"
+          ],
+          damage: 100,
+          text: "Does 20 damage to 1 of your opponent's Benched Pok\xE9mon. <em>	   (Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        }
+      ],
+      abilities: [
+        {
+          name: "Red Signal",
+          text: "When you attach a Plasma Energy from your hand to this Pok\xE9mon, you may switch 1 of your opponent's Benched Pok\xE9mon with his or her Active Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "Eske Yoshinob"
+    },
+    {
+      id: "30c-163",
+      set: "30c",
+      number: "163",
+      name: "Misty",
+      rarity: "classic rare",
+      supertype: "trainer",
+      types: [],
+      trainerType: "Supporter",
+      effect: "Discard 2 of the other cards in your hand in order to play this card. If this turn's attack does damage to the Defending Pok\xE9mon (after applying Weakness and Resistance), and if the attacking Pok\xE9mon has Misty in its name, the attack does 20 more damage to the Defending Pok\xE9mon."
+    },
+    {
+      id: "30c-164",
+      set: "30c",
+      number: "164",
+      name: "Dark Tyranitar",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 120,
+      stage: "Stage2",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "psychic",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Grind",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Does 10 damage plus 10 more damage for each Energy attached to Dark Tyranitar."
+        },
+        {
+          name: "Spinning Tail",
+          cost: [
+            "darkness",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "Does 20 damage to each of your opponent's Pok\xE9mon. <em>	   (Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        },
+        {
+          name: "Bite Off",
+          cost: [
+            "darkness",
+            "darkness",
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "If the Defending Pok\xE9mon is Pok\xE9mon-<em>ex</em>, this attack does 70 damage plus 50 more damage."
+        }
+      ],
+      abilities: [],
+      illustrator: "Nakaoka"
+    },
+    {
+      id: "30c-165",
+      set: "30c",
+      number: "165",
+      name: "Sneasel",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "darkness"
+      ],
+      hp: 60,
+      stage: "Basic",
+      retreat: 0,
+      weaknesses: [],
+      resistances: [
+        {
+          type: "psychic",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Fury Swipes",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Flip 3 coins. This attack does 10 damage times the number of heads."
+        },
+        {
+          name: "Beat Up",
+          cost: [
+            "darkness",
+            "darkness"
+          ],
+          damage: 0,
+          text: "Flip a coin for each of your Pok\xE9mon in play (including this one). This attack does 20 damage times the number of heads."
+        }
+      ],
+      abilities: [],
+      illustrator: "Ken Sugimori"
+    },
+    {
+      id: "30c-166",
+      set: "30c",
+      number: "166",
+      name: "Pikachu & Zekrom GX",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      suffix: "GX",
+      hp: 240,
+      stage: "Basic",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "metal",
+          value: "-20"
+        }
+      ],
+      attacks: [
+        {
+          name: "Full Blitz",
+          cost: [
+            "lightning",
+            "lightning",
+            "lightning"
+          ],
+          damage: 150,
+          text: 'Search your deck for up to 3 <span class="energy-symbol Lightning" title="Lightning">Lightning</span> Energy cards and attach them to 1 of your Pok\xE9mon. Then, shuffle your deck.'
+        },
+        {
+          name: "Tag Bolt {GX}",
+          cost: [
+            "lightning",
+            "lightning",
+            "lightning"
+          ],
+          damage: 200,
+          text: `If this Pok\xE9mon has at least 3 extra <span class="energy-symbol Lightning" title="Lightning">Lightning</span> Energy attached to it <em>(in addition to this attack's cost)</em>, this attack does 170 damage to 1 of your opponent's Benched Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.) (You can't use more than 1 <em>GX</em> attack in a game.)</em>`
+        }
+      ],
+      abilities: [],
+      illustrator: "Mitsuhiro Arita"
+    },
+    {
+      id: "30c-167",
+      set: "30c",
+      number: "167",
+      name: "Greninja BREAK",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 170,
+      stage: "BREAK",
+      retreat: 0,
+      weaknesses: [],
+      resistances: [],
+      attacks: [],
+      abilities: [
+        {
+          name: "Giant Water Shuriken",
+          text: "Once during your turn (before your attack)	   , if this Pok\xE9mon is your Active Pok\xE9mon, you may discard a Water Energy card from your hand. If you do, put 6 damage counters on 1 of your oppponent's Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-168",
+      set: "30c",
+      number: "168",
+      name: "Uxie",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 70,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "psychic",
+          value: "+20"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Psychic Restore",
+          cost: [
+            "colorless"
+          ],
+          damage: 20,
+          text: "You may put Uxie and all cards attached to it on the bottom of your deck in any order."
+        }
+      ],
+      abilities: [],
+      illustrator: "Ken Sugimori"
+    },
+    {
+      id: "30c-169",
+      set: "30c",
+      number: "169",
+      name: "Crobat G",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      suffix: "SP",
+      hp: 80,
+      stage: "Basic",
+      retreat: 0,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-20"
+        }
+      ],
+      attacks: [
+        {
+          name: "Toxic Fang",
+          cost: [
+            "psychic",
+            "colorless"
+          ],
+          damage: 0,
+          text: "The Defending Pok\xE9mon is now Poisoned. Put 2 damage counters instead of 1 on the Defending Pok\xE9mon between turns."
+        }
+      ],
+      abilities: [],
+      illustrator: "Makoto Imai"
+    },
+    {
+      id: "30c-170",
+      set: "30c",
+      number: "170",
+      name: "Raikou",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 110,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Amazing Shot",
+          cost: [
+            "grass",
+            "lightning",
+            "metal"
+          ],
+          damage: 120,
+          text: "This attack also does 120 damage to 1 of your opponent's Benched Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        }
+      ],
+      abilities: [],
+      illustrator: "Hideki Ishikawa"
+    },
+    {
+      id: "30c-171",
+      set: "30c",
+      number: "171",
+      name: "Buzzwole GX",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "fighting"
+      ],
+      suffix: "GX",
+      hp: 190,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "psychic",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Jet Punch",
+          cost: [
+            "fighting"
+          ],
+          damage: 30,
+          text: "This attack does 30 damage to 1 of your opponent's Benched Pok\xE9mon. <em>(Don't apply Weakness and Resistance for Benched Pok\xE9mon.)</em>"
+        },
+        {
+          name: "Knuckle Impact",
+          cost: [
+            "fighting",
+            "fighting",
+            "fighting"
+          ],
+          damage: 160,
+          text: "This Pok\xE9mon can't attack during your next turn."
+        },
+        {
+          name: "Absorption {GX}",
+          cost: [
+            "fighting",
+            "fighting",
+            "fighting"
+          ],
+          damage: 0,
+          text: "This attack does 40 damage for each of your remaining Prize cards. <em>(You can't use more than 1 <em>GX</em> attack in a game.)</em>"
+        }
+      ],
+      abilities: [],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-172",
+      set: "30c",
+      number: "172",
+      name: "Pikachu",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "lightning"
+      ],
+      hp: 40,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Gnaw",
+          cost: [
+            "colorless"
+          ],
+          damage: 10,
+          text: ""
+        },
+        {
+          name: "Thunder Jolt",
+          cost: [
+            "lightning",
+            "colorless"
+          ],
+          damage: 30,
+          text: "Flip a coin. If tails, Pikachu does 10 damage to itself."
+        }
+      ],
+      abilities: [],
+      illustrator: "Mitsuhiro Arita"
+    },
+    {
+      id: "30c-173",
+      set: "30c",
+      number: "173",
+      name: "Erika's Jigglypuff",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 50,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "psychic",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Group Therapy",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "You and your opponent remove 1 damage counter from each of your Pok\xE9mon with damage counters on them."
+        },
+        {
+          name: "Pulled Punch",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "If the Defending Pok\xE9mon has no damage counters on it, this attack does 40 damage. If it has any damage counters on it, this attack does 10 damage."
+        }
+      ],
+      abilities: [],
+      illustrator: "Ken Sugimori"
+    },
+    {
+      id: "30c-174",
+      set: "30c",
+      number: "174",
+      name: "Rayquaza EX",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "dragon"
+      ],
+      suffix: "EX",
+      hp: 170,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "dragon",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Celestial Roar",
+          cost: [
+            "colorless"
+          ],
+          damage: 0,
+          text: "Discard the top 3 cards of your deck. If any of those cards are Energy cards, attach them to this Pok\xE9mon."
+        },
+        {
+          name: "Dragon Burst",
+          cost: [
+            "fire",
+            "lightning"
+          ],
+          damage: 0,
+          text: 'Discard all basic <span class="energy-symbol Fire" title="Fire">Fire</span> Energy or all basic <span class="energy-symbol Lightning" title="Lightning">Lightning</span> Energy attached to this Pok\xE9mon. This attack does 60 damage times the number of Energy cards you discarded.'
+        }
+      ],
+      abilities: [],
+      illustrator: "Eske Yoshinob"
+    },
+    {
+      id: "30c-175",
+      set: "30c",
+      number: "175",
+      name: "Solgaleo GX",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      suffix: "GX",
+      hp: 250,
+      stage: "Basic",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "psychic",
+          value: "-20"
+        }
+      ],
+      attacks: [
+        {
+          name: "Sunsteel Strike",
+          cost: [
+            "metal",
+            "metal",
+            "colorless"
+          ],
+          damage: 230,
+          text: "Discard all Energy from this Pok\xE9mon."
+        },
+        {
+          name: "Sol Burst {GX}",
+          cost: [
+            "metal"
+          ],
+          damage: 0,
+          text: "Search your deck for up to 5 Energy cards and attach them to your Pok\xE9mon in any way you like. Then, shuffle your deck. <em>(You can't use more than 1 <em>GX</em> attack in a game.)</em>"
+        }
+      ],
+      abilities: [
+        {
+          name: "Ultra Road",
+          text: "Once during your turn		(before your attack), you may switch your Active Pok\xE9mon with 1 of your Benched Pok\xE9mon.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "PLANETA"
+    },
+    {
+      id: "30c-176",
+      set: "30c",
+      number: "176",
+      name: "Gengar",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 130,
+      stage: "Stage2",
+      retreat: 0,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "colorless",
+          value: "-20"
+        }
+      ],
+      attacks: [
+        {
+          name: "Hurl into Darkness",
+          cost: [
+            "psychic"
+          ],
+          damage: 0,
+          text: `Look at your opponent's hand and choose a number of Pok\xE9mon you find there up to the number of <span class="energy-symbol Psychic" title="Psychic">Psychic</span> Energy attached to Gengar. Put the Pok\xE9mon you chose in the Lost Zone.`
+        },
+        {
+          name: "Cursed Drop",
+          cost: [
+            "psychic",
+            "colorless"
+          ],
+          damage: 0,
+          text: "Put 4 damage counters on your opponent's Pok\xE9mon in any way you like."
+        }
+      ],
+      abilities: [],
+      illustrator: "Takashi Yamaguchi"
+    },
+    {
+      id: "30c-177",
+      set: "30c",
+      number: "177",
+      name: "Darkrai & Cresselia LEGEND",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      suffix: "Legend",
+      hp: 150,
+      stage: "Basic",
+      retreat: 0,
+      weaknesses: [],
+      resistances: [],
+      attacks: [],
+      abilities: [],
+      illustrator: "Shinji Higuchi + Noriko Takaya \u6A0B\u53E3 \u771F\u55E3 + \u9AD8\u5C4B \u6CD5\u5B50"
+    },
+    {
+      id: "30c-178",
+      set: "30c",
+      number: "178",
+      name: "Darkrai & Cresselia LEGEND",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      suffix: "Legend",
+      hp: 150,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "psychic",
+          value: ""
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Lost Crisis",
+          cost: [
+            "darkness",
+            "darkness",
+            "colorless",
+            "colorless"
+          ],
+          damage: 100,
+          text: "Choose 2 Energy attached to Darkrai & Cresselia LEGEND and put them into the Lost Zone. If any of your opponent's Pok\xE9mon would be Knocked Out by damage from this attack, put that Pok\xE9mon and all cards attached to it in the Lost Zone instead of discarding it."
+        },
+        {
+          name: "Moon's Invite",
+          cost: [
+            "psychic"
+          ],
+          damage: 0,
+          text: "Move as many damage counters on your opponent's Pok\xE9mon as you like to any of your opponent's other Pok\xE9mon in any way you like."
+        }
+      ],
+      abilities: [],
+      illustrator: "Shinji Higuchi"
+    },
+    {
+      id: "30c-179",
+      set: "30c",
+      number: "179",
+      name: "N",
+      rarity: "classic rare",
+      supertype: "trainer",
+      types: [],
+      trainerType: "Supporter",
+      effect: "Each player shuffles his or her hand into his or her deck. Then, each player draws a card for each of his or her remaining Prize cards."
+    },
+    {
+      id: "30c-180",
+      set: "30c",
+      number: "180",
+      name: "Palkia",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 120,
+      stage: "Basic",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Hydro Reflect",
+          cost: [
+            "water",
+            "water",
+            "water"
+          ],
+          damage: 60,
+          text: "You may move all Energy cards attached to Palkia to your Benched Pok\xE9mon in any way you like. (Ignore this effect if you don't have any Benched Pok\xE9mon.)"
+        }
+      ],
+      abilities: [],
+      illustrator: "Ryo Ueda"
+    },
+    {
+      id: "30c-181",
+      set: "30c",
+      number: "181",
+      name: "M Gardevoir EX",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      suffix: "EX",
+      hp: 210,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "metal",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "darkness",
+          value: "-20"
+        }
+      ],
+      attacks: [
+        {
+          name: "Brilliant Arrow",
+          cost: [
+            "psychic",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: 'This attack does 30 damage times the amount of <span class="energy-symbol Fairy" title="Fairy">Fairy</span> Energy attached to all of your Pok\xE9mon.'
+        }
+      ],
+      abilities: [],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-182",
+      set: "30c",
+      number: "182",
+      name: "Shining Celebi",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "grass"
+      ],
+      hp: 50,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Healing Water",
+          cost: [
+            "water"
+          ],
+          damage: 0,
+          text: 'Remove a number of damage counters from 1 of your Benched Pok\xE9mon equal to the number of <span class="energy-symbol Water" title="Water">Water</span> Energy cards attached to Shining Celebi. If the Pok\xE9mon has fewer damage counters than that, remove all of them.'
+        },
+        {
+          name: "Miracle Leaf",
+          cost: [
+            "grass",
+            "psychic"
+          ],
+          damage: 10,
+          text: "Flip a number of coins equal to the number of Energy attached to the Defending Pok\xE9mon. If you get 1 or more heads, the Defending Pok\xE9mon is now Asleep, Confused, or Poisoned (your choice)."
+        }
+      ],
+      abilities: [],
+      illustrator: "Hironobu Yoshida"
+    },
+    {
+      id: "30c-183",
+      set: "30c",
+      number: "183",
+      name: "Scizor ex",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      suffix: "EX",
+      hp: 120,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Steel Wing",
+          cost: [
+            "metal",
+            "colorless"
+          ],
+          damage: 40,
+          text: "During your opponent's next turn, any damage done to Scizor <em>ex</em> by attacks is reduced by 20 <em>(after applying Weakness and Resistance)</em>."
+        },
+        {
+          name: "Cross-Cut",
+          cost: [
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "If the Defending Pok\xE9mon is an Evolved Pok\xE9mon, this attack does 50 damage plus 30 more damage."
+        }
+      ],
+      abilities: [],
+      illustrator: "Mitsuhiro Arita"
+    },
+    {
+      id: "30c-184",
+      set: "30c",
+      number: "184",
+      name: "Mew VMAX",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "psychic"
+      ],
+      hp: 310,
+      stage: "VMAX",
+      retreat: 0,
+      weaknesses: [
+        {
+          type: "darkness",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "fighting",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Cross Fusion Strike",
+          cost: [
+            "colorless",
+            "colorless"
+          ],
+          damage: 0,
+          text: "Choose 1 of your Benched Fusion Strike Pok\xE9mon's attacks and use it as this attack."
+        },
+        {
+          name: "Max Miracle",
+          cost: [
+            "psychic",
+            "psychic"
+          ],
+          damage: 130,
+          text: "This attack's damage isn't affected by any effects on your opponent's Active Pok\xE9mon."
+        }
+      ],
+      abilities: [],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-185",
+      set: "30c",
+      number: "185",
+      name: "Arceus VSTAR",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 280,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fighting",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Trinity Nova",
+          cost: [
+            "colorless",
+            "colorless",
+            "colorless"
+          ],
+          damage: 200,
+          text: "Search your deck for up to 3 basic Energy cards and attach them to your Pok\xE9mon V in any way you like. Then, shuffle your deck."
+        }
+      ],
+      abilities: [
+        {
+          name: "Starbirth",
+          text: "During your turn, you may search your deck for up to 2 cards and put them into your hand. Then, shuffle your deck. (You can't use more than 1 VSTAR Power in a game.)",
+          type: "Ability"
+        }
+      ],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-186",
+      set: "30c",
+      number: "186",
+      name: "Zacian V",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "metal"
+      ],
+      suffix: "V",
+      hp: 220,
+      stage: "Basic",
+      retreat: 2,
+      weaknesses: [
+        {
+          type: "fire",
+          value: "\xD72"
+        }
+      ],
+      resistances: [
+        {
+          type: "grass",
+          value: "-30"
+        }
+      ],
+      attacks: [
+        {
+          name: "Brave Blade",
+          cost: [
+            "metal",
+            "metal",
+            "metal"
+          ],
+          damage: 230,
+          text: "During your next turn, this Pok\xE9mon can't attack."
+        }
+      ],
+      abilities: [
+        {
+          name: "Intrepid Sword",
+          text: "Once during your turn, you may look at the top 3 cards of your deck and attach any number of Metal Energy cards you find there to this Pok\xE9mon. Put the other cards into your hand. If you use this Ability, your turn ends.",
+          type: "Ability"
+        }
+      ],
+      illustrator: "5ban Graphics"
+    },
+    {
+      id: "30c-187",
+      set: "30c",
+      number: "187",
+      name: "Lugia",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "colorless"
+      ],
+      hp: 80,
+      stage: "Basic",
+      retreat: 3,
+      weaknesses: [
+        {
+          type: "psychic",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Psychic",
+          cost: [
+            "fire",
+            "psychic"
+          ],
+          damage: 0,
+          text: "This attack does 10 damage times the number of Energy cards attached to the Defending Pok\xE9mon."
+        },
+        {
+          name: "Steam Blast",
+          cost: [
+            "fire",
+            "water",
+            "water",
+            "colorless"
+          ],
+          damage: 50,
+          text: "Discard an Energy card attached to Lugia."
+        }
+      ],
+      abilities: [],
+      illustrator: "Naoyo Kimura"
+    },
+    {
+      id: "30c-188",
+      set: "30c",
+      number: "188",
+      name: "Magikarp",
+      rarity: "classic rare",
+      supertype: "pokemon",
+      types: [
+        "water"
+      ],
+      hp: 30,
+      stage: "Basic",
+      retreat: 1,
+      weaknesses: [
+        {
+          type: "lightning",
+          value: "\xD72"
+        }
+      ],
+      resistances: [],
+      attacks: [
+        {
+          name: "Expert Splasher",
+          cost: [
+            "water"
+          ],
+          damage: 0,
+          text: "Flip 2 coins. If both of them are heads, this attack does 20 more damage."
+        }
+      ],
+      abilities: [],
+      illustrator: "Shinji Kanda"
+    }
+  ]
+};
+
+// src/games/pokemon-bnb/sets.ts
+var SET_ENTRIES = [
+  { id: "30c", data: cards_default, pack: pack_default }
+];
+function listSets() {
+  return SET_ENTRIES;
+}
+function setCards(entry) {
+  return [...entry.data.cards];
+}
+
+// src/games/pokemon-bnb/game-core/constants.ts
+var DAMAGE_PER_COUNTER = 10;
+
+// src/games/pokemon-bnb/game-core/types.ts
+var STATUS_CONDITIONS = ["asleep", "paralyzed", "confused", "poisoned", "burned"];
+
+// src/games/pokemon-bnb/game-core/effects.ts
+function plainCardText(text) {
+  return text.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+var STATUS_WORDS = {
+  asleep: "asleep",
+  poisoned: "poisoned",
+  burned: "burned",
+  confused: "confused",
+  paralyzed: "paralyzed"
+};
+function parseAttackEffects(text) {
+  const plain = plainCardText(text).replace(
+    /\(\s*don't apply weakness and resistance for benched pokemon\.?\s*\)/gi,
+    " "
+  ).replace(/\(\s*apply weakness as\s*.?\d+\.?\s*\)/gi, " ");
+  if (!plain.trim()) return [];
+  const effects = [];
+  const sentences = plain.split(/(?<=\.)\s+/).filter((sentence) => sentence.trim().length > 0);
+  let pendingCoin = false;
+  let pendingCoinCount = 0;
+  let pendingHeadsPerOwnName = "";
+  let pendingUntilTails = false;
+  let pendingDiscardTypes = [];
+  let pendingAttachedDiscard = false;
+  let pendingStatusFlip = false;
+  for (const [sentenceIndex, sentence] of sentences.entries()) {
+    let durationWindow = function(raw) {
+      return raw.toLowerCase() === "your opponent's" ? "foe" : "self";
+    }, durationSubject = function(raw) {
+      return raw.toLowerCase() === "this" ? "attacker" : "defender";
+    };
+    const isLastSentence = sentenceIndex === sentences.length - 1;
+    const upToBench = sentence.match(
+      /^search your deck for (?:up to (\d+)|any number of) basic pokemon and put them onto your bench\.$/i
+    );
+    if (upToBench) {
+      effects.push({
+        kind: "searchDeckUpTo",
+        // BASIC, not "any Pokemon": only a Basic may legally sit on the Bench, and
+        // 013/053/149 both print the word.
+        filter: "basicPokemon",
+        to: "bench",
+        max: upToBench[1] ? Number(upToBench[1]) : Number.POSITIVE_INFINITY,
+        // 04.10 CP1 made the source zone explicit; the 04.9 deck texts read `'deck'`.
+        from: "deck"
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const upToStadium = sentence.match(
+      /^search your deck for up to (\d+) stadium cards?, reveal them, and put them into your hand\.$/i
+    );
+    if (upToStadium) {
+      effects.push({
+        kind: "searchDeckUpTo",
+        // STADIUM, not "any Trainer": an Item or Supporter is not a legal pick.
+        filter: "stadium",
+        to: "hand",
+        max: Number(upToStadium[1]),
+        from: "deck"
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const switchIn = sentence.match(/^switch in 1 of your opponent's benched pokemon to the active spot\.$/i);
+    if (switchIn) {
+      effects.push({ kind: "switchWithBenched", optional: false, foe: true });
+      pendingCoin = false;
+      continue;
+    }
+    const switchOwn = sentence.match(/^you may switch this pokemon with 1 of your benched pokemon\.$/i);
+    if (switchOwn) {
+      effects.push({ kind: "switchWithBenched", optional: true, foe: false });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^switch this pokemon with 1 of your benched pokemon\.$/i.test(sentence) && isLastSentence) {
+      effects.push({ kind: "switchWithBenched", optional: false, foe: false });
+      pendingCoin = false;
+      continue;
+    }
+    const lessDealt = sentence.match(
+      /^during your opponent's next turn, attacks used by the defending pokemon do (\d+) less damage\s*\(before applying weakness and resistance\)\s*\.?$/i
+    );
+    if (lessDealt) {
+      effects.push({ kind: "durationLessDamageDealt", whose: "foe", subject: "defender", amount: Number(lessDealt[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const perHeadsDiscardEnergy = sentence.match(
+      /^for each heads, discard an energy from your opponent's active pokemon\.?$/i
+    );
+    if (perHeadsDiscardEnergy && pendingCoinCount > 0) {
+      effects.push({ kind: "discardEnergyPerHead", flips: pendingCoinCount });
+      pendingCoinCount = 0;
+      continue;
+    }
+    const flipPerOwnName = sentence.match(
+      /^flip a coin for each (\w+) you have in play\.?$/i
+    );
+    if (flipPerOwnName) {
+      pendingHeadsPerOwnName = flipPerOwnName[1];
+      pendingCoin = false;
+      continue;
+    }
+    const perHeadsDiscardTop = sentence.match(
+      /^for each heads, discard the top (\d+) cards? of your opponent's deck\.?$/i
+    );
+    if (perHeadsDiscardTop && pendingHeadsPerOwnName) {
+      effects.push({
+        kind: "discardOpponentTopPerHead",
+        countPerHead: Number(perHeadsDiscardTop[1]),
+        perOwnName: pendingHeadsPerOwnName
+      });
+      pendingHeadsPerOwnName = "";
+      continue;
+    }
+    const lessDamage = sentence.match(
+      /^during (your|your opponent's) next turn, (this|the defending) pokemon takes (\d+) less damage from attacks\s*\(after applying weakness and resistance\)\s*\.?$/i
+    );
+    if (lessDamage) {
+      effects.push({
+        kind: "durationLessDamageTaken",
+        whose: durationWindow(lessDamage[1]),
+        subject: durationSubject(lessDamage[2]),
+        amount: Number(lessDamage[3])
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const moreDamage = sentence.match(
+      /^during (your|your opponent's) next turn, (this|the defending) pokemon takes (\d+) more damage from attacks\s*\(after applying weakness and resistance\)\s*\.?$/i
+    );
+    if (moreDamage) {
+      effects.push({
+        kind: "durationMoreDamageTaken",
+        whose: durationWindow(moreDamage[1]),
+        subject: durationSubject(moreDamage[2]),
+        amount: Number(moreDamage[3])
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const preventAll = sentence.match(
+      /^if heads, during (your|your opponent's) next turn, prevent all damage from and effects of attacks done to this pokemon\.?$/i
+    );
+    if (preventAll && pendingCoin) {
+      effects.push({ kind: "durationPreventAllDamage", whose: durationWindow(preventAll[1]), subject: "attacker" });
+      pendingCoin = false;
+      continue;
+    }
+    const lockRetreat = sentence.match(
+      /^if heads, during (your|your opponent's) next turn, the defending pokemon can't retreat\.?$/i
+    );
+    if (lockRetreat && pendingCoin) {
+      effects.push({ kind: "durationCantRetreat", whose: durationWindow(lockRetreat[1]), subject: "defender" });
+      pendingCoin = false;
+      continue;
+    }
+    const lockNamed = sentence.match(
+      /^during (your|your opponent's) next turn, (this|the defending) pokemon can't use (.+)\.$/i
+    );
+    if (lockNamed) {
+      const name = lockNamed[3];
+      const whose = durationWindow(lockNamed[1]);
+      const subject = durationSubject(lockNamed[2]);
+      effects.push(
+        /^attacks$/i.test(name) ? { kind: "durationCantAttack", whose, subject } : { kind: "durationCantUseAttack", whose, subject, attackName: name }
+      );
+      pendingCoin = false;
+      continue;
+    }
+    const discardEnergyToHand = sentence.match(
+      /^put up to (\d+) basic energy cards? from your discard pile into your hand\.$/i
+    );
+    if (discardEnergyToHand) {
+      effects.push({
+        kind: "searchDeckUpTo",
+        filter: "basicEnergy",
+        to: "hand",
+        max: Number(discardEnergyToHand[1]),
+        from: "discard"
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const discardMixedToDeck = sentence.match(
+      /^shuffle up to (\d+) in any combination of pokemon and basic energy cards? from your discard pile into your deck\.$/i
+    );
+    if (discardMixedToDeck) {
+      effects.push({
+        kind: "searchDeckUpTo",
+        filter: "pokemonOrEnergy",
+        to: "deck",
+        max: Number(discardMixedToDeck[1]),
+        from: "discard"
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const discardTypedToBench = sentence.match(
+      /^put up to (\d+) (\w+) pokemon from your discard pile onto your bench\.$/i
+    );
+    if (discardTypedToBench) {
+      effects.push({
+        kind: "searchDeckUpTo",
+        filter: "pokemon",
+        to: "bench",
+        max: Number(discardTypedToBench[1]),
+        from: "discard",
+        // Card text capitalises the type; `types` is lowercase, so fold it here.
+        requireType: discardTypedToBench[2].toLowerCase()
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const searchAnyCard = sentence.match(/^if heads, search your deck for a card and put it into your hand\.$/i);
+    if (searchAnyCard && pendingCoin) {
+      effects.push({ kind: "searchAnyToHand", coin: true });
+      pendingCoin = false;
+      continue;
+    }
+    const discardForPick = sentence.match(
+      /^discard the top (\d+) cards of your deck and put 1 of them into your hand\.$/i
+    );
+    if (discardForPick) {
+      effects.push({ kind: "discardTopForPick", count: Number(discardForPick[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const toRemainingHp = sentence.match(
+      /^place damage counters on your opponent's active pokemon until its remaining hp is (\d+)\.$/i
+    );
+    if (toRemainingHp) {
+      effects.push({ kind: "setDamageToRemainingHp", hp: Number(toRemainingHp[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const healChosen = sentence.match(
+      /^heal (\d+|all) damage from 1 of your benched pokemon\.$/i
+    );
+    if (healChosen) {
+      effects.push({
+        kind: "healChosenTarget",
+        amount: healChosen[1].toLowerCase() === "all" ? "all" : Number(healChosen[1])
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const selfHit = sentence.match(/^this pokemon also does (\d+) damage to itself\.$/i);
+    if (selfHit) {
+      effects.push({ kind: "selfDamage", amount: Number(selfHit[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const ownBenchSpread = sentence.match(
+      /^this attack also does (\d+) damage to each of your benched pokemon\.$/i
+    );
+    if (ownBenchSpread) {
+      effects.push({ kind: "spreadOwnBench", amount: Number(ownBenchSpread[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^this attack's damage isn't affected by weakness or resistance,? or by any effects on your opponent's active pokemon\.$/i.test(sentence)) {
+      effects.push({ kind: "noWeakness" });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^this attack's damage isn't affected by any effects on your opponent's active pokemon\.$/i.test(sentence)) {
+      effects.push({ kind: "noWeakness" });
+      pendingCoin = false;
+      continue;
+    }
+    const zipZap = sentence.match(
+      /^you may attach any number of basic energy cards from your hand to your pokemon in any way you like\.$/i
+    );
+    if (zipZap) {
+      effects.push({
+        kind: "searchAttachEnergy",
+        from: "hand",
+        max: Number.POSITIVE_INFINITY,
+        target: "perCard",
+        optional: true
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const floatUp = sentence.match(
+      /^you may shuffle this pokemon and all attached cards into your deck\.$/i
+    );
+    if (floatUp) {
+      effects.push({ kind: "shuffleSelfIntoDeck", optional: true });
+      pendingCoin = false;
+      continue;
+    }
+    const timesOwn = sentence.match(
+      /^(?:this attack )?does (\d+) damage times the (?:amount|number) of (?:(\w+) )?energy attached to all of your active pokemon\.$/i
+    );
+    if (timesOwn) {
+      effects.push({
+        kind: "damageTimesEnergy",
+        base: Number(timesOwn[1]),
+        scope: "self",
+        ...timesOwn[2] ? { energyType: timesOwn[2].toLowerCase() } : {}
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const timesAll = sentence.match(
+      /^this attack does (\d+) damage times the amount of (\w+) energy attached to all of your pokemon\.$/i
+    );
+    if (timesAll) {
+      effects.push({
+        kind: "damageTimesEnergy",
+        base: Number(timesAll[1]),
+        scope: "allOwn",
+        energyType: timesAll[2].toLowerCase()
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const timesDefender = sentence.match(
+      /^this attack does (\d+) damage times the number of energy cards attached to the defending pokemon\.$/i
+    );
+    if (timesDefender) {
+      effects.push({ kind: "damageTimesEnergy", base: Number(timesDefender[1]), scope: "defender" });
+      pendingCoin = false;
+      continue;
+    }
+    const perOwnEnergyNamed = sentence.match(
+      /^does (\d+) damage plus (\d+) more damage for each energy attached to \w[\w ]*?\.$/i
+    );
+    if (perOwnEnergyNamed) {
+      effects.push({ kind: "bonusDamage", amount: Number(perOwnEnergyNamed[1]), coin: false });
+      effects.push({ kind: "bonusDamagePerAttachedEnergy", amount: Number(perOwnEnergyNamed[2]) });
+      pendingCoin = false;
+      continue;
+    }
+    const branchedClean = sentence.match(
+      /^if the defending pokemon has no damage counters on it, this attack does (\d+) damage\.$/i
+    );
+    if (branchedClean) {
+      effects.push({ kind: "branchingDamageOnDefenderCounters", clean: Number(branchedClean[1]), damaged: 0 });
+      pendingCoin = false;
+      continue;
+    }
+    const branchedDamaged = sentence.match(
+      /^if it has any damage counters on it, this attack does (\d+) damage\.$/i
+    );
+    if (branchedDamaged) {
+      const existing = effects.find((e) => e.kind === "branchingDamageOnDefenderCounters");
+      if (existing && existing.kind === "branchingDamageOnDefenderCounters") {
+        existing.damaged = Number(branchedDamaged[1]);
+      } else {
+        effects.push({ kind: "branchingDamageOnDefenderCounters", clean: 0, damaged: Number(branchedDamaged[1]) });
+      }
+      pendingCoin = false;
+      continue;
+    }
+    const benchedOnlyAny = sentence.match(
+      /^(?:this attack )?does (\d+) damage to 1 of your opponent's benched pokemon\.$/i
+    );
+    if (benchedOnlyAny) {
+      effects.push({ kind: "damageChosenTarget", amount: Number(benchedOnlyAny[1]), benchedOnly: true });
+      pendingCoin = false;
+      continue;
+    }
+    const spreadPlain = sentence.match(/^does (\d+) damage to each of your opponent's pokemon\.$/i);
+    if (spreadPlain) {
+      effects.push({ kind: "spreadDamage", amount: Number(spreadPlain[1]), exOnly: false });
+      pendingCoin = false;
+      continue;
+    }
+    const defenderExBase = sentence.match(
+      /^if the defending pokemon is pokemon-\s*ex\s*, this attack does (\d+) damage plus (\d+) more damage\.$/i
+    );
+    if (defenderExBase) {
+      effects.push({ kind: "bonusDamage", amount: Number(defenderExBase[1]), coin: false });
+      effects.push({ kind: "bonusDamageIfDefenderIsEx", amount: Number(defenderExBase[2]) });
+      pendingCoin = false;
+      continue;
+    }
+    const defenderEvolvedBase = sentence.match(
+      /^if the defending pokemon is an evolved pokemon, this attack does (\d+) damage plus (\d+) more damage\.$/i
+    );
+    if (defenderEvolvedBase) {
+      effects.push({ kind: "bonusDamage", amount: Number(defenderEvolvedBase[1]), coin: false });
+      effects.push({ kind: "bonusDamageIfDefenderIsEvolved", amount: Number(defenderEvolvedBase[2]) });
+      pendingCoin = false;
+      continue;
+    }
+    const foeNextTurnReduction = sentence.match(
+      /^during your opponent's next turn, any damage done to \w[\w ]*? by attacks is reduced by (\d+)(?:\s*\(after applying weakness and resistance\))?\s*\.?$/i
+    );
+    if (foeNextTurnReduction) {
+      effects.push({
+        kind: "durationLessDamageTaken",
+        whose: "foe",
+        subject: "attacker",
+        amount: Number(foeNextTurnReduction[1])
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const selfHitNamed = sentence.match(/^if tails, \w[\w ]*? does (\d+) damage to itself\.$/i);
+    if (selfHitNamed) {
+      effects.push({ kind: "selfDamage", amount: Number(selfHitNamed[1]), coin: true });
+      pendingCoin = false;
+      continue;
+    }
+    const discardNamedSelf = sentence.match(/^discard an energy card attached to \w[\w ]*?\.$/i);
+    if (discardNamedSelf) {
+      effects.push({ kind: "discardEnergy", amount: 1 });
+      pendingCoin = false;
+      continue;
+    }
+    const poisonCounterCount = sentence.match(
+      /^put (\d+) damage counters instead of \d+ on the defending pokemon between turns\.?$/i
+    );
+    if (poisonCounterCount) {
+      effects.push({ kind: "setPoisonCounters", counters: Number(poisonCounterCount[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const flipPerDefenderEnergy = sentence.match(
+      /^flip a number of coins equal to the number of energy attached to the defending pokemon\.?$/i
+    );
+    if (flipPerDefenderEnergy) {
+      pendingStatusFlip = true;
+      pendingCoin = false;
+      continue;
+    }
+    const statusOnHeads = sentence.match(
+      /^if you get 1 or more heads, the defending pokemon is now (asleep|confused|poisoned)(?:, (\w+))?(?:, or (\w+))? \(your choice\)\.?$/i
+    );
+    if (statusOnHeads && pendingStatusFlip) {
+      const named = [statusOnHeads[1], statusOnHeads[2], statusOnHeads[3]].filter((v) => Boolean(v)).map((v) => v.toLowerCase()).filter((v) => STATUS_CONDITIONS.includes(v));
+      effects.push({ kind: "flipCoinsPerDefenderEnergyThenStatus", conditions: named });
+      pendingStatusFlip = false;
+      pendingCoin = false;
+      continue;
+    }
+    const mayMoveAttachedToBench = sentence.match(
+      /^you may move all energy cards attached to \w[\w ]*? to your benched pokemon in any way you like\.?$/i
+    );
+    if (mayMoveAttachedToBench) {
+      effects.push({ kind: "moveAttachedEnergyToBench", optional: true });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^\(?ignore this effect if you don't have any benched pokemon\.?\)?$/i.test(sentence)) {
+      continue;
+    }
+    const mayDiscardAnyAttached = sentence.match(
+      /^you may discard as many energy cards as you like attached to your pokemon in play\.?$/i
+    );
+    if (mayDiscardAnyAttached) {
+      pendingAttachedDiscard = true;
+      pendingCoin = false;
+      continue;
+    }
+    const bonusPerDiscardedAttached = sentence.match(
+      /^if you do, this attack does (\d+) damage plus (\d+) more damage for each energy card you discarded\.?$/i
+    );
+    if (bonusPerDiscardedAttached && pendingAttachedDiscard) {
+      effects.push({
+        kind: "discardAttachedEnergyThenBonusDamage",
+        base: Number(bonusPerDiscardedAttached[1]),
+        perCard: Number(bonusPerDiscardedAttached[2])
+      });
+      pendingAttachedDiscard = false;
+      pendingCoin = false;
+      continue;
+    }
+    const discardOneOfTwoTypes = sentence.match(
+      /^discard all basic (\w+) energy or all basic (\w+) energy attached to \w[\w ]*?\.?$/i
+    );
+    if (discardOneOfTwoTypes) {
+      pendingDiscardTypes = [discardOneOfTwoTypes[1].toLowerCase(), discardOneOfTwoTypes[2].toLowerCase()];
+      pendingCoin = false;
+      continue;
+    }
+    const timesDiscardedCount = sentence.match(
+      /^this attack does (\d+) damage times the number of energy cards you discarded\.?$/i
+    );
+    if (timesDiscardedCount && pendingDiscardTypes.length > 0) {
+      effects.push({
+        kind: "discardEnergyTypeThenTimesDamage",
+        types: pendingDiscardTypes,
+        perCard: Number(timesDiscardedCount[1])
+      });
+      pendingDiscardTypes = [];
+      pendingCoin = false;
+      continue;
+    }
+    const discardToUseAttack = sentence.match(
+      /^discard (\d+) energy cards? attached to \w[\w ]*? in order to use this attack\.?$/i
+    );
+    if (discardToUseAttack) {
+      effects.push({ kind: "discardEnergyCost", count: Number(discardToUseAttack[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const healBothSides = sentence.match(
+      /^you and your opponent remove (\d+) damage counters? from each of your pokemon with damage counters on them\.?$/i
+    );
+    if (healBothSides) {
+      effects.push({ kind: "healAllSides", amount: Number(healBothSides[1]) * DAMAGE_PER_COUNTER });
+      pendingCoin = false;
+      continue;
+    }
+    const healPerEnergy = sentence.match(
+      /^remove a number of damage counters from 1 of your benched pokemon equal to the number of (\w+) energy cards attached to \w[\w ]*?\.$/i
+    );
+    if (healPerEnergy) {
+      effects.push({ kind: "healChosenPerEnergyType", energyType: healPerEnergy[1].toLowerCase() });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^if the pokemon has fewer damage counters than that, remove all of them\.?$/i.test(sentence)) {
+      continue;
+    }
+    const selfTurnLock = sentence.match(/^this pokemon can't attack during your next turn\.$/i);
+    if (selfTurnLock) {
+      effects.push({ kind: "durationCantAttack", whose: "self", subject: "attacker" });
+      pendingCoin = false;
+      continue;
+    }
+    const selfTurnLockInverted = sentence.match(/^during your next turn, this pokemon can't attack\.$/i);
+    if (selfTurnLockInverted) {
+      effects.push({ kind: "durationCantAttack", whose: "self", subject: "attacker" });
+      pendingCoin = false;
+      continue;
+    }
+    const attachToOne = sentence.match(
+      /^search your deck for up to (\d+) (\w+) energy cards and attach them to 1 of your pokemon\.$/i
+    );
+    if (attachToOne) {
+      effects.push({
+        kind: "searchAttachEnergy",
+        from: "deck",
+        energyType: attachToOne[2].toLowerCase(),
+        max: Number(attachToOne[1]),
+        target: "oneForAll"
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const attachAnyWay = sentence.match(
+      /^search your deck for up to (\d+) basic energy cards and attach them to your \w[\w ]*? in any way you like\.$/i
+    );
+    if (attachAnyWay) {
+      effects.push({
+        kind: "searchAttachEnergy",
+        from: "deck",
+        max: Number(attachAnyWay[1]),
+        target: "perCard"
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const energyGift = sentence.match(
+      // 04.12 CP15 / 175 Solgaleo GX: "basic" is made OPTIONAL here rather than by adding a
+      // second near-identical pattern. 175 prints "up to 5 ENERGY cards"; 007 prints "up to 2
+      // BASIC Energy cards". **Two patterns differing only by one optional word drift apart
+      // the first time either is edited** — which is precisely what happened the first time
+      // I wrote this as a separate 175 pattern: it included "Then, shuffle your deck", but
+      // the parser splits SENTENCES, so that clause arrives separately and the pattern could
+      // never match. Widening this one keeps the pair together.
+      /^search your deck for up to (\d+) (?:basic )?energy cards and attach them to your pokemon in any way you like\.?$/i
+    );
+    if (energyGift) {
+      effects.push({
+        kind: "searchAttachEnergy",
+        from: "deck",
+        max: Number(energyGift[1]),
+        target: "perCard"
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const chargeUp = sentence.match(
+      /^search your deck for an amount of basic (\w+) energy up to the number of heads and attach it to this pokemon\.$/i
+    );
+    if (chargeUp && pendingUntilTails) {
+      effects.push({
+        kind: "searchAttachEnergy",
+        from: "deck",
+        energyType: chargeUp[1].toLowerCase(),
+        max: 0,
+        maxFromHeads: true,
+        target: "attacker"
+      });
+      pendingUntilTails = false;
+      pendingCoin = false;
+      continue;
+    }
+    const empower = sentence.match(
+      /^attach up to (\d+) basic energy cards from your discard pile to 1 of your pokemon\.$/i
+    );
+    if (empower) {
+      effects.push({
+        kind: "searchAttachEnergy",
+        from: "discard",
+        max: Number(empower[1]),
+        target: "oneForAll"
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const transform = sentence.match(
+      /^if heads, search your deck for a pokemon and switch it with this pokemon\.$/i
+    );
+    if (transform) {
+      effects.push({ kind: "transformSelfFromDeck", coin: true });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^any attached cards, damage counters, special conditions, turns in play, and any other effects remain on the new pokemon\.$/i.test(sentence)) {
+      pendingCoin = false;
+      continue;
+    }
+    if (/^if you switched a pokemon in this way, put this card into your deck\.$/i.test(sentence)) {
+      pendingCoin = false;
+      continue;
+    }
+    const weakens = sentence.match(
+      /^the defending pokemon's weakness is now (\w+) until the end of your next turn\.$/i
+    );
+    if (weakens) {
+      effects.push({ kind: "durationWeaknessChange", whose: "foe", subject: "defender", type: weakens[1].toLowerCase(), multiplier: 2 });
+      pendingCoin = false;
+      continue;
+    }
+    const intercept = sentence.match(
+      /^during your opponent's next turn, whenever they try to use a trainer card from their hand, they flip a coin\.$/i
+    );
+    if (intercept) {
+      effects.push({ kind: "durationInterceptTrainer", whose: "foe", subject: "attacker" });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^if tails, your opponent discards that trainer card instead of using it\.$/i.test(sentence)) {
+      pendingCoin = false;
+      continue;
+    }
+    const dropTools = sentence.match(
+      /^before doing damage, discard all pokemon tools from your opponent's active pokemon\.$/i
+    );
+    if (dropTools) {
+      effects.push({ kind: "discardAllToolsOnDefender" });
+      pendingCoin = false;
+      continue;
+    }
+    const koLastTurn = sentence.match(
+      /^if any of your pokemon were knocked out by damage from an attack during your opponent's last turn, this attack does (\d+) more damage\.$/i
+    );
+    if (koLastTurn) {
+      effects.push({ kind: "bonusDamageIfKoByAttackLastTurn", amount: Number(koLastTurn[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const tookDamageLastTurn = sentence.match(
+      /^if this pokemon was damaged by an attack during your opponent's last turn, this attack does that much more damage\.$/i
+    );
+    if (tookDamageLastTurn) {
+      effects.push({ kind: "bonusDamagePerDamageTakenLastTurn" });
+      pendingCoin = false;
+      continue;
+    }
+    const defenderHurt = sentence.match(
+      /^if your opponent's active pokemon already has any damage counters on it, this attack does (\d+) more damage\.$/i
+    );
+    if (defenderHurt) {
+      effects.push({ kind: "bonusDamageIfDefenderDamaged", amount: Number(defenderHurt[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const hasTool = sentence.match(
+      /^if this pokemon has a pokemon tool attached, this attack does (\d+) more damage\.$/i
+    );
+    if (hasTool) {
+      effects.push({ kind: "bonusDamageIfHasTool", amount: Number(hasTool[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const perHand = sentence.match(/^this attack does (\d+) damage for each card in your hand\.$/i);
+    if (perHand) {
+      effects.push({ kind: "bonusDamagePerHandCard", amount: Number(perHand[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const perFrailBench = sentence.match(
+      /^this attack does (\d+) damage for each of your benched pokemon that has a maximum hp of (\d+)\.$/i
+    );
+    if (perFrailBench) {
+      effects.push({
+        kind: "bonusDamagePerBenchWithHp",
+        amount: Number(perFrailBench[1]),
+        hp: Number(perFrailBench[2])
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const prizesThenShuffle = sentence.match(
+      /^if you have exactly (\d+) cards in your hand, take (\d+) prize cards\.$/i
+    );
+    if (prizesThenShuffle) {
+      effects.push({
+        kind: "prizesThenShuffleHand",
+        handSize: Number(prizesThenShuffle[1]),
+        amount: Number(prizesThenShuffle[2])
+      });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^if you do, shuffle your hand into your deck\.$/i.test(sentence)) {
+      pendingCoin = false;
+      continue;
+    }
+    const discardTop = sentence.match(/^discard the top (\d+) cards? of your deck\.$/i);
+    if (discardTop) {
+      effects.push({ kind: "discardTopOfDeck", count: Number(discardTop[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const foeShuffles = sentence.match(
+      /^your opponent shuffles their hand into their deck and draws (\d+) cards\.$/i
+    );
+    if (foeShuffles) {
+      effects.push({ kind: "opponentShufflesHandAndDraws", count: Number(foeShuffles[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const drawUntil = sentence.match(/^draw cards until you have (\d+) cards in your hand\.$/i);
+    if (drawUntil) {
+      effects.push({ kind: "drawUntilHandSize", count: Number(drawUntil[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^this pokemon recovers from all special conditions\.$/i.test(sentence)) {
+      effects.push({ kind: "clearSpecialConditions" });
+      pendingCoin = false;
+      continue;
+    }
+    const spread = sentence.match(
+      /^this attack does (\d+) damage to each of your opponent's pokemon( ex)?\s*\.?$/i
+    );
+    if (spread) {
+      effects.push({
+        kind: "spreadDamage",
+        amount: Number(spread[1]),
+        exOnly: Boolean(spread[2])
+      });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^then, shuffle your deck\.$/i.test(sentence)) {
+      effects.push({ kind: "shuffleDeck" });
+      pendingCoin = false;
+      continue;
+    }
+    const searchOne = sentence.match(
+      /^search your deck for an? (pokemon|energy card|supporter card|stadium card), reveal it, and put it into your hand\.$/i
+    );
+    if (searchOne) {
+      const kind = searchOne[1].toLowerCase();
+      effects.push({
+        kind: "searchDeck",
+        filter: kind === "pokemon" ? "pokemon" : kind === "energy card" ? "energy" : "trainer"
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const placeCounters = sentence.match(/^place (\d+) damage counters on 1 of your opponent's pokemon\.$/i);
+    if (placeCounters) {
+      effects.push({
+        kind: "damageChosenTarget",
+        amount: Number(placeCounters[1]) * DAMAGE_PER_COUNTER,
+        benchedOnly: false
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const perCounterOnTarget = sentence.match(
+      /^this attack does (\d+) damage to 1 of your opponent's pokemon for each damage counter on that pokemon\.$/i
+    );
+    if (perCounterOnTarget) {
+      effects.push({ kind: "damageChosenPerCounter", amountPerCounter: Number(perCounterOnTarget[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const chosenBenched = sentence.match(
+      /^this attack also does (\d+) damage to 1 of your opponent's benched pokemon\.$/i
+    );
+    if (chosenBenched) {
+      effects.push({ kind: "damageChosenTarget", amount: Number(chosenBenched[1]), benchedOnly: true });
+      pendingCoin = false;
+      continue;
+    }
+    const chosenTarget = sentence.match(/^this attack does (\d+) damage to 1 of your opponent's pokemon\.$/i);
+    if (chosenTarget) {
+      effects.push({ kind: "damageChosenTarget", amount: Number(chosenTarget[1]), benchedOnly: false });
+      pendingCoin = false;
+      continue;
+    }
+    const coinCount = sentence.match(/^flip (\d+) coins\.?$/i);
+    if (coinCount) {
+      pendingCoinCount = Number(coinCount[1]);
+      pendingCoin = false;
+      continue;
+    }
+    const perHeads = sentence.match(/^this attack does (\d+) damage for each heads\.?$/i);
+    if (perHeads && pendingCoinCount > 0) {
+      effects.push({ kind: "coinFlipDamage", amount: Number(perHeads[1]), flips: pendingCoinCount });
+      pendingCoinCount = 0;
+      continue;
+    }
+    const perOwnPokemonFlip = sentence.match(
+      /^flip a coin for each of your (?:own )?pokemon in play(?: \(including this one\))?\.?$/i
+    );
+    if (perOwnPokemonFlip) {
+      pendingHeadsPerOwnName = "\0perOwnPokemon";
+      continue;
+    }
+    const timesHeads = sentence.match(/^this attack does (\d+) damage times the number of heads\.?$/i);
+    if (timesHeads && (pendingCoinCount > 0 || pendingHeadsPerOwnName !== "")) {
+      effects.push(
+        pendingHeadsPerOwnName === "\0perOwnPokemon" ? { kind: "damageTimesHeads", amount: Number(timesHeads[1]), flips: 0, perPokemon: true } : { kind: "damageTimesHeads", amount: Number(timesHeads[1]), flips: pendingCoinCount }
+      );
+      pendingCoinCount = 0;
+      pendingHeadsPerOwnName = "";
+      continue;
+    }
+    const allHeads = sentence.match(
+      /^if (?:both|both of them) of them are heads, this attack does (\d+) more damage\.?$/i
+    );
+    if (allHeads && pendingCoinCount > 0) {
+      effects.push({ kind: "bonusDamageIfAllHeads", amount: Number(allHeads[1]), flips: pendingCoinCount });
+      pendingCoinCount = 0;
+      pendingCoin = false;
+      continue;
+    }
+    const perEnergyType = sentence.match(/^this attack does (\d+) (?:more )?damage for each (\w+) energy attached to this pokemon\.?$/i);
+    if (perEnergyType) {
+      effects.push({ kind: "bonusDamagePerEnergyType", amount: Number(perEnergyType[1]), energyType: perEnergyType[2].toLowerCase() });
+      pendingCoin = false;
+      continue;
+    }
+    const perCounter = sentence.match(/^this attack does (\d+) (?:more )?damage for each damage counter on this pokemon\.?$/i);
+    if (perCounter) {
+      effects.push({ kind: "bonusDamagePerDamageCounter", amount: Number(perCounter[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const hasEnergyType = sentence.match(/^if this pokemon has any (\w+) energy attached, this attack does (\d+) more damage\.?$/i);
+    if (hasEnergyType) {
+      effects.push({ kind: "bonusDamageIfHasEnergyType", amount: Number(hasEnergyType[2]), energyType: hasEnergyType[1].toLowerCase() });
+      pendingCoin = false;
+      continue;
+    }
+    const perOwn = sentence.match(/^this attack does (\d+) (?:more )?damage for each of your (.+) in play\.?$/i);
+    const positional = /^(?:active|benched|benched pokemon|your|pokemon ex)$/i;
+    if (perOwn && !positional.test(perOwn[2].trim())) {
+      const names = perOwn[2].trim().toLowerCase() === "pokemon" ? [] : perOwn[2].split(/\s+and\s+/i);
+      effects.push({ kind: "bonusDamagePerOwnCount", amount: Number(perOwn[1]), names: names.map((n) => n.trim()) });
+      pendingCoin = false;
+      continue;
+    }
+    const perType = sentence.match(/^this attack does (\d+) damage for each type of basic energy attached to all of your pokemon\.?$/i);
+    if (perType) {
+      effects.push({ kind: "bonusDamagePerTypeCount", amount: Number(perType[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const perDiscard = sentence.match(/^this attack does (\d+) more damage for each energy card in your discard pile\.?$/i);
+    if (perDiscard) {
+      effects.push({ kind: "bonusDamagePerDiscardEnergy", amount: Number(perDiscard[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const perDefender = sentence.match(/^this attack does (\d+) more damage for each energy attached to your opponent's active pokemon\.?$/i);
+    if (perDefender) {
+      effects.push({ kind: "bonusDamagePerDefenderAttached", amount: Number(perDefender[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const defenderEx = sentence.match(/^if your opponent's active pokemon is a pokemon ex\s*, this attack does (\d+) more damage\.?$/i);
+    if (defenderEx) {
+      effects.push({ kind: "bonusDamageIfDefenderIsEx", amount: Number(defenderEx[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^flip a coin until you get tails\.?$/i.test(sentence)) {
+      pendingUntilTails = true;
+      continue;
+    }
+    const untilTailsDamage = sentence.match(/^this attack does (\d+) damage for each heads\.?$/i);
+    if (untilTailsDamage && pendingUntilTails) {
+      effects.push({ kind: "flipUntilTailsDamage", amount: Number(untilTailsDamage[1]) });
+      pendingUntilTails = false;
+      continue;
+    }
+    const bonusPrize = sentence.match(/^if your opponent's pokemon is knocked out by damage from this attack, take (\d+) more prize cards?\.?$/i);
+    if (bonusPrize) {
+      effects.push({ kind: "extraPrizeOnKo", amount: Number(bonusPrize[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    if (/^flip a coin\.?$/i.test(sentence)) {
+      pendingCoin = true;
+      continue;
+    }
+    const perPrize = sentence.match(/^this attack does (\d+) damage for each prize card you have taken\.?$/i);
+    if (perPrize) {
+      effects.push({ kind: "bonusDamagePerPrize", amount: Number(perPrize[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const perRemainingPrize = sentence.match(
+      /^this attack does (\d+) damage for each of your remaining prize cards\.?$/i
+    );
+    if (perRemainingPrize) {
+      effects.push({ kind: "bonusDamagePerRemainingPrize", amount: Number(perRemainingPrize[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const gxLimit = sentence.match(/^\(?you can't use more than 1 gx attack in a game\.?\)?$/i);
+    if (gxLimit) {
+      effects.push({ kind: "gxOncePerGame" });
+      pendingCoin = false;
+      continue;
+    }
+    const koToLost = sentence.match(
+      /^if any of your opponent's pokemon would be knocked out by damage from this attack, put that pokemon and all cards attached to it in the lost zone instead of discarding it\.?$/i
+    );
+    if (koToLost) {
+      effects.push({ kind: "koToLostZoneInsteadOfDiscard", forTurn: -1 });
+      pendingCoin = false;
+      continue;
+    }
+    const toLostZone = sentence.match(
+      // The character class MUST include `&`: the printed name is "Darkrai & Cresselia
+      // LEGEND", and `[\w ]` does not match an ampersand — so the first version of this
+      // pattern silently never matched the one card it was written for.
+      /^choose (\d+) energy attached to [\w &]+ and put them into the lost zone\.?$/i
+    );
+    if (toLostZone) {
+      effects.push({ kind: "attachedEnergyToLostZone", count: Number(toLostZone[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const coinBonus = sentence.match(/^if heads, this attack does (\d+) more damage\.?$/i);
+    if (coinBonus && pendingCoin) {
+      effects.push({ kind: "bonusDamage", amount: Number(coinBonus[1]), coin: true });
+      pendingCoin = false;
+      continue;
+    }
+    const flatBonus = sentence.match(/^this attack does (\d+) more damage\.?$/i);
+    if (flatBonus && !pendingCoin) {
+      effects.push({ kind: "bonusDamage", amount: Number(flatBonus[1]), coin: false });
+      continue;
+    }
+    if (/^if tails, this attack does nothing\.?$/i.test(sentence)) {
+      effects.push({ kind: "noDamageOnTails" });
+      pendingCoin = false;
+      continue;
+    }
+    const heal = sentence.match(/^heal (\d+) damage from this/i);
+    if (heal) {
+      effects.push({ kind: "heal", amount: Number(heal[1]) });
+      pendingCoin = false;
+      continue;
+    }
+    const discardAllThenDamage = sentence.match(
+      /^discard all (?:([a-z]+) )?energy from this pokemon, and this attack does (\d+) damage to 1 of your opponent's pokemon\.$/i
+    );
+    if (discardAllThenDamage) {
+      effects.push({
+        kind: "discardEnergy",
+        amount: "all",
+        ...discardAllThenDamage[1] ? { energyTypes: [discardAllThenDamage[1].toLowerCase()] } : {}
+      });
+      effects.push({
+        kind: "damageChosenTarget",
+        amount: Number(discardAllThenDamage[2]),
+        benchedOnly: false
+      });
+      pendingCoin = false;
+      continue;
+    }
+    const discardFrom = sentence.match(/^discard (.+?) from this pokemon\.?$/i);
+    if (discardFrom) {
+      const body = discardFrom[1].trim();
+      if (/^all energy$/i.test(body)) {
+        effects.push({ kind: "discardEnergy", amount: "all" });
+      } else {
+        const cleaned = body.replace(/^(?:an?|the)\s+/i, "").trim();
+        const types = [...cleaned.matchAll(/([a-z]+)\s+energy/gi)].map((m) => m[1].toLowerCase());
+        const count = cleaned.match(/^(\d+)\b/)?.[1];
+        effects.push({
+          kind: "discardEnergy",
+          amount: count ? Number(count) : Math.max(1, types.length),
+          energyTypes: types
+        });
+      }
+      pendingCoin = false;
+      continue;
+    }
+    if (/^draw a card\.?$/i.test(sentence)) {
+      effects.push({ kind: "draw", amount: 1 });
+      pendingCoin = false;
+      continue;
+    }
+    const status = sentence.match(/is now (asleep|poisoned|burned|confused|paralyzed)/i);
+    if (status) {
+      effects.push({ kind: "status", status: STATUS_WORDS[status[1].toLowerCase()], coin: pendingCoin });
+      pendingCoin = false;
+      continue;
+    }
+    effects.push({ kind: "unsupported", text: sentence });
+    pendingCoin = false;
+  }
+  if (effects.some((effect) => effect.kind === "unsupported")) {
+    const filtered = effects.filter(
+      (effect) => effect.kind !== "spreadDamage" && effect.kind !== "coinFlipDamage" && effect.kind !== "damageChosenTarget" && effect.kind !== "damageChosenPerCounter"
+    );
+    if (filtered.length !== effects.length) return filtered;
+  }
+  return effects;
+}
+
+// src/games/pokemon-bnb/__p.ts
+var all = listSets().flatMap((s) => setCards(s));
+for (const n of ["166", "176", "178"]) {
+  const c = all.find((x) => x.number === n);
+  c.attacks.forEach((a, i) => {
+    console.log(`${n}#${i} ${a.name}`);
+    console.log(`   TEXT: ${a.text}`);
+    console.log(`   -> ${JSON.stringify(parseAttackEffects(a.text).map((e) => e.kind))}`);
+  });
+}

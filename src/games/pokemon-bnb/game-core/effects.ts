@@ -310,6 +310,10 @@ export type ParsedEffect =
   //     takes that and only the Bench is offered — that is what `benchedOnly` buys.
   | { kind: 'damageChosenTarget'; amount: number; benchedOnly: boolean }
   | { kind: 'damageChosenPerCounter'; amountPerCounter: number }
+  // 04.12 CP17 / 176 Gengar "Cursed Drop": "Put 4 damage counters on your opponent's
+  // Pokemon in any way you like." A SPREAD, so unlike every `damageChosen*` clause the
+  // same Pokemon may be picked repeatedly and the choice runs for `count` picks.
+  | { kind: 'spreadDamageCounters'; count: number }
   // 04.8 CP3-B: the trailing "Then, shuffle your deck." on every search text.
   // Recognised as an explicit NO-OP rather than left to fall through as
   // `unsupported` — otherwise the all-or-nothing guard would throw away the whole
@@ -2329,6 +2333,17 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.12 CP17 / 176 Gengar "Cursed Drop": "Put 4 damage counters on your opponent's
+    // Pokemon in any way you like." Checked BEFORE the flat "…on 1 of your opponent's"
+    // form, which is a prefix of it once "1 of" is dropped by the wording.
+    const spreadCounters = sentence.match(
+      /^put (\d+) damage counters on your opponent's pokemon in any way you like\.$/i,
+    )
+    if (spreadCounters) {
+      effects.push({ kind: 'spreadDamageCounters', count: Number(spreadCounters[1]) })
+      pendingCoin = false
+      continue
+    }
     // 04.8 CP2-C (a): the "also … Benched" variant, printed alongside a normal
     // base damage. The Active still takes that base; only the Bench is offered.
     const chosenBenched = sentence.match(
@@ -3959,7 +3974,11 @@ export function resolveAttack(
   // offered list is the board as it actually stands now. `declareAttack` then
   // holds the turn open until `resolveChoice` runs.
   const flat = effects.find(
-    (effect) => effect.kind === 'damageChosenTarget' || effect.kind === 'damageChosenPerCounter',
+    (effect) =>
+      effect.kind === 'damageChosenTarget' ||
+      effect.kind === 'damageChosenPerCounter' ||
+      // 04.12 CP17 / 176: the spread joins the same "park a target picker" family.
+      effect.kind === 'spreadDamageCounters',
   )
   if (flat) {
     const benchedOnly = flat.kind === 'damageChosenTarget' ? flat.benchedOnly : false
@@ -3983,12 +4002,16 @@ export function resolveAttack(
         // rebuilt. Making the fields explicit is what keeps them required: an
         // omitted field would silently reintroduce the one-shot assumption this
         // checkpoint is removing.
-        remaining: 1,
+        remaining: flat.kind === 'spreadDamageCounters' ? flat.count : 1,
         source: 'inPlay',
         effect:
           flat.kind === 'damageChosenTarget'
             ? { kind: 'damage', amount: flat.amount }
-            : { kind: 'damagePerCounter', amountPerCounter: flat.amountPerCounter },
+            : flat.kind === 'damageChosenPerCounter'
+              ? { kind: 'damagePerCounter', amountPerCounter: flat.amountPerCounter }
+              : // 04.12 CP17 / 176: ONE counter per pick, repeated `count` times — the
+                // spread is `count` picks of a single counter, not one pick of `count`.
+                { kind: 'placeDamageCounter', picks: flat.count },
         attackName: context.attackName,
       }
       logChoicePrompt(state)
