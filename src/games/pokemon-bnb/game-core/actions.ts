@@ -1211,6 +1211,63 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closed, log: tailLog(closed, logStart) }
   }
 
+  // 04.12 CP18 / 020 Palkia "Wormhole", step 1: the attacker's own ordinary switch.
+  if (choice.effect.kind === 'switchSelfThenFoe') {
+    if (!isInPlayTarget(target)) return failure(state, 'no-target')
+    const own = sideOf(next, actor)
+    const incoming = own.bench.find((pokemon) => pokemon.uid === target.uid)
+    if (!incoming) return failure(state, 'no-target')
+    const outgoing = own.active
+    if (!applySwitchInPlace(own, own.bench.indexOf(incoming)) || !outgoing) return failure(state, 'no-target')
+    logEvent(next, 'pokemonBnb.log.switch', {
+      player: actor, in: incoming.card.name, out: outgoing.card.name,
+    })
+    // "IF YOU DO" — the forced half exists only because the switch above resolved, and
+    // this is the only place that knows it did.
+    const foeSlot = foeOf(actor)
+    const foe = sideOf(next, foeSlot)
+    if (foe.bench.length > 0) {
+      next.pendingChoice = {
+        // **THE OPPONENT IS THE ACTOR.** `resolveChoice` authorises on `choice.actor`, so
+        // parking this with the attacker would let the attacker pick the opponent's new
+        // Active — which "(Your opponent chooses…)" explicitly denies.
+        actor: foeSlot,
+        targets: foe.bench.map((pokemon, index) => ({ side: foeSlot, zone: index, uid: pokemon.uid })),
+        remaining: 1,
+        source: 'inPlay',
+        effect: { kind: 'foeChoosesNewActive' },
+        attackName: choice.attackName,
+      }
+      logChoicePrompt(next)
+      return { state: next, log: tailLog(next, logStart) }
+    }
+    // The opponent has no Bench, so there is nothing to switch in. Rulebook: the switch
+    // cannot happen. Turn closes normally.
+    logEvent(next, 'pokemonBnb.log.effectUnsupported', { text: 'no legal target' })
+    next.pendingChoice = null
+    const closed = next.over ? next : applyEndTurn(next, actor)
+    return { state: closed, log: tailLog(closed, logStart) }
+  }
+
+  // 04.12 CP18 / 020, step 2: the opponent promotes their own Bench. Reached only with
+  // `choice.actor === foeSlot`, so authorisation is already correct.
+  if (choice.effect.kind === 'foeChoosesNewActive') {
+    if (!isInPlayTarget(target)) return failure(state, 'no-target')
+    const foe = sideOf(next, actor)
+    const incoming = foe.bench.find((pokemon) => pokemon.uid === target.uid)
+    if (!incoming) return failure(state, 'no-target')
+    const outgoing = foe.active
+    if (!applySwitchInPlace(foe, foe.bench.indexOf(incoming)) || !outgoing) return failure(state, 'no-target')
+    next.pendingChoice = null
+    logEvent(next, 'pokemonBnb.log.switch', {
+      player: actor, in: incoming.card.name, out: outgoing.card.name,
+    })
+    // The turn belongs to the ATTACKER even though this pick was the opponent's, so
+    // `applyEndTurn` takes the attacker rather than `actor` (the opponent).
+    const closed = next.over ? next : applyEndTurn(next, foeOf(actor))
+    return { state: closed, log: tailLog(closed, logStart) }
+  }
+
   // 04.12 CP17 / 178 "Moon's Invite", step 1: pick the SOURCE, then re-park for the
   // destination. Only Pokemon carrying damage are ever offered, so this arm always has
   // a legal move available once reached.

@@ -195,6 +195,25 @@ export type PendingChoice = {
      * would park a choice that cannot legally resolve.
      */
     | { kind: 'moveDamageCounters' }
+  /**
+   * 04.12 CP18 / 020 Palkia "Wormhole": the two-sentence clause "Switch this Pokemon with
+   * 1 of your Benched Pokemon. IF YOU DO, switch out your opponent's Active Pokemon to the
+   * Bench." folded into ONE effect, because the second half is conditional on the first
+   * and the parser carries no cross-sentence state.
+   *
+   * Folding rather than chaining is what makes "if you do" correct: the second switch can
+   * only happen if the first one actually resolved, which is a fact this arm decides.
+   */
+  | { kind: 'switchSelfThenFoe' }
+  /**
+   * 04.12 CP18 / 020, the follow-up half: the OPPONENT picks their own new Active.
+   *
+   * `actor` on the parked choice is the opponent, not the attacker. That is not a
+   * convenience — `resolveChoice` authorises on `choice.actor`, so parking this with the
+   * attacker as actor would let the attacker choose the opponent's Active Pokémon, which
+   * the printed "(Your opponent chooses…)" explicitly denies them.
+   */
+  | { kind: 'foeChoosesNewActive' }
     /**
      * 04.12 CP17 / 178, step 2: choose where they GO. `fromUid` is carried on the choice
      * because the source must be remembered across two parked choices, and a Pokemon is

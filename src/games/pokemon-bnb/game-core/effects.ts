@@ -326,6 +326,9 @@ export type ParsedEffect =
   // ANOTHER of them. Needs a SOURCE and a DESTINATION, so unlike every clause above it is
   // a two-step pick rather than one list of targets.
   | { kind: 'moveDamageCounters' }
+  // 04.12 CP18 / 020 Palkia "Wormhole", the PARSED form; the parked form is
+  // `switchSelfThenFoe` / `foeChoosesNewActive` on `PendingChoice.effect`.
+  | { kind: 'switchSelfThenFoe' }
   // 04.8 CP3-B: the trailing "Then, shuffle your deck." on every search text.
   // Recognised as an explicit NO-OP rather than left to fall through as
   // `unsupported` — otherwise the all-or-nothing guard would throw away the whole
@@ -358,7 +361,7 @@ export type ParsedEffect =
   | { kind: 'selfDamage'; amount: number; coin?: boolean }
   | { kind: 'spreadOwnBench'; amount: number }
   // Zone effects (plain after-damage clauses, no KO risk):
-  | { kind: 'discardTopOfDeck'; count: number }
+  | { kind: 'discardTopOfDeck'; count: number; attachDiscardedEnergy?: boolean }
   | { kind: 'opponentShufflesHandAndDraws'; count: number }
   | { kind: 'drawUntilHandSize'; count: number }
   | { kind: 'clearSpecialConditions' }
@@ -2259,7 +2262,28 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     }
     const discardTop = sentence.match(/^discard the top (\d+) cards? of your deck\.$/i)
     if (discardTop) {
+      // 04.12 CP18 / 174 Rayquaza EX: the NEXT sentence is "If any of those cards are
+      // sentence discards. The parser holds follow-up halves in `pending*` locals (the
+      // 174 "discard a Fire or Water Energy" pair above does exactly this) rather than
+      // re-scanning the text, so the flag is set here and read on the NEXT sentence.
       effects.push({ kind: 'discardTopOfDeck', count: Number(discardTop[1]) })
+      pendingCoin = false
+      continue
+    }
+    // The follow-up half of 174's discard-above, folded onto the effect it modifies.
+    const attachDiscardedEnergy = sentence.match(
+      /^if any of those cards are energy cards, attach them to this pokemon\.$/i,
+    )
+    if (attachDiscardedEnergy) {
+      // Mutated onto the discard effect just pushed rather than pushed as its own clause:
+      // standalone, it would attach the ATTACKER's own Energy, which is not what it prints.
+      for (let i = effects.length - 1; i >= 0; i -= 1) {
+        const candidate = effects[i]
+        if (candidate.kind === 'discardTopOfDeck') {
+          candidate.attachDiscardedEnergy = true
+          break
+        }
+      }
       pendingCoin = false
       continue
     }
@@ -2268,6 +2292,31 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     )
     if (foeShuffles) {
       effects.push({ kind: 'opponentShufflesHandAndDraws', count: Number(foeShuffles[1]) })
+      pendingCoin = false
+      continue
+    }
+    // 04.12 CP18 / 020 Palkia "Wormhole": the two halves folded into ONE effect. "If you
+    // do" is what makes them a single clause, and the parser holds no cross-sentence state,
+    // so both halves must be recognised here for the second to be consumed at all.
+    const wormhole = sentence.match(/^switch this pokemon with 1 of your benched pokemon\.$/i)
+    if (wormhole) {
+      effects.push({ kind: 'switchSelfThenFoe' })
+      pendingCoin = false
+      continue
+    }
+    if (/^\(your opponent chooses the new active pokemon\.\)$/i.test(sentence.trim())) {
+      // A reminder belonging to the second half, not a clause of its own.
+      pendingCoin = false
+      continue
+    }
+    const wormholeFoe = sentence.match(
+      /^if you do, switch out your opponent's active pokemon to the bench\.$/i,
+    )
+    if (wormholeFoe) {
+      // **Consumed as a no-op, not pushed as its own clause.** `switchSelfThenFoe`
+      // carries both halves and performs the second only when the first actually
+      // resolved — which is precisely what "If you do" means. Pushing it separately
+      // would force the switch even when the attacker's Bench was empty.
       pendingCoin = false
       continue
     }
@@ -3065,6 +3114,31 @@ export function applyEffect(
       // own deck (04.8 CP3-A) and "the top N" is fully determined. Shifting takes
       // from the front, which is the side `drawCards` also consumes.
       const drawn = side.deck.splice(0, effect.count)
+      if (effect.attachDiscardedEnergy) {
+        // 04.12 CP18 / 174: "If any of those cards are Energy cards, attach them to this
+        // Pokemon." **EVERY Energy among the discarded cards**, and attached to the
+        // ATTACKER — not one Energy, and not the player's choice of which. They must also
+        // never reach the discard pile, which is why the split happens before `push`.
+        //
+        // Attached directly rather than through a parked choice: the printed text names
+        // no target beyond "this Pokemon", so there is no decision for the player to make.
+        const attached = drawn.filter(cardIsEnergy)
+        const toDiscard = drawn.filter((card) => !cardIsEnergy(card))
+        if (attached.length > 0) {
+          const holder = sideOf(state, context.actor).active
+          holder?.attachedEnergy.push(...attached)
+          // Logged per card, like every other attach site, so the log names each Energy
+          // rather than only a count.
+          for (const card of attached) {
+            logEvent(state, 'pokemonBnb.log.attachEnergy', {
+              player: context.actor, card: card.name, target: holder?.card.name ?? '',
+            })
+          }
+        }
+        side.discard.push(...toDiscard)
+        logEvent(state, 'pokemonBnb.log.effectDiscardEnergy', { player: context.actor, count: toDiscard.length })
+        break
+      }
       side.discard.push(...drawn)
       logEvent(state, 'pokemonBnb.log.effectDiscardEnergy', { player: context.actor, count: drawn.length })
       break
@@ -3341,6 +3415,12 @@ export function applyEffect(
     // 04.8 CP3-B: `searchDeck` is resolved by resolveChoice from a parked choice.
     // 04.8 CP2-C: consumed by resolveAttack from a parked choice.
     case 'shuffleDeck':
+      break
+    // 04.12 CP18 / 020: parked by resolveAttack as a choice and resolved by resolveChoice.
+    // 04.12 CP17 / 178: likewise a two-step parked pick. Reaching here means a
+    // mis-classified phase, where doing nothing is the safe answer.
+    case 'switchSelfThenFoe':
+    case 'moveDamageCounters':
       break
     // 04.12 CP16 / 178 Darkrai & Cresselia LEGEND "Lost Crisis".
     case 'attachedEnergyToLostZone': {
@@ -4103,7 +4183,29 @@ export function resolveAttack(
     }
   }
 
-  // 04.12 CP17 / 178 "Moon's Invite". Parked SEPARATELY from the `flat` family above:
+  // 04.12 CP18 / 020 Palkia "Wormhole": the attacker's own Bench, because the first half
+  // is an ordinary switch they choose from. The FORCED half is parked separately in
+  // `resolveChoice`, once the first switch has actually resolved.
+  if (effects.some((effect) => effect.kind === 'switchSelfThenFoe')) {
+    const own = sideOf(state, actor)
+    if (own.bench.length > 0) {
+      state.pendingChoice = {
+        actor,
+        targets: own.bench.map((pokemon, index) => ({ side: actor, zone: index, uid: pokemon.uid })),
+        remaining: 1,
+        source: 'inPlay',
+        effect: { kind: 'switchSelfThenFoe' },
+        attackName: context.attackName,
+      }
+      logChoicePrompt(state)
+    } else {
+      // No Bench to switch into: the first half cannot happen, so "if you do" means the
+      // forced switch must NOT happen either. Dropping the whole clause is correct.
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no legal target' })
+    }
+  }
+
+  // 04.12 CP18 / 178 "Moon's Invite". Parked SEPARATELY from the `flat` family above:
   // that family is one target list, but this clause needs a source AND a destination that
   // excludes the source, which a single list cannot express.
   if (effects.some((effect) => effect.kind === 'moveDamageCounters')) {
