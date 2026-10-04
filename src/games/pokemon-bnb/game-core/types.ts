@@ -189,6 +189,21 @@ export type PendingChoice = {
      * a counter is explicitly not damage from an attack, and must not set those.
      */
     | { kind: 'placeDamageCounter'; picks: number }
+    /**
+     * 04.12 CP17 / 178 "Moon's Invite", step 1: choose the Pokemon the counters LEAVE.
+     * Only Pokemon actually carrying damage are offered — offering an undamaged one
+     * would park a choice that cannot legally resolve.
+     */
+    | { kind: 'moveDamageCounters' }
+    /**
+     * 04.12 CP17 / 178, step 2: choose where they GO. `fromUid` is carried on the choice
+     * because the source must be remembered across two parked choices, and a Pokemon is
+     * identified by `uid` — a deck-legal name would not be an identity (duplicates).
+     *
+     * **THE SOURCE IS EXCLUDED FROM `targets`**, which is the printed "…OTHER Pokemon".
+     * A Pokemon can never be its own destination.
+     */
+    | { kind: 'moveDamageCountersTo'; fromUid: string }
     // 04.8 CP3-B: move the chosen card out of the actor's own Deck.
     | { kind: 'searchDeck'; filter: 'pokemon' | 'trainer' | 'energy' }
     // 04.9 CP2: reduce the chosen Pokemon's damage to 0. `'all'` is the printed

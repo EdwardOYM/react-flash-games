@@ -273,6 +273,14 @@ export type ParsedEffect =
   | { kind: 'bonusDamagePerDiscardEnergy'; amount: number }
   | { kind: 'bonusDamagePerDefenderAttached'; amount: number }
   | { kind: 'bonusDamageIfDefenderIsEx'; amount: number }
+  /**
+   * 04.12 CP17 / 166 Pikachu & Zekrom GX "Tag Bolt": the 170 damage only applies when the
+   * ATTACKER has enough extra Energy of one type attached.
+   *
+   * Conditional on the ATTACKER rather than the defender, which is why it cannot ride the
+   * `bonusDamageIf*` family above — those all test `defender`.
+   */
+  | { kind: 'conditionalAttachedEnergyDamage'; amount: number; energyType: string; needed: number }
   // 04.11 CP4 / 183: "If the Defending Pokemon is an EVOLVED Pokemon …" — a DIFFERENT
   // condition from the `ex` suffix above, and deliberately not folded into it. Every
   // Basic that took an Evolution is "evolved" in the rulebook sense while carrying no
@@ -314,6 +322,10 @@ export type ParsedEffect =
   // Pokemon in any way you like." A SPREAD, so unlike every `damageChosen*` clause the
   // same Pokemon may be picked repeatedly and the choice runs for `count` picks.
   | { kind: 'spreadDamageCounters'; count: number }
+  // 04.12 CP17 / 178 "Moon's Invite": move counters from one of the opponent's Pokemon to
+  // ANOTHER of them. Needs a SOURCE and a DESTINATION, so unlike every clause above it is
+  // a two-step pick rather than one list of targets.
+  | { kind: 'moveDamageCounters' }
   // 04.8 CP3-B: the trailing "Then, shuffle your deck." on every search text.
   // Recognised as an explicit NO-OP rather than left to fall through as
   // `unsupported` — otherwise the all-or-nothing guard would throw away the whole
@@ -2344,6 +2356,18 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.12 CP17 / 178 "Moon's Invite": "Move as many damage counters on your opponent's
+    // Pokemon as you like to any of your opponent's OTHER Pokemon in any way you like."
+    // "other" is load-bearing: a Pokemon is never its own destination, which is why this
+    // cannot reuse the 176 spread (one target list, no self-exclusion).
+    const moveCounters = sentence.match(
+      /^move as many damage counters on your opponent's pokemon as you like to any of your opponent's other pokemon in any way you like\.$/i,
+    )
+    if (moveCounters) {
+      effects.push({ kind: 'moveDamageCounters' })
+      pendingCoin = false
+      continue
+    }
     // 04.8 CP2-C (a): the "also … Benched" variant, printed alongside a normal
     // base damage. The Active still takes that base; only the Bench is offered.
     const chosenBenched = sentence.match(
@@ -2470,6 +2494,30 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
     const perDefender = sentence.match(/^this attack does (\d+) more damage for each energy attached to your opponent's active pokemon\.?$/i)
     if (perDefender) {
       effects.push({ kind: 'bonusDamagePerDefenderAttached', amount: Number(perDefender[1]) })
+      pendingCoin = false
+      continue
+    }
+    // 04.12 CP17 / 166 Pikachu & Zekrom GX "Tag Bolt". The energy type arrives as the
+    // card's `<span class="energy-symbol Lightning">` markup, so the text carries an HTML
+    // tag INSIDE the sentence — `[^>]*` strips it and `Lightning` is captured from the
+    // title attribute. Written to be read against the real text, not an idealised one.
+    const tagBolt = sentence.match(
+      // `\s*` before the comma is NOT cosmetic: stripping the `<em>` wrapper leaves
+      // "…this attack's cost) , this attack…" — a space before the comma. This is the SAME
+      // quirk already worked around for "ex , this", and it is why the pattern is written
+      // against the stripped text rather than the printed text.
+      /^if this pokemon has at least (\d+) extra .*?energy attached to it \(in addition to this attack's cost\)\s*, this attack does (\d+) damage to 1 of your opponent's benched pokemon\.$/i,
+    )
+    if (tagBolt) {
+      const type = sentence.match(/title="([a-z]+)"/i)
+      effects.push({
+        kind: 'conditionalAttachedEnergyDamage',
+        amount: Number(tagBolt[2]),
+        // Fall back to the literal word if the markup is absent, so a data correction
+        // that drops the span still parses rather than silently counting nothing.
+        energyType: (type ? type[1] : sentence.match(/extra (\w+) energy attached/i)?.[1] ?? '').toUpperCase(),
+        needed: Number(tagBolt[1]),
+      })
       pendingCoin = false
       continue
     }
@@ -2687,6 +2735,14 @@ export type EffectContext = {
   attacker: InPlayPokemon
   defender: InPlayPokemon | null
   attackName: string
+  /**
+   * 04.12 CP17 / 166: the printed attack cost, so a clause can subtract what was PAID.
+   *
+   * "at least 3 extra Lightning Energy … (in addition to this attack's cost)" is sized
+   * against the energy LEFT OVER after paying, and nothing else in the engine knows both
+   * numbers. Optional so every existing construction site keeps compiling unchanged.
+   */
+  cost?: CardType[]
 }
 
 // -- CP5: Ability resolution --
@@ -3550,7 +3606,7 @@ export function resolveAttack(
   const defenderSlot = foeOf(actor)
   const defender = sideOf(state, defenderSlot).active
   if (!attacker || !defender) return
-  const context: EffectContext = { actor, attacker, defender, attackName: attack.name }
+  const context: EffectContext = { actor, attacker, defender, attackName: attack.name, cost: attack.cost }
 
   // 0. A spread attack is its own damage resolution: it is the only clause on
   // such a card (the parser drops a spread that shares a sentence with anything it
@@ -3645,6 +3701,33 @@ export function resolveAttack(
       const bonus = isEx ? effect.amount : 0
       base += bonus
       if (bonus > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+    } else if (effect.kind === 'conditionalAttachedEnergyDamage') {
+      // 04.12 CP17 / 166: "If this Pokemon has at least N extra <TYPE> Energy attached to
+      // it (IN ADDITION TO THIS ATTACK'S COST), this attack does X damage…".
+      //
+      // **`extra` MEANS THE COST DOES NOT COUNT TOWARD `needed`.** That is the whole
+      // difficulty: the clause is a bonus sized against what is left OVER after paying, so
+      // counting all attached Lightning would let a Pokemon that paid 3 Lightning as its
+      // cost satisfy "3 extra" on its own. The paid energy is therefore subtracted here,
+      // which is the only place that knows both the cost and the attachments.
+      //
+      // `energyType` is read off each attached card's own `provides` field — the same
+      // comparison 178's Energy swap and 161's cost filter use — rather than by matching
+      // card names, because Energy of a type is not an identity.
+      const attacker = sideOf(state, actor).active
+      const attached = attacker ? attacker.attachedEnergy : []
+      const ofType = attached.filter((card) => cardIsEnergy(card) && (card as EnergyCardDef).provides === effect.energyType).length
+      // The attack's own printed cost for this type, subtracted because the printed
+      // "in addition to this attack's cost" excludes it from the count. `colorless`
+      // requirements are NOT counted against the type: a colorless requirement is paid
+      // by ANY energy, so charging it against Lightning would understate `extra` and make
+      // the clause impossible to satisfy.
+      const paidOfType = (context.cost ?? []).filter((entry) => entry === effect.energyType).length
+      const extra = Math.max(0, ofType - paidOfType)
+      const bonus = extra >= effect.needed ? effect.amount : 0
+      base += bonus
+      if (bonus > 0) logEvent(state, 'pokemonBnb.log.effectBonusDamage', { player: actor, amount: bonus })
+      else logEvent(state, 'pokemonBnb.log.effectConditionalNotMet', { player: actor, attack: context.attackName })
     } else if (effect.kind === 'flipUntilTailsDamage') {
       // Bounded: an unbounded loop would hang the match on a pathological seed.
       let heads = 0
@@ -4012,6 +4095,37 @@ export function resolveAttack(
               : // 04.12 CP17 / 176: ONE counter per pick, repeated `count` times — the
                 // spread is `count` picks of a single counter, not one pick of `count`.
                 { kind: 'placeDamageCounter', picks: flat.count },
+        attackName: context.attackName,
+      }
+      logChoicePrompt(state)
+    } else {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no legal target' })
+    }
+  }
+
+  // 04.12 CP17 / 178 "Moon's Invite". Parked SEPARATELY from the `flat` family above:
+  // that family is one target list, but this clause needs a source AND a destination that
+  // excludes the source, which a single list cannot express.
+  if (effects.some((effect) => effect.kind === 'moveDamageCounters')) {
+    const foeSlot = foeOf(actor)
+    const foe = sideOf(state, foeSlot)
+    const wounded = [foe.active, ...foe.bench].filter(
+      (pokemon): pokemon is NonNullable<typeof pokemon> => !!pokemon && pokemon.damage > 0,
+    )
+    // Two Pokemon are needed to move anything at all. With fewer, or with none damaged,
+    // the clause has no legal resolution and is dropped as a logged no-op — parking a
+    // picker over an empty list would refuse every action with nothing to tap.
+    if (wounded.length > 0 && wounded.length < (foe.active ? 1 : 0) + foe.bench.length) {
+      state.pendingChoice = {
+        actor,
+        targets: wounded.map((pokemon) => ({
+          side: foeSlot,
+          zone: pokemon === foe.active ? ('active' as const) : (foe.bench.indexOf(pokemon) as number),
+          uid: pokemon.uid,
+        })),
+        remaining: 1,
+        source: 'inPlay',
+        effect: { kind: 'moveDamageCounters' },
         attackName: context.attackName,
       }
       logChoicePrompt(state)

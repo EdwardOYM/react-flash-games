@@ -1211,10 +1211,75 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closed, log: tailLog(closed, logStart) }
   }
 
+  // 04.12 CP17 / 178 "Moon's Invite", step 1: pick the SOURCE, then re-park for the
+  // destination. Only Pokemon carrying damage are ever offered, so this arm always has
+  // a legal move available once reached.
+  if (choice.effect.kind === 'moveDamageCounters') {
+    if (target.zone !== 'active' && typeof target.zone !== 'number') return failure(state, 'no-target')
+    const foeSlot = foeOf(actor)
+    const foe = sideOf(next, foeSlot)
+    const source = [foe.active, ...foe.bench].find((pokemon) => pokemon && pokemon.uid === target.uid)
+    if (!source || source.damage <= 0) return failure(state, 'no-target')
+    // "…to any of your opponent's OTHER Pokemon": the source is excluded by uid, so the
+    // picker's list cannot offer the Pokemon the counters are already on.
+    const destinations = [foe.active, ...foe.bench].filter(
+      (pokemon): pokemon is NonNullable<typeof pokemon> => !!pokemon && pokemon.uid !== source.uid,
+    )
+    next.pendingChoice = {
+      ...choice,
+      targets: destinations.map((pokemon) => ({
+        side: foeSlot,
+        zone: pokemon === foe.active ? ('active' as const) : (foe.bench.indexOf(pokemon) as number),
+        uid: pokemon.uid,
+      })),
+      effect: { kind: 'moveDamageCountersTo', fromUid: source.uid },
+    }
+    logChoicePrompt(next)
+    return { state: next, log: tailLog(next, logStart) }
+  }
+
+  // 04.12 CP17 / 178 "Moon's Invite", step 2: the counters MOVE. Both Pokemon are looked
+  // up BY UID from the live board, because the source is remembered across two parked
+  // choices and nothing else survives in between.
+  if (choice.effect.kind === 'moveDamageCountersTo') {
+    if (target.zone !== 'active' && typeof target.zone !== 'number') return failure(state, 'no-target')
+    // Read `fromUid` ONCE, immediately: the narrowing on `choice.effect.kind` does not
+    // survive the intervening board work, and re-testing the kind later would be a second
+    // place for the two to drift apart.
+    const fromUid = choice.effect.fromUid
+    const foeSlot = foeOf(actor)
+    const foe = sideOf(next, foeSlot)
+    const board = [foe.active, ...foe.bench].filter(
+      (pokemon): pokemon is NonNullable<typeof pokemon> => !!pokemon,
+    )
+    const from = board.find((pokemon) => pokemon.uid === fromUid)
+    const to = board.find((pokemon) => pokemon.uid === target.uid)
+    // The self-move guard is repeated here and not trusted from the picker alone: the
+    // offered list and the resolved board must agree even if the choice was built by an
+    // older snapshot. Moving counters onto itself would be a no-op that silently eats a pick.
+    if (!from || !to || from.uid === to.uid || from.damage <= 0) return failure(state, 'no-target')
+    const moved = from.damage
+    from.damage = 0
+    to.damage += moved
+    logEvent(next, 'pokemonBnb.log.damageCountersMoved', {
+      player: foeSlot,
+      attack: choice.attackName,
+      from: from.card.name,
+      to: to.card.name,
+      amount: moved,
+    })
+    next.pendingChoice = null
+    const closed = next.over ? next : applyEndTurn(next, actor)
+    return { state: closed, log: tailLog(closed, logStart) }
+  }
+
   // 04.12 CP17 / 176 Gengar "Cursed Drop": ONE counter per pick, `remaining` picks in all,
   // and "in any way you like" means the SAME Pokemon may be picked again — so unlike every
   // other in-play picker the target list is NOT consumed as it is picked.
   if (choice.effect.kind === 'placeDamageCounter') {
+    // `ChoiceTarget` is a union and only the in-play variants carry a `uid`; narrowed here
+    // rather than cast, so a future target zone cannot be silently read as a Pokemon.
+    if (target.zone !== 'active' && typeof target.zone !== 'number') return failure(state, 'no-target')
     const foeSlot = foeOf(actor)
     const foe = sideOf(next, foeSlot)
     const holder = [foe.active, ...foe.bench].find((pokemon) => pokemon && pokemon.uid === target.uid)
@@ -1228,19 +1293,37 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
       attack: choice.attackName,
       target: holder.card.name,
     })
+    // **A PLACED COUNTER CAN STILL KNOCK OUT**, so the Knock Out must settle here. The
+    // first version of this arm left the Pokemon in play at lethal damage and then
+    // offered it again as a target — a card that had already been Knocked Out.
+    //
+    // The KO goes through `performKo`/`performBenchKo` — the same single sink every other
+    // Knock Out uses, so 178's `koToLostZoneTurn` routing is honoured for free rather
+    // than through a second, divergent path. Only `koByAttackTurn` is deliberately NOT
+    // set, for the "not damage from an attack" reason above.
+    const knockedOut = isKnockedOut(holder)
+    if (knockedOut) {
+      if (holder === foe.active) performKo(next, foeSlot)
+      else performBenchKo(next, foeSlot, holder)
+    }
     const left = choice.remaining - 1
     if (left > 0) {
-      // Re-park against the LIVE board: a pick may have Knocked Out a Pokemon, and
-      // "in any way you like" must never offer a card that is no longer in play.
+      // Re-derived from the board AFTER the Knock Out: a pick can remove the Pokemon it
+      // was offered, and "in any way you like" must never offer a card that is no longer
+      // in play. `foe` is re-read because `performKo` mutates the same object.
+      const after = sideOf(next, foeSlot)
       const live = [
-        ...(foe.active ? [{ side: foeSlot, zone: 'active' as const, uid: foe.active.uid }] : []),
-        ...foe.bench.map((pokemon, index) => ({ side: foeSlot, zone: index as number, uid: pokemon.uid })),
+        ...(after.active ? [{ side: foeSlot, zone: 'active' as const, uid: after.active.uid }] : []),
+        ...after.bench.map((pokemon, index) => ({ side: foeSlot, zone: index as number, uid: pokemon.uid })),
       ]
       if (live.length > 0) {
         next.pendingChoice = { ...choice, remaining: left, targets: live }
         logChoicePrompt(next)
         return { state: next, log: tailLog(next, logStart) }
       }
+      // Nothing left to place them on: the remaining counters are simply not placed. This
+      // is a legal no-op, and it MUST still fall through to the turn close below — an
+      // early return would leave the turn open with no pending choice, which is a soft-lock.
       logEvent(next, 'pokemonBnb.log.effectUnsupported', { text: 'no legal target' })
     }
     next.pendingChoice = null
