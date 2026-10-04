@@ -514,6 +514,8 @@
       "effectBonusDamage": "Bonus damage: +{amount}.",
       "effectDiscardEnergy": "{player} discarded {count} Energy.",
       "effectLostZone": "{player} put {card} into the Lost Zone.",
+      "effectDiscarded": "{player} discarded {card}.",
+      "effectDeckBottom": "{player} put {card} on the bottom of their deck.",
       "effectLostZoneRouting": "{player}'s Knock Outs go to the Lost Zone this turn.",
       "chooseTarget": "{player} must choose 1 of {count} Pokemon in play.",
       "chooseAttachedEnergy": "{player} must choose 1 attached Energy card to discard.",

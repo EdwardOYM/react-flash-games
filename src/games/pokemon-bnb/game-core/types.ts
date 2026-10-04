@@ -215,6 +215,27 @@ export type PendingChoice = {
    */
   | { kind: 'foeChoosesNewActive' }
     /**
+     * 04.12 CP19: pick from the OPPONENT'S HAND (026/116/176#0).
+     *
+     * **THIS IS SAFE WITHOUT ANY SNAPSHOT CHANGE, AND IT IS WORTH WRITING DOWN WHY**,
+     * because three checkpoints recorded it as a blocked privacy problem. The engine runs
+     * on `battleRef`, the AUTHORITATIVE state, where both hands are in memory; `battle` is
+     * a render-only snapshot carrying `viewOnly: true`, and `processAction` refuses to run
+     * on it. The opponent's hand is therefore never transmitted at all
+     * (`hand: isViewer ? [...] : null`), and the blocked assumption — that a snapshot is
+     * fed back into the engine — is false. Only the card that is actually chosen ever
+     * leaves this function.
+     *
+     * `to` is the destination, because the three cards differ ONLY there and share the
+     * whole pick: 026 discards it, 116 puts it on the bottom of the opponent's deck, and
+     * 176#0 sends it to the Lost Zone.
+     *
+     * `filter` RIDES THE CHOICE rather than being re-derived, because it must be re-applied
+     * after every pick — see the re-park in `resolveChoice`, where dropping it would list
+     * the opponent's whole hand to the attacker.
+     */
+    | { kind: 'takeFromOpponentHand'; to: 'discard' | 'deckBottom' | 'lostZone'; filter: 'item' | 'pokemon' }
+    /**
      * 04.12 CP17 / 178, step 2: choose where they GO. `fromUid` is carried on the choice
      * because the source must be remembered across two parked choices, and a Pokemon is
      * identified by `uid` — a deck-legal name would not be an identity (duplicates).

@@ -15,7 +15,7 @@
 //    exactly the silent-zero failure that happened twice. So the zero is reported AND the
 //    reason is named.
 
-import { abilityCoverageReport, classifyAbility, parseAttackEffects, trainerCoverageReport } from './game-core'
+import { abilityCoverageReport, classifyAbility, parseAttackEffects, plainCardText, trainerCoverageReport } from './game-core'
 import type { TrainerCoverage } from './game-core'
 import type { CardDef } from './cards'
 
@@ -96,6 +96,20 @@ export function coverageReport(input: readonly unknown[]): CoverageReport {
         return
       }
       if (effects.some((effect) => effect.kind === 'unsupported')) {
+        unsupported.push({ number, cardName, attackIndex, attackName: textOf(entry.name), text })
+      } else if (effects.length === 0 && plainCardText(text).length > 0) {
+        // 04.12 CP19: **text that produces NO effects at all is not "supported".**
+        // The guard above only catches an explicit `unsupported` clause, so an attack
+        // whose text was silently swallowed — matched by a branch that pushed nothing —
+        // counted as SUPPORTED while doing nothing at all.
+        //
+        // That is not hypothetical: 116 "Fetch and Hide" parsed to `[]` because a splice
+        // ran against an effect the single-sentence text never pushed, and reported
+        // 116/195 coverage for an attack that did nothing. A silent no-op that inflates
+        // the coverage number is worse than an honest gap, so it is counted as a gap.
+        //
+        // Attacks whose text is genuinely EMPTY are unaffected and stay supported: those
+        // are plain-damage attacks with nothing to parse.
         unsupported.push({ number, cardName, attackIndex, attackName: textOf(entry.name), text })
       } else {
         attackSupported += 1

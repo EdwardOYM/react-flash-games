@@ -329,6 +329,25 @@ export type ParsedEffect =
   // 04.12 CP18 / 020 Palkia "Wormhole", the PARSED form; the parked form is
   // `switchSelfThenFoe` / `foeChoosesNewActive` on `PendingChoice.effect`.
   | { kind: 'switchSelfThenFoe' }
+  // 04.12 CP19 / 026 "Your opponent reveals their hand", 116's Item-half, and 176#0's
+  // "Look at your opponent's hand" all pick from the OPPONENT'S HAND. See the CP19 note:
+  // this is SAFE with no snapshot change because the engine runs on the authoritative
+  // state and the render snapshot is `viewOnly`.
+  //
+  // `to` is parsed rather than inferred, because the three differ ONLY in where the card
+  // lands: 026 discards it, 116 puts it on the bottom of the opponent's deck, 176#0 sends
+  // it to the Lost Zone. Inferring the destination from `filter` would be wrong — 026 and
+  // 116 share a filter but not a destination.
+  //
+  // `capEnergyType` carries 176#0's printed "up to the number of <TYPE> Energy attached
+  // to <this Pokemon>". The COUNT is a board fact resolved at park time, so only the type
+  // is known here.
+  | {
+      kind: 'searchOpponentHand'
+      filter: 'item' | 'pokemon'
+      to: 'discard' | 'deckBottom' | 'lostZone'
+      capEnergyType?: string
+    }
   // 04.8 CP3-B: the trailing "Then, shuffle your deck." on every search text.
   // Recognised as an explicit NO-OP rather than left to fall through as
   // `unsupported` — otherwise the all-or-nothing guard would throw away the whole
@@ -2320,6 +2339,63 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.12 CP19. All three are handled here, and the filter distinguishes them:
+    // - 026 "Your opponent reveals their hand." — no filter at all; everything is public.
+    // - 116 "…and you put an ITEM card you find there…" — Items only.
+    // - 176#0 "Look at your opponent's hand and choose a number of POKEMON you find
+    //   there UP TO THE NUMBER OF PSYCHIC ENERGY ATTACHED TO…" — Pokemon only, and a cap
+    //   that is NOT a printed number, so it must resolve from the board at park time.
+    const revealsHand = sentence.match(/^your opponent reveals their hand\.?$/i)
+    if (revealsHand) {
+      // 026 stops at "reveals their hand": the chosen card is DISCARDED. Recorded
+      // explicitly rather than left to a default, because 116 shares this filter and
+      // sends its card somewhere else entirely.
+      effects.push({ kind: 'searchOpponentHand', filter: 'item', to: 'discard' })
+      pendingCoin = false
+      continue
+    }
+    const itemFromHand = sentence.match(
+      /^your opponent reveals their hand, and you put an item card you find there on the bottom of your opponent's deck\.$/i,
+    )
+    if (itemFromHand) {
+      // Replaces the bare reveal if one was pushed, and PUSHES it if not. 116's text is a
+      // single sentence containing both halves, so no separate reveal exists to replace —
+      // my first version spliced onto nothing and produced an EMPTY effect list, which the
+      // coverage guard then counted as SUPPORTED. A silent no-op that reports as coverage
+      // is the worst possible failure here.
+      const at = effects.findIndex((effect) => effect.kind === 'searchOpponentHand')
+      const clause = { kind: 'searchOpponentHand', filter: 'item', to: 'deckBottom' } as const
+      if (at >= 0) effects.splice(at, 1, clause)
+      else effects.push(clause)
+      pendingCoin = false
+      continue
+    }
+    const lookAtHand = sentence.match(
+      /^look at your opponent's hand and choose a number of pokemon you find there up to the number of .*?energy attached to ([\w &]+)\.$/i,
+    )
+    if (lookAtHand) {
+      // The cap's TYPE is read from the PLAIN sentence — "…up to the number of PSYCHIC Energy
+      // attached to…". Reading it from the `<span class="energy-symbol Psychic">` markup is
+      // what my first version did, and it silently yielded COLORLESS: by this point the
+      // parser has already STRIPPED the tags, so `title="Psychic"` no longer exists. The
+      // fallback to 'colorless' is deliberately NOT silent-fail-safe here — the word itself
+      // is always present in the printed text.
+      const type = sentence.match(/number of (\w+) energy attached to/i)?.[1] ?? 'COLORLESS'
+      effects.push({
+        kind: 'searchOpponentHand',
+        filter: 'pokemon',
+        to: 'lostZone',
+        capEnergyType: type.toUpperCase(),
+      })
+      pendingCoin = false
+      continue
+    }
+    // 176#0's second sentence belongs to the look-above; consumed as a no-op because the
+    // Lost Zone destination is applied by the parked effect, not by a clause of its own.
+    if (/^put the pokemon you chose in the lost zone\.?$/i.test(sentence)) {
+      pendingCoin = false
+      continue
+    }
     const drawUntil = sentence.match(/^draw cards until you have (\d+) cards in your hand\.$/i)
     if (drawUntil) {
       effects.push({ kind: 'drawUntilHandSize', count: Number(drawUntil[1]) })
@@ -4175,6 +4251,50 @@ export function resolveAttack(
               : // 04.12 CP17 / 176: ONE counter per pick, repeated `count` times — the
                 // spread is `count` picks of a single counter, not one pick of `count`.
                 { kind: 'placeDamageCounter', picks: flat.count },
+        attackName: context.attackName,
+      }
+      logChoicePrompt(state)
+    } else {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no legal target' })
+    }
+  }
+
+  // 04.12 CP19 / 026-116-176#0: pick from the OPPONENT'S HAND. The hand is read from the
+  // AUTHORITATIVE state (`resolveAttack` receives it), never from a snapshot — see the
+  // CP19 note in types.ts for why that makes this safe with no redaction at all.
+  const handSearch = effects.find((effect) => effect.kind === 'searchOpponentHand')
+  if (handSearch && handSearch.kind === 'searchOpponentHand') {
+    const foeSlot = foeOf(actor)
+    const foe = sideOf(state, foeSlot)
+    const fits = (card: CardDef) =>
+      handSearch.filter === 'pokemon' ? cardIsPokemon(card) : cardIsTrainer(card)
+    // 176#0's cap is "up to the number of <TYPE> Energy attached to <this Pokemon>" — a
+    // BOARD fact, not a printed number, so it is computed here against the ATTACKER's own
+    // attachments. Counting only the named type matters: a Gengar holding 2 Psychic and
+    // 3 Lightning may choose 2, not 5.
+    const cap = handSearch.capEnergyType
+      ? attacker.attachedEnergy.filter(
+          (card) => cardIsEnergy(card) && (card as EnergyCardDef).provides === handSearch.capEnergyType,
+        ).length
+      : Number.POSITIVE_INFINITY
+    const offers = foe.hand.filter(fits)
+    // `remaining` is the pick COUNT and must never exceed what is actually on offer:
+    // parking a 2-pick choice over one legal card is a soft-lock, and an empty list is
+    // worse. A search that comes up empty is a legal no-op, so it is logged, not parked.
+    const picks = Math.min(cap, offers.length)
+    if (picks > 0) {
+      state.pendingChoice = {
+        actor,
+        targets: offers.map((card, index) => ({ side: foeSlot, zone: 'hand' as const, index, cardId: card.id })),
+        remaining: picks,
+        // `source: 'hand'` so the list is re-derived from the LIVE hand after each pick,
+        // which matters because every pick removes a card and shifts every later index.
+        source: 'hand',
+        effect: {
+          kind: 'takeFromOpponentHand',
+          to: handSearch.to,
+          filter: handSearch.filter,
+        },
         attackName: context.attackName,
       }
       logChoicePrompt(state)

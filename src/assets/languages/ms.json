@@ -514,6 +514,8 @@
       "effectBonusDamage": "Kerosakan bonus: +{amount}.",
       "effectDiscardEnergy": "{player} membuang {count} Tenaga.",
       "effectLostZone": "{player} meletakkan {card} ke dalam Zon Hilang.",
+      "effectDiscarded": "{player} membuang {card}.",
+      "effectDeckBottom": "{player} meletakkan {card} di bahagian bawah deknya.",
       "effectLostZoneRouting": "Knock Out {player} masuk ke Zon Hilang pada giliran ini.",
       "chooseTarget": "{player} mesti memilih 1 daripada {count} Pokemon di medan.",
       "chooseAttachedEnergy": "{player} mesti memilih 1 kad Tenaga yang dilampirkan pada Pokemon untuk dilucutkan.",

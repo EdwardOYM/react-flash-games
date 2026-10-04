@@ -1211,6 +1211,66 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     return { state: closed, log: tailLog(closed, logStart) }
   }
 
+  // 04.12 CP19 / 026-116-176#0: the chosen card leaves the OPPONENT'S HAND. **This is the
+  // only point where an opponent's hand is read, and only the chosen card ever leaves it**
+  // — the pick runs on the authoritative state, and nothing about the rest of the hand is
+  // written anywhere. See the CP19 note in types.ts.
+  if (choice.effect.kind === 'takeFromOpponentHand') {
+    if (target.zone !== 'hand') return failure(state, 'no-target')
+    const foe = sideOf(next, target.side)
+    // The opponent is the OWNER of this hand, so the pick must be authorised against the
+    // opponent's slot, not the attacker's. Re-checked here rather than trusted from the
+    // parked list, exactly as every other arm re-checks its card identity.
+    if (target.side === actor) return failure(state, 'no-target')
+    // Captured into a local: the narrowing on `choice.effect.kind` does not survive the
+    // splice and the re-park below, and re-testing the kind later is a second place for
+    // the two to drift apart.
+    const filter = choice.effect.filter
+    const index = target.index
+    const found = foe.hand[index]
+    // A Deck and a Hand may legally hold DUPLICATES, so an index alone is not an
+    // identity — `cardId` must agree before the card is removed.
+    if (!found || found.id !== target.cardId) return failure(state, 'no-target')
+    foe.hand.splice(index, 1)
+    if (choice.effect.to === 'deckBottom') {
+      // 116: "on the bottom of your opponent's deck" — the BOTTOM, so `unshift` at the
+      // draw end. `drawCards` consumes from the front, which is the top.
+      foe.deck.unshift(found)
+      logEvent(next, 'pokemonBnb.log.effectDeckBottom', { player: target.side, card: found.name })
+    } else if (choice.effect.to === 'lostZone') {
+      // 176#0: the Lost Zone, which is public — so no secrecy applies to the destination.
+      foe.lostZone.push(found)
+      logEvent(next, 'pokemonBnb.log.effectLostZone', { player: target.side, card: found.name })
+    } else {
+      foe.discard.push(found)
+      logEvent(next, 'pokemonBnb.log.effectDiscarded', { player: target.side, card: found.name })
+    }
+    const left = choice.remaining - 1
+    if (left > 0) {
+      // 176#0 may take several. Re-derived from the LIVE hand, and **the filter IS re-applied**
+      // — my first version omitted it and offered the whole hand, which would have told the
+      // attacker every card the opponent holds. Only cards that satisfy the printed filter
+      // may appear, which is exactly the information the card grants.
+      const live = foe.hand
+        .map((card, i) => ({ side: target.side, zone: 'hand' as const, index: i, cardId: card.id }))
+        .filter((entry) =>
+          filter === 'pokemon'
+            ? cardIsPokemon(foe.hand[entry.index])
+            : cardIsTrainer(foe.hand[entry.index]),
+        )
+        .slice(0, left)
+      if (live.length > 0) {
+        next.pendingChoice = { ...choice, remaining: left, targets: live }
+        logChoicePrompt(next)
+        return { state: next, log: tailLog(next, logStart) }
+      }
+      logEvent(next, 'pokemonBnb.log.effectUnsupported', { text: 'no legal target' })
+    }
+    next.pendingChoice = null
+    const closed = next.over ? next : applyEndTurn(next, actor)
+    return { state: closed, log: tailLog(closed, logStart) }
+  }
+
   // 04.12 CP18 / 020 Palkia "Wormhole", step 1: the attacker's own ordinary switch.
   if (choice.effect.kind === 'switchSelfThenFoe') {
     if (!isInPlayTarget(target)) return failure(state, 'no-target')
