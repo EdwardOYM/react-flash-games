@@ -27,6 +27,38 @@ export type UnsupportedAttack = {
   attackIndex: number
   attackName: string
   text: string
+  /**
+   * 04.12 CP22: set ONLY when this attack is unsupported because its printed precondition
+   * is satisfied by no card in this pool — i.e. the blocker is DATA, not missing engine
+   * work. Absent means a genuine engine gap.
+   *
+   * The distinction is what stops a reader rebuilding correct code (184) or writing it off
+   * as unfixable. Optional rather than `string | null` so an ordinary gap does not carry a
+   * meaningless key through every consumer.
+   */
+  unreachableBecause?: string
+}
+
+/**
+ * 04.12 CP22: why this attack cannot fire in THIS pool, or `null`.
+ *
+ * **AN EXPLICIT PROBE, NOT A HEURISTIC**, for the same reason as the trainer probes: a
+ * heuristic could invent unreachability and mark a working attack as dead, which is a worse
+ * failure than the gap it closes. Every probe states a printed precondition and asks the pool
+ * a factual question, so the probe clears itself the moment such a card exists.
+ */
+function attackUnreachabilityReason(text: string, cards: readonly unknown[]): string | null {
+  const plain = plainCardText(text)
+  // 184 Mew VMAX: "Choose 1 of your Benched FUSION STRIKE Pokemon's attacks…". The rule box
+  // is a printed marker, and this set has none: the suffixes that exist are EX, GX, SP,
+  // Legend and V. A pool with any Fusion Strike card makes this return null immediately.
+  if (/fusion strike pokemon/i.test(plain)) {
+    const anyFusion = cards.some((raw) => isRecord(raw) && /fusion/i.test(String(raw.suffix ?? '')))
+    if (!anyFusion) {
+      return 'no card in this pool carries a Fusion Strike rule box, so this attack has no legal target'
+    }
+  }
+  return null
 }
 
 export type CoverageReport = {
@@ -96,7 +128,19 @@ export function coverageReport(input: readonly unknown[]): CoverageReport {
         return
       }
       if (effects.some((effect) => effect.kind === 'unsupported')) {
-        unsupported.push({ number, cardName, attackIndex, attackName: textOf(entry.name), text })
+        // 04.12 CP22: WHY an attack is unsupported matters as much as the fact. 184 is
+        // unsupported because its printed precondition is satisfied by no card in this
+        // pool, which is a DATA gap rather than missing engine work — and a reader who
+        // cannot tell the two apart will either rebuild something correct or give up on it.
+        const reason = attackUnreachabilityReason(text, cards)
+        unsupported.push({
+          number,
+          cardName,
+          attackIndex,
+          attackName: textOf(entry.name),
+          text,
+          ...(reason ? { unreachableBecause: reason } : {}),
+        })
       } else if (effects.length === 0 && plainCardText(text).length > 0) {
         // 04.12 CP19: **text that produces NO effects at all is not "supported".**
         // The guard above only catches an explicit `unsupported` clause, so an attack
@@ -183,8 +227,12 @@ export function coverageReport(input: readonly unknown[]): CoverageReport {
   // 04.12 CP8. The card records are passed through UNFILTERED, including any with an
   // empty `effect`: `trainerCoverageReport` separates a data gap from an engine gap
   // itself, and pre-filtering the empties here would delete exactly the evidence that
-  // distinction depends on.
-  const trainers = trainerCoverageReport(cards.filter((raw) => isRecord(raw) && raw.supertype === 'trainer'))
+  // distinction depends on. The FULL pool is passed as the second argument so CP22's
+  // reachability probes can ask about the whole set, not just the Trainer slice.
+  const trainers = trainerCoverageReport(
+    cards.filter((raw) => isRecord(raw) && raw.supertype === 'trainer'),
+    cards,
+  )
   diagnostics.push(...trainers.diagnostics)
 
   return {

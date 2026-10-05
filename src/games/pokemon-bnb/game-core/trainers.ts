@@ -294,6 +294,37 @@ export function trainerClauseSupport(effect: ParsedTrainerEffect): TrainerClause
   return CLAUSE_SUPPORT[effect.kind] ?? 'unstated'
 }
 
+/**
+ * 04.12 CP22: can this clause EVER fire against the given card pool?
+ *
+ * **A SMALL EXPLICIT PROBE LIST, NOT A HEURISTIC.** Each probe states one printed
+ * precondition and asks the pool a factual question about it. A heuristic here would be
+ * able to *invent* unreachability — reporting a working card as dead — which is a worse
+ * failure than the gap it closes, so anything not provable from the data returns `null`.
+ *
+ * The probes are therefore self-clearing: add a Pokemon named "Misty" and 163's probe stops
+ * firing, with no edit to this file.
+ */
+export function trainerClauseReachability(
+  effect: ParsedTrainerEffect,
+  pool: readonly unknown[],
+): string | null {
+  // 163 Misty: "…if the attacking POKEMON has <fragment> in its name". The gate is on a
+  // Pokemon's printed NAME, so only Pokemon can satisfy it — 163's own Supporter is not a
+  // Pokemon and is exactly the near-miss this check exists to catch.
+  if (effect.kind !== 'bonusDamageIfAttackerNameContains') return null
+  const fragment = effect.nameFragment.toLowerCase()
+  const anyPokemon = pool.some(
+    (raw) => isRecordLike(raw) && raw.supertype === 'pokemon' && String(raw.name ?? '').toLowerCase().includes(fragment),
+  )
+  if (anyPokemon) return null
+  return `no Pokemon in this pool has "${effect.nameFragment}" in its name, so this bonus can never be applied`
+}
+
+function isRecordLike(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
 export type TrainerCoverageEntry = {
   number: string
   name: string
@@ -309,6 +340,19 @@ export type TrainerCoverageEntry = {
   support: TrainerClauseSupport | 'unstated'
   /** Named reasons, one per clause that is not `supported`. Never empty when unsupported. */
   blockers: string[]
+  /**
+   * 04.12 CP22: `implemented` answers "does the engine EXECUTE this clause"; it cannot
+   * answer "can this clause ever FIRE", and conflating the two is how 163 was reported as
+   * 5/5 supported while its bonus was structurally unreachable.
+   *
+   * `unreachable-in-this-pool` means the clause is correctly implemented but its printed
+   * precondition is satisfied by NO card in this set — so it is dead code here and becomes
+   * live the moment such a card is added. It is NOT counted as a defect, because the
+   * engine did its job and the DATA is what is missing.
+   */
+  reachability: 'reachable' | 'unreachable-in-this-pool'
+  /** Why it is unreachable, naming the data that is missing. Empty when reachable. */
+  reachabilityNotes: string[]
 }
 
 export type TrainerCoverage = {
@@ -343,7 +387,7 @@ const SUPPORT_ORDER: Record<TrainerClauseSupport | 'unstated', number> = {
  * the whole of what CP8 originally found, and it is preserved here as a live guard rather
  * than as a paragraph in a plan file.
  */
-export function trainerCoverageReport(trainers: readonly unknown[]): TrainerCoverage {
+export function trainerCoverageReport(trainers: readonly unknown[], pool: readonly unknown[] = trainers): TrainerCoverage {
   const entries: TrainerCoverageEntry[] = []
   const diagnostics: string[] = []
   const seen = new Set<string>()
@@ -372,6 +416,10 @@ export function trainerCoverageReport(trainers: readonly unknown[]): TrainerCove
         implemented: false,
         support: 'unstated',
         blockers: ['DATA GAP: `effect` is empty, so there is no rule text to parse or implement.'],
+        // 04.12 CP22: an empty `effect` has no clause to probe, so it is `reachable` by
+        // default rather than guessed either way.
+        reachability: 'reachable',
+        reachabilityNotes: [],
       })
       continue
     }
@@ -412,6 +460,15 @@ export function trainerCoverageReport(trainers: readonly unknown[]): TrainerCove
         supports[0],
       )
 
+    // 04.12 CP22: reachability is measured SEPARATELY from `implemented`, and never
+    // subtracted from it. A clause that is implemented but unreachable is the engine doing
+    // its job against data that lacks a card — calling that a gap would send someone to
+    // "fix" correct code, and calling it supported without saying so is what let 163 read
+    // as 5/5 while being dead.
+    const reachabilityNotes = clauses
+      .map((clause) => trainerClauseReachability(clause, pool))
+      .filter((note): note is string => note !== null)
+
     entries.push({
       number,
       name,
@@ -428,6 +485,8 @@ export function trainerCoverageReport(trainers: readonly unknown[]): TrainerCove
       implemented: clauses.length > 0 && (support === 'supported' || support === 'reusable'),
       support,
       blockers,
+      reachability: reachabilityNotes.length > 0 ? 'unreachable-in-this-pool' : 'reachable',
+      reachabilityNotes,
     })
   }
 
@@ -445,6 +504,19 @@ export function trainerCoverageReport(trainers: readonly unknown[]): TrainerCove
         + '`needs-mechanism` clause the engine cannot execute yet. `playTrainer` DOES call the effect pipeline as of '
         + '04.12 CP14, and `reusable` clauses count as implemented -- so a remaining gap is a real missing mechanism, '
         + 'never a missing call site.',
+    )
+  }
+
+  // 04.12 CP22: an implemented-but-unreachable clause is a silent no-op, which is the
+  // failure class CP19 already had to add a guard for on the attack side. Named here so it
+  // cannot read as full coverage. It is NOT a blocker: the engine is correct and the data
+  // is what is missing.
+  const unreachable = entries.filter((entry) => entry.reachability === 'unreachable-in-this-pool')
+  if (unreachable.length > 0) {
+    diagnostics.push(
+      `${unreachable.length} trainer(s) are IMPLEMENTED but UNREACHABLE in this card pool: `
+        + unreachable.map((entry) => `${entry.number} (${entry.name}) - ${entry.reachabilityNotes.join('; ')}`).join(' | ')
+        + '. The engine executes these correctly; no card in this set satisfies their printed precondition.',
     )
   }
 
