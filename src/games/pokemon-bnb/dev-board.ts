@@ -65,6 +65,18 @@ export const DEV_BOARD_TARGETS: {
   // screen fell back to the lobby. A dev harness failing quietly is the exact failure this
   // file's header exists to prevent, so it is worth naming rather than just fixing.
   { cardNumber: '128', attackClause: 'searchDeckToHand', choiceKind: 'payDiscardCost' },
+  // 163 Misty and 179 N, both Supporters, both added by CP24 to close the last two flows
+  // that had never been LOOKED at.
+  //
+  // 163 opens the same `payDiscardCost` picker as 128 — its clause also prints "discard 2 of
+  // the other cards" — and then arms a turn-scoped bonus. **The bonus itself can never
+  // fire** (no Pokemon here is named "Misty"), so the board proves the COST and the ARM,
+  // not the damage, and the plan says so rather than implying the card works fully.
+  { cardNumber: '163', attackClause: 'bonusDamageIfAttackerNameContains', choiceKind: 'payDiscardCost' },
+  // 179 N is the one Trainer that parks NOTHING: it shuffles both hands and both players
+  // draw immediately. What gets photographed is therefore the resulting BOARD, not a
+  // dialog — the empty hands and the grown decks are the evidence.
+  { cardNumber: '179', attackClause: 'bothPlayersShuffleHandIntoDeckThenDrawPerRemainingPrize', choiceKind: 'none' },
 ]
 
 /**
@@ -77,7 +89,7 @@ export const DEV_BOARD_TARGETS: {
  * that as a boolean would put two different code paths in one entry and make the attack
  * boards the special case.
  */
-export const DEV_BOARD_TRAINER_TARGETS = new Set(['128'])
+export const DEV_BOARD_TRAINER_TARGETS = new Set(['128', '163', '179'])
 
 /** Fixed so a QA run is reproducible; overridable with `?board=NNN&seed=N`. */
 export const DEV_BOARD_SEED = 20260910

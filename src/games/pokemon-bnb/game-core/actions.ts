@@ -5,7 +5,7 @@
 // engine header and the re-export barrel.
 
 import { cardIsEnergy, cardIsPokemon, cardIsStadium, cardIsTrainer, isBasicPokemon, type CardDef, type EnergyCardDef, type PokemonCardDef, type TrainerCardDef } from '../cards'
-import { parseTrainerEffects, trainerClauseSupport, type ParsedTrainerEffect } from './trainers'
+import { parseTrainerEffects, trainerClauseIsExecutable, trainerClauseSupport, type ParsedTrainerEffect } from './trainers'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
 import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, drawCards, effectiveRetreatCost, failure, findDuration, foeOf, hasPassive, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, isPlasmaEnergy, liveEnergyOverride, logChoicePrompt, logEvent, sideOf, tailLog } from './helpers'
@@ -218,7 +218,12 @@ function applyTrainerEffects(state: BattleState, actor: PlayerSlot, card: CardDe
     return
   }
   for (const effect of parsed) {
-    if (trainerClauseSupport(effect) !== 'reusable') continue
+    // 04.12 CP24: `trainerClauseIsExecutable`, NOT a local `=== 'reusable'`. The old
+    // comparison disagreed with the coverage report, which counted `supported` as
+    // implemented — so every clause promoted to `supported` in CP21 (163's bonus and 179's
+    // whole effect) was silently SKIPPED here while the report read 5/5. One predicate now
+    // answers this for the runtime and the report alike.
+    if (!trainerClauseIsExecutable(trainerClauseSupport(effect))) continue
     switch (effect.kind) {
       case 'searchDeckToHand': {
         const own = sideOf(state, actor)

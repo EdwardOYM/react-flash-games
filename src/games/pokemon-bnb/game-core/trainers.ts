@@ -249,6 +249,22 @@ export function parseTrainerEffects(text: string): ParsedTrainerEffect[] {
  */
 export type TrainerClauseSupport = 'supported' | 'reusable' | 'needs-mechanism'
 
+/**
+ * 04.12 CP24: does the ENGINE actually execute a clause of this support?
+ *
+ * **ONE PREDICATE, USED BY BOTH THE RUNTIME GATE AND THE COVERAGE REPORT.** CP23's browser
+ * run found 179 N doing nothing at all while the coverage report read 5/5: `applyTrainerEffects`
+ * gated on `=== 'reusable'`, the report counted `supported || reusable`, and CP21 had moved
+ * three clauses to `'supported'` — so **two of the five "implemented" trainers were inert and
+ * the number said otherwise.** `supported` means "handled, possibly as a deliberate no-op
+ * like `shuffleDeck`", which is precisely a clause the engine should be reaching.
+ *
+ * Two places deciding this independently is what let them disagree, so they no longer can.
+ */
+export function trainerClauseIsExecutable(support: TrainerClauseSupport | 'unstated'): boolean {
+  return support === 'supported' || support === 'reusable'
+}
+
 const CLAUSE_SUPPORT: Record<Exclude<ParsedTrainerEffect['kind'], 'unsupported'>, TrainerClauseSupport> = {
   // 04.8 CP3-B made the printed shuffle a deliberate no-op and recorded the fidelity
   // gap (deck order may differ from a physical game; both peers still agree, so there is
@@ -482,7 +498,11 @@ export function trainerCoverageReport(trainers: readonly unknown[], pool: readon
       // than of the game. With the call site in `actions.ts` it is a property of the game,
       // which is exactly the distinction this module exists to draw. Leaving `reusable`
       // excluded here would report 0/5 for two cards that demonstrably work.
-      implemented: clauses.length > 0 && (support === 'supported' || support === 'reusable'),
+      // 04.12 CP24: this now calls the SAME predicate the runtime gate uses. It previously
+      // spelled out `supported || reusable` while `applyTrainerEffects` tested
+      // `=== 'reusable'`, and the two disagreed — which is how 163 and 179 could be reported
+      // as implemented while doing nothing at all.
+      implemented: clauses.length > 0 && trainerClauseIsExecutable(support),
       support,
       blockers,
       reachability: reachabilityNotes.length > 0 ? 'unreachable-in-this-pool' : 'reachable',
