@@ -29,6 +29,10 @@ export function applyEndTurn(state: BattleState, actor: PlayerSlot): BattleState
   // overrides. "By damage from THIS attack" is a window; leaving the stamp set would route
   // the NEXT turn's unrelated Knock Out to the Lost Zone as well.
   state.koToLostZoneTurn = -1
+  // 04.12 CP21 / 163: the Misty bonus is scoped to "this turn's attack", so it expires
+  // with the turn. Left armed, it would silently add 20 to the OPPONENT's next attack
+  // whenever the attacker happened to match the name fragment.
+  state.supporterNameBonus = null
   applyCheckup(state, actor)
   if (state.over) return state
   const next = foeOf(actor)

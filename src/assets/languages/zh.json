@@ -516,6 +516,7 @@
       "effectDiscardEnergy": "{player} 丢弃了 {count} 张能量。",
       "effectLostZone": "{player} 将 {card} 放入了灾难区。",
       "effectDevolved": "{player} 的 {from} 退化成了 {to}。",
+      "effectSupporterBonus": "{player} 启用了 {name} 加成，共 {amount} 点伤害。",
       "effectDiscarded": "{player} 弃掉了 {card}。",
       "effectDeckBottom": "{player} 将 {card} 放在了牌库底。",
       "effectLostZoneRouting": "本回合 {player} 被击倒的宝可梦将进入灾难区。",

@@ -516,6 +516,7 @@
       "effectDiscardEnergy": "{player} membuang {count} Tenaga.",
       "effectLostZone": "{player} meletakkan {card} ke dalam Zon Hilang.",
       "effectDevolved": "{from} milik {player} berevolusi kembali menjadi {to}.",
+      "effectSupporterBonus": "{player} mengaktifkan bonus {name} sebanyak {amount}.",
       "effectDiscarded": "{player} membuang {card}.",
       "effectDeckBottom": "{player} meletakkan {card} di bahagian bawah deknya.",
       "effectLostZoneRouting": "Knock Out {player} masuk ke Zon Hilang pada giliran ini.",

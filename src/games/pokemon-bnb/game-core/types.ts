@@ -413,6 +413,18 @@ export type PendingChoice = {
      * cards on the BOTTOM in a fixed legal order.
      */
     | { kind: 'returnSelfAndAttachmentsToDeckBottom'; optional: boolean }
+    /**
+     * 04.12 CP21 / 128 Ultra Ball + 163 Misty: the PLAY COST of the card, resolved before
+     * it leaves hand.
+     *
+     * `trainerCardId` rides the choice because the Trainer must be paid for by discarding
+     * OTHER cards — and each discard SHIFTS EVERY HAND INDEX, so the position the card was
+     * parked at is stale by the final pick. A card ID is carried instead. It is not a
+     * perfect identity (a Deck may hold duplicate copies of a Trainer), but a duplicate in
+     * hand means both copies are interchangeable to the rules, so the wrong one is still a
+     * legal play; a stale index, by contrast, would be the wrong CARD.
+     */
+    | { kind: 'payDiscardCost'; count: number; trainerCardId: string }
     // 04.9 CP7: swap the chosen Pokemon with the current Active of that side. The whole
     // `InPlayPokemon` object moves, so Energy, damage, conditions and the uid travel
     // with it — see `applySwitchInPlace`. `optional` is 066/152/158's printed "You may",
@@ -686,6 +698,20 @@ export type BattleState = {
    * overrides.
    */
   koToLostZoneTurn: number
+  /**
+   * 04.12 CP21 / 163 Misty: the Supporter bonus armed for the CURRENT turn — a name
+   * fragment plus the printed amount.
+   *
+   * **A BATTLE-LEVEL FLAG, NOT A PER-POKEMON ONE, AND NOT A DURATION.** "If THIS TURN'S
+   * attack…" is scoped to the turn, not to the attacking Pokemon, and it must apply to
+   * whatever attacks after the Supporter is played. `durationDamageAdjustment` is the
+   * mirror mechanism (post-Weakness) but its effects ride a uid and are pruned by the
+   * duration system, which is the wrong lifetime here.
+   *
+   * Cleared at Between-Turns with the other turn-scoped flags, or it would silently buff
+   * the opponent's next attack too.
+   */
+  supporterNameBonus: { nameFragment: string; amount: number } | null
   phase: TurnPhase
   winner: PlayerSlot | null
   winReason: 'prizes' | 'deck-out' | 'no-pokemon' | null
@@ -780,6 +806,12 @@ export type Snapshot = {
    * hidden zone, so the privacy boundary is unchanged.
    */
   koToLostZoneTurn: number
+  /**
+   * 04.12 CP21: carried verbatim so a rebuilt view reads the same Misty bonus the host
+   * enforces. `?? null` for an older host's snapshot, matching the `koToLostZoneTurn`
+   * discipline — an absent field must restore to "no bonus", never to a stale one.
+   */
+  supporterNameBonus: { nameFragment: string; amount: number } | null
   phase: TurnPhase
   winner: PlayerSlot | null
   winReason: BattleState['winReason']

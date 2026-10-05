@@ -264,19 +264,23 @@ const CLAUSE_SUPPORT: Record<Exclude<ParsedTrainerEffect['kind'], 'unsupported'>
   // choice is built from the ATTACKER's/DEFENDER's in-play list. A Trainer switching its
   // own Active needs a `self` side, so it is close but not a call site.
   switchOwnActiveWithBenched: 'reusable',
-  // The discard is a PLAY COST, not a clause: it must be paid before the card resolves,
-  // and the card must not leave the hand until it is. Nothing in `playTrainer` gates on
-  // a cost, and there is no pending-choice kind for "choose cards to discard as a price".
-  discardToPlay: 'needs-mechanism',
+  // 04.12 CP21: the COST is paid by `playTrainer` BEFORE the card leaves hand — it parks a
+  // `payDiscardCost` choice over the hand MINUS the Trainer itself ("2 OTHER cards"), and
+  // the play completes on the final pick. `applyTrainerEffects` then treats this clause as
+  // an explicit no-op, so the cost cannot be charged twice.
+  discardToPlay: 'supported',
   // 163 needs a Supporter-played-this-turn flag AND a name fragment on the battle state,
   // and the bonus must land AFTER the Weakness multiplier. Every existing `bonusDamage`
   // adds to `baseDamage` BEFORE it, so no existing clause can express it — folding it
   // into one would apply 20 damage pre-Weakness, i.e. 40 against a weak defender.
-  bonusDamageIfAttackerNameContains: 'needs-mechanism',
-  // 179 reaches into the OPPONENT's hand and deck. That is a privacy-shaped change: the
-  // snapshot fills the other seat's hand with `HIDDEN_CARD` placeholders, so this can
-  // only be resolved host-side and must never be echoed back into that seat's own view.
-  bothPlayersShuffleHandIntoDeckThenDrawPerRemainingPrize: 'needs-mechanism',
+  // 04.12 CP21: the play ARMS a turn-scoped flag (`supporterNameBonus`), and the +20 is
+  // spent at the single post-Weakness seam in `resolveAttack` — never as a `bonusDamage`,
+  // which would be multiplied by Weakness into +40.
+  bonusDamageIfAttackerNameContains: 'supported',
+  // 04.12 CP21: reached host-side on the AUTHORITATIVE state, where both hands are in
+  // memory, so no privacy change is needed — the same finding as CP19 settled for
+  // 026/116/176#0. The annotated blocker below was that same misreading, twice.
+  bothPlayersShuffleHandIntoDeckThenDrawPerRemainingPrize: 'supported',
 }
 
 /**

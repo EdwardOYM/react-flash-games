@@ -8,11 +8,11 @@ import { cardIsEnergy, cardIsPokemon, cardIsStadium, cardIsTrainer, isBasicPokem
 import { parseTrainerEffects, trainerClauseSupport, type ParsedTrainerEffect } from './trainers'
 import type { PlayerSlot } from '../net/protocol'
 import { CONFUSION_SELF_DAMAGE, ENERGY_PER_TURN, MAX_BENCH } from './constants'
-import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, effectiveRetreatCost, failure, findDuration, foeOf, hasPassive, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, isPlasmaEnergy, liveEnergyOverride, logChoicePrompt, logEvent, sideOf, tailLog } from './helpers'
+import { activeIsUnhealable, applySwitchInPlace, canEvolveOnto, canPayCost, checkAttackPhase, checkTurn, cloneBattleState, damageCounters, drawCards, effectiveRetreatCost, failure, findDuration, foeOf, hasPassive, inPlayList, inPlayOf, isAttackLocked, isInPlayTarget, isKnockedOut, isPlasmaEnergy, liveEnergyOverride, logChoicePrompt, logEvent, sideOf, tailLog } from './helpers'
 import type { ActionResult, BattleAction, BattleState, ChoiceTarget, InPlayPokemon, PendingChoice, SideState } from './types'
 import { applyAbilityEffect, classifyAbility, computeAttackDamage, flipCoin, isPlayerTriggeredAbility, ownInPlay, parseAttackEffects, recordAttackDamageOn, refreshChoiceTargets, resolveAttack } from './effects'
 import { confirmSetupReveal, chooseSetupPokemon, chooseTurnOrder, keepSetupHand, mulliganSetup } from './setup'
-import { applyEndTurn, applyStartOfTurn, checkVictory, performBenchKo, performKo } from './turns'
+import { applyDeckOutLoss, applyEndTurn, applyStartOfTurn, checkVictory, performBenchKo, performKo } from './turns'
 import { DAMAGE_PER_COUNTER } from './constants'
 
 // -- CP7-B: turn sub-phases + action dispatcher --
@@ -119,6 +119,44 @@ export function playTrainer(state: BattleState, actor: PlayerSlot, handIndex: nu
   if (trainerType === 'stadium' && side.stadiumPlayedTurn === next.turn) return failure(state, 'stadium-limit')
 
   const logStart = next.log.length
+  // 04.12 CP21 / 128 Ultra Ball + 163 Misty: a PLAY COST, paid BEFORE the card leaves hand.
+  //
+  // **THE CARD MUST NOT LEAVE HAND UNTIL THE COST IS PAID.** Splicing first and discarding
+  // after would let a player play a card they cannot pay for — the card would already be in
+  // the discard pile and its effect resolved. So the cost is a GATE placed before the
+  // splice, and it parks a choice rather than discarding cards the player did not name.
+  const parsedEarly = (() => {
+    try {
+      return parseTrainerEffects((card as TrainerCardDef).effect ?? '')
+    } catch {
+      return [] as ParsedTrainerEffect[]
+    }
+  })()
+  const costClause = parsedEarly.find((effect) => effect.kind === 'discardToPlay')
+  if (costClause && costClause.kind === 'discardToPlay') {
+    // "Discard 2 OTHER cards from your hand" — `other` excludes the Trainer being played,
+    // so the offer is the whole hand MINUS this card, and the count is checked against
+    // that reduced hand. Offering `hand` here would let a player discard the very card
+    // whose cost they are paying.
+    const payable = side.hand
+      .map((entry, index) => ({ entry, index }))
+      .filter(({ entry }) => entry.id !== card.id)
+    if (payable.length < costClause.count) return failure(state, 'cost-unpayable')
+    next.pendingChoice = {
+      actor,
+      targets: payable.map(({ entry, index }) => ({
+        side: actor, zone: 'hand' as const, index, cardId: entry.id,
+      })),
+      remaining: costClause.count,
+      // `source: 'hand'` so the list is re-derived from the live hand after each pick:
+      // every discard shifts every later index.
+      source: 'hand',
+      effect: { kind: 'payDiscardCost', count: costClause.count, trainerCardId: card.id },
+      attackName: '',
+    }
+    logChoicePrompt(next)
+    return { state: next, log: tailLog(next, logStart) }
+  }
   side.hand.splice(handIndex, 1)
   if (trainerType === 'stadium') {
     if (next.stadium) next.host.discard.push(next.stadium)
@@ -221,6 +259,67 @@ function applyTrainerEffects(state: BattleState, actor: PlayerSlot, card: CardDe
           actor,
           user: sideOf(state, actor).active as unknown as InPlayPokemon,
           chosen: null,
+        })
+        break
+      }
+      case 'bothPlayersShuffleHandIntoDeckThenDrawPerRemainingPrize': {
+        // 04.12 CP21 / 179 N. BOTH sides, in a fixed seat order so two peers running the
+        // same code over the same state cannot diverge.
+        //
+        // **THE PRIVACY BLOCKER RECORDED FOR THIS CLAUSE WAS OVERSTATED, FOR THE SECOND TIME
+        // IN THIS PLAN.** It is annotated as needing to reach into the opponent's hand and
+        // deck. But the engine runs on `battleRef`, the AUTHORITATIVE state where both hands
+        // are in memory, and the render snapshot is `viewOnly` and already fills the other
+        // seat's hand with `HIDDEN_CARD` placeholders — so the opponent's hand is never
+        // transmitted at all. This is exactly the CP19 finding for 026/116/176#0, and the
+        // same reading of the same code settles it.
+        for (const slot of ['host', 'guest'] as const) {
+          const side = sideOf(state, slot)
+          // "Shuffles his or her hand into his or her deck." The hand goes on TOP: the
+          // deck is consumed from the front, so this makes those cards drawable next.
+          // The ORDER is a deterministic reversal rather than a random shuffle — the same
+          // fidelity gap 04.9 CP1's `opponentShufflesHandAndDraws` already records, and for
+          // the same reason: both peers would shuffle identically from identical state, so
+          // a seeded shuffle would move the physical order without changing determinism.
+          side.deck.push(...side.hand)
+          side.hand = []
+          // "…draws a card for each of his or her REMAINING Prize cards" — the face-down
+          // count, which `prizeCount` already is (it is rewritten to `prizes.length` on
+          // every take). Using `prizesTaken` here instead would overdraw a taken prize.
+          const drawn = drawCards(side, side.prizeCount)
+          logEvent(state, 'pokemonBnb.log.effectDraw', { player: slot, count: drawn.length })
+          // A player with fewer cards than their remaining prizes DECKS OUT, exactly as any
+          // other short draw does. Without this the opponent would keep playing while this
+          // seat is silently out of cards.
+          if (drawn.length < side.prizeCount) applyDeckOutLoss(state, slot)
+        }
+        break
+      }
+      case 'discardToPlay': {
+        // 04.12 CP21 / 128-163's PLAY COST. It is paid by `playTrainer` BEFORE the card
+        // leaves hand, so reaching the effect switch means it is already settled and this
+        // clause must do nothing — replaying it would discard twice.
+        break
+      }
+      case 'bonusDamageIfAttackerNameContains': {
+        // 04.12 CP21 / 163 Misty: **ARMS A TURN-SCOPED FLAG; it does not deal damage.**
+        // The card is a Supporter, so its clause resolves at PLAY time and the bonus is
+        // spent later, at the single post-Weakness seam in `resolveAttack`. Folding this
+        // into a `bonusDamage` clause would apply 20 BEFORE the multiplier — 40 against a
+        // ×2 defender — which is the exact misapplication the clause's
+        // `afterWeaknessResistance` flag exists to prevent.
+        //
+        // `afterWeaknessResistance` is CHECKED, not assumed: a future clause of this kind
+        // that wants the pre-multiplier point must not be silently given the post one.
+        if (!effect.afterWeaknessResistance) {
+          logEvent(state, 'pokemonBnb.log.effectUnsupported', {
+            text: 'name-fragment bonus before Weakness is not implemented',
+          })
+          break
+        }
+        state.supporterNameBonus = { nameFragment: effect.nameFragment, amount: effect.amount }
+        logEvent(state, 'pokemonBnb.log.effectSupporterBonus', {
+          player: actor, name: effect.nameFragment, amount: effect.amount,
         })
         break
       }
@@ -1218,6 +1317,54 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     next.pendingChoice = null
     const closed = next.over ? next : applyEndTurn(next, actor)
     return { state: closed, log: tailLog(closed, logStart) }
+  }
+
+  // 04.12 CP21 / 128 Ultra Ball + 163 Misty: settle the PLAY COST, then finish the play.
+  //
+  // **THE TRAINER IS PLAYED ONLY ONCE THE COST IS FULLY PAID.** The card has been sitting in
+  // hand this whole time — `playTrainer` parked this choice before splicing anything — so
+  // the final pick is the moment it actually leaves. Splice-then-discard would have let a
+  // player use a card they cannot pay for.
+  if (choice.effect.kind === 'payDiscardCost') {
+    if (target.zone !== 'hand') return failure(state, 'no-target')
+    const hand = sideOf(next, actor).hand
+    const index = target.index
+    const found = hand[index]
+    // A hand may legally hold duplicates, so an index alone is not an identity.
+    if (!found || found.id !== target.cardId) return failure(state, 'no-target')
+    hand.splice(index, 1)
+    sideOf(next, actor).discard.push(found)
+    logEvent(next, 'pokemonBnb.log.effectDiscarded', { player: actor, card: found.name })
+    const left = choice.remaining - 1
+    // The Trainer being paid for is EXCLUDED from the offer on every pass — it is the card
+    // being paid for, not a payment. Located by ID because every discard shifts indices.
+    const trainerId = choice.effect.trainerCardId
+    if (left > 0) {
+      const live = sideOf(next, actor).hand
+        .map((card, i) => ({ side: actor, zone: 'hand' as const, index: i, cardId: card.id }))
+        .filter((entry) => entry.cardId !== trainerId)
+      if (live.length > 0) {
+        next.pendingChoice = { ...choice, remaining: left, targets: live }
+        logChoicePrompt(next)
+        return { state: next, log: tailLog(next, logStart) }
+      }
+      logEvent(next, 'pokemonBnb.log.effectUnsupported', { text: 'no legal target' })
+    }
+    next.pendingChoice = null
+    // The cost is paid, so the Trainer now leaves hand and its own clauses resolve.
+    const liveHand = sideOf(next, actor).hand
+    const realIndex = liveHand.findIndex((entry) => entry.id === trainerId)
+    const trainer = realIndex >= 0 ? liveHand[realIndex] : undefined
+    if (trainer && cardIsTrainer(trainer)) {
+      liveHand.splice(realIndex, 1)
+      if (trainer.trainerType.trim().toLowerCase() === 'supporter') sideOf(next, actor).supporterPlayedTurn = true
+      sideOf(next, actor).discard.push(trainer)
+      logEvent(next, 'pokemonBnb.log.playTrainer', { player: actor, card: trainer.name })
+      // `discardToPlay` is a no-op in `applyTrainerEffects` by construction, so this cannot
+      // charge the cost a second time.
+      applyTrainerEffects(next, actor, trainer)
+    }
+    return { state: next, log: tailLog(next, logStart) }
   }
 
   // 04.12 CP20 / 168 Uxie "Psychic Restore": the attacker and every attached card go to the

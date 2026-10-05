@@ -106,6 +106,8 @@ export function toSnapshot(state: BattleState, viewer: PlayerSlot): Snapshot {
     turn: state.turn,
     // 04.12 CP16: carried verbatim, and it names no hidden zone.
     koToLostZoneTurn: state.koToLostZoneTurn,
+    // 04.12 CP21: carried verbatim, and it names no hidden zone.
+    supporterNameBonus: state.supporterNameBonus ? { ...state.supporterNameBonus } : null,
     phase: state.phase,
     winner: state.winner,
     winReason: state.winReason,
@@ -205,6 +207,9 @@ export function applySnapshot(snapshot: Snapshot): BattleState {
     // 04.12 CP16: carried verbatim so a rebuilt view reads the same Lost Zone routing the
     // host enforces. `?? -1` for an older host's snapshot, matching `koByAttackTurn`.
     koToLostZoneTurn: snapshot.koToLostZoneTurn ?? -1,
+    // 04.12 CP21 / 163: `?? null` so an older host's snapshot restores with no bonus
+    // armed, matching the `koToLostZoneTurn` discipline above.
+    supporterNameBonus: snapshot.supporterNameBonus ? { ...snapshot.supporterNameBonus } : null,
     phase: snapshot.phase,
     winner: snapshot.winner,
     winReason: snapshot.winReason,

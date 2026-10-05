@@ -276,6 +276,8 @@ export function setupBattle(
     phase: 'draw',
     // 04.12 CP16: 178's Lost Zone routing is off until an attack turns it on.
     koToLostZoneTurn: -1,
+    // 04.12 CP21 / 163: turn-scoped, so a fresh match has no bonus armed.
+    supporterNameBonus: null,
     winner: null,
     winReason: null,
     over: false,

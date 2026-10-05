@@ -92,6 +92,25 @@ export function computeAttackDamage(
 }
 
 /**
+ * 04.12 CP21 / 163 Misty: raw points added to THIS turn's attack, because a Supporter whose
+ * name is on the battle state matches the attacker's printed name.
+ *
+ * **THE NAME TEST IS ON THE ATTACKER, AND IT IS A SUBSTRING TEST** because the card prints
+ * "if the attacking Pokemon has **Misty in its name**" — `Misty` (a human) and
+ * `Misty's ...` both qualify, and neither is a card name that could be matched exactly.
+ *
+ * The bonus is zero unless the attacker's name contains the fragment, so a supporter
+ * played by one player cannot buff the other.
+ */
+function supporterNameBonus(state: BattleState, attacker: InPlayPokemon | null): number {
+  const bonus = state.supporterNameBonus
+  if (!bonus || !attacker) return 0
+  return attacker.card.name.toLowerCase().includes(bonus.nameFragment.toLowerCase())
+    ? bonus.amount
+    : 0
+}
+
+/**
  * 04.9 CP6 / 028: raw points removed from an attack against `defender` by its own
  * "Lonely Gaze" passive.
  *
@@ -4133,9 +4152,21 @@ export function resolveAttack(
     ? sideOf(state, defenderSlot).bench.includes(defender) && hasPassive(defender, 'preventDamageWhileBenched')
     : false
   const prevented = benchedShield || findDuration(state, defender.uid, 'preventAllDamage') !== null
+  // 04.12 CP21 / 163 Misty: a POST-WEAKNESS bonus, in the same seam as the durations above.
+  //
+  // **THIS MUST NOT JOIN THE `bonusDamage` FAMILY.** Every `bonusDamage*` clause adds to
+  // `base`, which is consumed BEFORE `computeAttackDamage` multiplies by Weakness — so a
+  // +20 folded in there is +40 against a ×2 defender. The card prints "(after applying
+  // Weakness and Resistance)", so it is added HERE, next to `durationDamageAdjustment`,
+  // which is already at the right point for exactly the same reason.
+  //
+  // `supporterNameBonus` is read from the battle state rather than matched on the card,
+  // because the card only sets a FLAG when played; the attacker-name test happens here,
+  // against whoever is attacking this turn.
+  const supporterBonus = prevented ? 0 : supporterNameBonus(state, attacker)
   const adjusted = prevented
     ? 0
-    : Math.max(0, outcome.damage + durationDamageAdjustment(state, defender.uid))
+    : Math.max(0, outcome.damage + durationDamageAdjustment(state, defender.uid) + supporterBonus)
   if (adjusted > 0) {
     defender.damage += adjusted
     // 04.10 CP3: an ATTACK hit is exactly what 085/138 remembers. This is the ONE

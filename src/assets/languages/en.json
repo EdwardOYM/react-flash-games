@@ -516,6 +516,7 @@
       "effectDiscardEnergy": "{player} discarded {count} Energy.",
       "effectLostZone": "{player} put {card} into the Lost Zone.",
       "effectDevolved": "{player}'s {from} devolved into {to}.",
+      "effectSupporterBonus": "{player} armed a {name} bonus of {amount}.",
       "effectDiscarded": "{player} discarded {card}.",
       "effectDeckBottom": "{player} put {card} on the bottom of their deck.",
       "effectLostZoneRouting": "{player}'s Knock Outs go to the Lost Zone this turn.",
