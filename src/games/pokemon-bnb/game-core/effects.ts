@@ -329,6 +329,25 @@ export type ParsedEffect =
   // 04.12 CP18 / 020 Palkia "Wormhole", the PARSED form; the parked form is
   // `switchSelfThenFoe` / `foeChoosesNewActive` on `PendingChoice.effect`.
   | { kind: 'switchSelfThenFoe' }
+  /**
+   * 04.12 CP20 / 069 Espeon "Miraculous Shine": "Devolve each of your opponent's evolved
+   * Pokemon by putting the highest Stage Evolution card on it into your opponent's hand."
+   *
+   * "EACH" makes it a sweep over the opponent's board rather than one target, so this
+   * parks no choice at all — the player has nothing to choose.
+   */
+  | { kind: 'devolveOpponent' }
+  /**
+   * 04.12 CP20 / 168 Uxie "Psychic Restore": "You may put Uxie and all cards attached to it
+   * on the bottom of your deck IN ANY ORDER."
+   *
+   * **THE ORDER IS NOT PLAYER-CHOSEN, BY DECISION.** "In any order" *permits* any order, so
+   * the engine selecting one is a legal outcome rather than a wrong one — the printed text
+   * grants a choice the engine declines to take. This is a deliberate fidelity trade, not
+   * an oversight, and the alternative (a reorder picker) is a new UI component for an
+   * ordering that changes only which of these cards is drawn soonest.
+   */
+  | { kind: 'returnSelfAndAttachmentsToDeckBottom'; optional: boolean }
   // 04.12 CP19 / 026 "Your opponent reveals their hand", 116's Item-half, and 176#0's
   // "Look at your opponent's hand" all pick from the OPPONENT'S HAND. See the CP19 note:
   // this is SAFE with no snapshot change because the engine runs on the authoritative
@@ -2339,6 +2358,25 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.12 CP20 / 168 Uxie "Psychic Restore": the printed "You may" makes the whole clause
+    // DECLINABLE, so it is parked as an optional choice rather than applied outright.
+    const psychicRestore = sentence.match(
+      /^you may put [\w ]+ and all cards attached to it on the bottom of your deck in any order\.$/i,
+    )
+    if (psychicRestore) {
+      effects.push({ kind: 'returnSelfAndAttachmentsToDeckBottom', optional: true })
+      pendingCoin = false
+      continue
+    }
+    // 04.12 CP20 / 069 Espeon "Miraculous Shine": a single sweep clause, no choice.
+    const miraculousShine = sentence.match(
+      /^devolve each of your opponent's evolved pokemon by putting the highest stage evolution card on it into your opponent's hand\.$/i,
+    )
+    if (miraculousShine) {
+      effects.push({ kind: 'devolveOpponent' })
+      pendingCoin = false
+      continue
+    }
     // 04.12 CP19. All three are handled here, and the filter distinguishes them:
     // - 026 "Your opponent reveals their hand." — no filter at all; everything is public.
     // - 116 "…and you put an ITEM card you find there…" — Items only.
@@ -3495,6 +3533,47 @@ export function applyEffect(
     // 04.12 CP18 / 020: parked by resolveAttack as a choice and resolved by resolveChoice.
     // 04.12 CP17 / 178: likewise a two-step parked pick. Reaching here means a
     // mis-classified phase, where doing nothing is the safe answer.
+    // 04.12 CP20 / 069 Espeon "Miraculous Shine": sweep the OPPONENT's board, devolving every
+    // Pokemon that has an evolution underneath it, and hand the opponent the highest stage
+    // card that was on it.
+    //
+    // **THE ORDER INSIDE EACH POKEMON IS LOAD-BEARING.** `pokemon.card` is swapped to the
+    // stage underneath and the displaced card goes to the hand. Max HP, Prize count, rule
+    // box and Ability are all DERIVED from `pokemon.card` (`effectiveHp`,
+    // `prizesForKnockOut`, ability lookup), so the swap updates every one of them with no
+    // other edit — which is why this arm needs no field bookkeeping at all.
+    case 'devolveOpponent': {
+      const foeSlot = foeOf(context.actor)
+      const foe = sideOf(state, foeSlot)
+      // Snapshot the list first: a devolve can Knock Out a Pokemon, which splices the
+      // Bench underneath the loop and would otherwise skip the next target.
+      const victims = [foe.active, ...foe.bench].filter(
+        (pokemon): pokemon is NonNullable<typeof pokemon> => !!pokemon && (pokemon.evoStack?.length ?? 0) > 0,
+      )
+      const knockedOut: typeof victims = []
+      for (const victim of victims) {
+        const highestStage = victim.card
+        const underneath = victim.evoStack.pop()
+        if (!underneath) continue
+        victim.card = underneath as typeof victim.card
+        foe.hand.push(highestStage)
+        logEvent(state, 'pokemonBnb.log.effectDevolved', {
+          player: foeSlot, from: highestStage.name, to: victim.card.name,
+        })
+        // **DEVOLVING DROPS MAX HP, SO A SURVIVOR CAN BECOME KNOCKED OUT.** Damage is not
+        // reset by a devolve, and the stage underneath has its own (usually lower) HP, so a
+        // Pokemon at, say, 140 damage on a 120 HP Stage 2 is fine there but lethal as a
+        // 110 HP Stage 1. Checked HERE, after the swap — checking before would use the old
+        // max HP and silently leave an illegal Pokemon in play.
+        if (isKnockedOut(victim)) knockedOut.push(victim)
+      }
+      // KOs are settled AFTER the whole sweep so the loop cannot be reshaped mid-pass.
+      for (const victim of knockedOut) {
+        if (victim === foe.active) performKo(state, foeSlot)
+        else performBenchKo(state, foeSlot, victim)
+      }
+      break
+    }
     case 'switchSelfThenFoe':
     case 'moveDamageCounters':
       break
@@ -4629,6 +4708,27 @@ export function resolveAttack(
         remaining: 1,
         source: 'inPlay',
         effect: selfShuffle,
+        attackName: context.attackName,
+      }
+      logChoicePrompt(state)
+    }
+  }
+
+  // 04.12 CP20 / 168 Uxie "Psychic Restore": parked as a single-target choice purely to
+  // honour the printed "You may", exactly as 073/136's `shuffleSelfIntoDeck` is. Applying
+  // it outright would be a STRONGER effect than the card prints.
+  const deckBottom = effects.find((effect) => effect.kind === 'returnSelfAndAttachmentsToDeckBottom')
+  if (deckBottom && deckBottom.kind === 'returnSelfAndAttachmentsToDeckBottom') {
+    const active = sideOf(state, actor).active
+    if (!active) {
+      logEvent(state, 'pokemonBnb.log.effectUnsupported', { text: 'no active Pokemon to put away' })
+    } else {
+      state.pendingChoice = {
+        actor,
+        targets: [{ side: actor, zone: 'active', uid: active.uid }],
+        remaining: 1,
+        source: 'inPlay',
+        effect: deckBottom,
         attackName: context.attackName,
       }
       logChoicePrompt(state)

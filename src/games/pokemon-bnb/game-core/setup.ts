@@ -28,7 +28,9 @@ function makeInPlay(card: PokemonCardDef, enteredTurn: number): InPlayPokemon {
     // 04.11 CP6 / 169: the rulebook default. Every Pokemon starts with a 1-counter
     // Poison, and 169 is the only card in the set that raises it.
     poisonCounters: 1,
-    enteredTurn,
+    enteredTurn: enteredTurn,
+    // 04.12 CP20: a Pokemon starts unevolved, so there is nothing to devolve TO.
+    evoStack: [],
     evolvedTurn: 0,
     energyAttachedTurn: 0,
     retreatedTurn: 0,

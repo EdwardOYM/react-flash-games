@@ -79,6 +79,11 @@ function inPlay(card: PokemonCardDef, energy: EnergyCardDef[], turn: number, sal
     conditions: { asleep: false, paralyzed: false, confused: false, poisoned: false, burned: false },
     poisonCounters: 1,
     enteredTurn: turn,
+    // 04.12 CP20: the dev harness builds Pokemon directly, so it sets the stack empty
+    // exactly as `makeInPlay` does. Any future dev case that needs an evolved Pokemon
+    // pushes onto this itself rather than relying on a lookup, because no card in the
+    // set carries `evolvesFrom`.
+    evoStack: [],
     evolvedTurn: 0,
     energyAttachedTurn: 0,
     retreatedTurn: 0,

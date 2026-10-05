@@ -402,6 +402,17 @@ export type PendingChoice = {
      * says "THIS Pokemon", so there is no target to pick and nothing to choose between.
      */
     | { kind: 'shuffleSelfIntoDeck'; optional: boolean }
+    /**
+     * 04.12 CP20 / 168 Uxie "Psychic Restore": the PARKED form of
+     * `returnSelfAndAttachmentsToDeckBottom`, and the same shape as
+     * `shuffleSelfIntoDeck` above for the same reason — the printed "You may" must be
+     * declinable, and applying it automatically would be a STRONGER effect than the card
+     * prints.
+     *
+     * The two differ only in destination: 073/136 shuffle into the deck, 168 puts the
+     * cards on the BOTTOM in a fixed legal order.
+     */
+    | { kind: 'returnSelfAndAttachmentsToDeckBottom'; optional: boolean }
     // 04.9 CP7: swap the chosen Pokemon with the current Active of that side. The whole
     // `InPlayPokemon` object moves, so Energy, damage, conditions and the uid travel
     // with it — see `applySwitchInPlace`. `optional` is 066/152/158's printed "You may",
@@ -493,6 +504,24 @@ export type InPlayPokemon = {
   poisonCounters: number
   enteredTurn: number
   evolvedTurn: number
+  /**
+   * 04.12 CP20: the cards this Pokemon evolved FROM, oldest first, so `evolveOnto` can
+   * remember what was replaced and 069 Espeon can devolve.
+   *
+   * **A STACK, NOT A LOOKUP.** All 188 cards in this set carry NO `evolvesFrom` field
+   * (verified across the whole pool), so there is no data-backed way to ask "what does
+   * this evolve from?" — the answer only exists as something the engine witnessed. The
+   * stack is therefore the ONLY source, and it is also why this cannot be retrofitted to
+   * Pokemon that evolved before the field existed.
+   *
+   * A stack rather than a single `previousCard`: a Pokemon can be Stage 2, and a
+   * `CardDef[]` costs no more than a nullable field while staying correct for any depth.
+   *
+   * **NO SNAPSHOT CHANGE IS NEEDED.** `SnapshotSide.active`/`bench` store the WHOLE
+   * `InPlayPokemon` and `cloneInPlay` is a JSON round trip, so this field is carried
+   * automatically — proven, not assumed, by the CP20 harness.
+   */
+  evoStack: CardDef[]
   energyAttachedTurn: number
   retreatedTurn: number
   /** Turn number this copy last used its Ability. */

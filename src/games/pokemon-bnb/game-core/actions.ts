@@ -250,6 +250,8 @@ export function playBasic(state: BattleState, actor: PlayerSlot, handIndex: numb
     conditions: { asleep: false, paralyzed: false, confused: false, poisoned: false, burned: false },
       poisonCounters: 1,
     enteredTurn: next.turn,
+    // 04.12 CP20: a Pokemon played from hand has not evolved.
+    evoStack: [],
     evolvedTurn: 0,
     energyAttachedTurn: 0,
     retreatedTurn: 0,
@@ -367,6 +369,11 @@ export function evolve(
   const logStart = next.log.length
   const previous = pokemon.card.name
   side.hand.splice(handIndex, 1)
+  // 04.12 CP20: remember what this Pokemon WAS. This single line is the entire data
+  // requirement for 069's devolve — every card in the set carries no `evolvesFrom`, so
+  // the previous card exists nowhere else. Pushed BEFORE the swap, and the array is
+  // re-created on the cloned state so the OLD state's card is never aliased in.
+  pokemon.evoStack = [...(pokemon.evoStack ?? []), pokemon.card]
   pokemon.card = card
   pokemon.evolvedTurn = next.turn
   logEvent(next, 'pokemonBnb.log.evolve', { player: actor, card: card.name, target: previous })
@@ -1080,6 +1087,8 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
         conditions: { asleep: false, paralyzed: false, confused: false, poisoned: false, burned: false },
       poisonCounters: 1,
         enteredTurn: next.turn,
+        // 04.12 CP20: as in `playBasic` — a searched-in Pokemon has not evolved.
+        evoStack: [],
         evolvedTurn: 0,
         energyAttachedTurn: 0,
         retreatedTurn: 0,
@@ -1209,6 +1218,44 @@ export function resolveChoice(state: BattleState, actor: PlayerSlot, targetIndex
     next.pendingChoice = null
     const closed = next.over ? next : applyEndTurn(next, actor)
     return { state: closed, log: tailLog(closed, logStart) }
+  }
+
+  // 04.12 CP20 / 168 Uxie "Psychic Restore": the attacker and every attached card go to the
+  // BOTTOM of the actor's own deck. Same shape and same promotion handling as
+  // `shuffleSelfIntoDeck` above — only the destination and the ordering differ.
+  if (choice.effect.kind === 'returnSelfAndAttachmentsToDeckBottom') {
+    if (!isInPlayTarget(target)) return failure(state, 'no-target')
+    const side = sideOf(next, actor)
+    const active = side.active
+    if (!active || active.uid !== target.uid) return failure(state, 'no-target')
+    // "Uxie AND ALL CARDS ATTACHED TO IT" — Energy, the Tool, and the Pokemon itself.
+    // A non-empty Tool is moved too: leaving it behind would orphan a card that is in no
+    // zone at all, which is the same reason 073/136 includes `attachedTool`.
+    const returning = [
+      active.card,
+      ...active.attachedEnergy,
+      ...(active.attachedTool ? [active.attachedTool] : []),
+    ]
+    // **"ON THE BOTTOM, IN ANY ORDER."** `drawCards` consumes from the FRONT, so the last
+    // card unshifted here is the first one drawn. The engine picks one legal order rather
+    // than parking a reorder picker — "in any order" permits exactly this outcome. The
+    // cards are therefore appended in reverse, so they are re-inserted with Uxie FIRST at
+    // the deepest position and its Energy immediately after it.
+    for (const card of returning.slice().reverse()) side.deck.unshift(card)
+    side.active = null
+    logEvent(next, 'pokemonBnb.log.effectDeckBottom', { player: actor, card: active.card.name })
+    // The Active spot is empty, so the actor must promote — the same gate `performKo` sets
+    // and the same queue, which is what stops a Uxie that returns itself from
+    // soft-locking the match. Only energy/Pokemon are moved, so the `no-pokemon` loss
+    // branch is the same no-pokemon case `shuffleSelfIntoDeck` already handles.
+    if (side.bench.length > 0) {
+      if (!next.promotionQueue.includes(actor)) next.promotionQueue.push(actor)
+      next.pendingPromotion = next.promotionQueue[0] ?? null
+      logEvent(next, 'pokemonBnb.log.mustPromote', { player: actor })
+    } else {
+      logEvent(next, 'pokemonBnb.log.effectUnsupported', { text: 'no Pokemon left in play' })
+    }
+    return { state: next, log: tailLog(next, logStart) }
   }
 
   // 04.12 CP19 / 026-116-176#0: the chosen card leaves the OPPONENT'S HAND. **This is the
@@ -1805,7 +1852,12 @@ export function finishChoice(state: BattleState, actor: PlayerSlot): ActionResul
   // 04.11 CP15 / 180: "You may move …" is the same permission shape — declining leaves
   // every card where it is, which is a legal outcome, not a skipped effect.
   const mayMoveEnergy = choice.effect.kind === 'moveAttachedEnergyToBench'
-  if (choice.effect.kind !== 'searchDeckUpTo' && !mayClause && !optional && !mayDiscardAny && !mayMoveEnergy) {
+  // 04.12 CP20 / 168: "You may put Uxie and all cards attached to it on the bottom of your
+  // deck" is the same printed permission — 0 or 1 is a legal outcome, so declining must be
+  // allowed, and the flag rides the EFFECT so it cannot drift from the card text.
+  const mayReturnSelf = choice.effect.kind === 'returnSelfAndAttachmentsToDeckBottom'
+    && choice.effect.optional
+  if (choice.effect.kind !== 'searchDeckUpTo' && !mayClause && !optional && !mayDiscardAny && !mayMoveEnergy && !mayReturnSelf) {
     return failure(state, 'choice-not-optional')
   }
   // Declining 161 commits whatever was already staged and deals the damage for THAT count —

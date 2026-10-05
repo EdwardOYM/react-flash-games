@@ -2392,6 +2392,9 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
               {(battle.pendingChoice.effect.kind === 'searchDeckUpTo' ||
                 (battle.pendingChoice.effect.kind === 'searchAttachEnergy' && battle.pendingChoice.effect.optional) ||
                 (battle.pendingChoice.effect.kind === 'shuffleSelfIntoDeck' && battle.pendingChoice.effect.optional) ||
+                // 04.12 CP20 / 168: the printed "You may" on Uxie's deck-bottom clause, so the
+                // player is offered the same decline button 073/136 get.
+                (battle.pendingChoice.effect.kind === 'returnSelfAndAttachmentsToDeckBottom' && battle.pendingChoice.effect.optional) ||
                 (battle.pendingChoice.effect.kind === 'switchActive' && battle.pendingChoice.effect.optional)) && (
                 <div className="bnb-choice-list">
                   <button

@@ -66,6 +66,10 @@ export function choiceTemplateKey(
   if (effectKind === 'healChosen') return { key: 'pokemonBnb.chooseHealAction', usesName: true }
   if (effectKind === 'attachStaged') return { key: 'pokemonBnb.chooseAttachHereAction', usesName: true }
   if (effectKind === 'shuffleSelfIntoDeck') return { key: 'pokemonBnb.chooseShuffleSelfAction', usesName: true }
+  // 04.12 CP20 / 168: the same single-target confirm as 073/136, so it reuses that prompt
+  // rather than inventing a near-identical string. The wording "shuffle" would be wrong
+  // here, so it gets its own key.
+  if (effectKind === 'returnSelfAndAttachmentsToDeckBottom') return { key: 'pokemonBnb.chooseDeckBottomAction', usesName: true }
   if (effectKind === 'switchActive') return { key: 'pokemonBnb.chooseSwitchAction', usesName: true }
   return null // damage / per-counter: the caller keeps its existing amount templates
 }
