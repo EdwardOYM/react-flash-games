@@ -59,6 +59,21 @@ export function choiceTemplateKey(
         : { key: 'pokemonBnb.chooseDiscardAttachedAction', usesName: true }
   }
   if (shape === 'statusCondition') return { key: 'pokemonBnb.chooseConditionAction', usesName: true }
+  // 04.12 CP23 / 128-163's PLAY COST, **ABOVE the `looseCard` early return and not beside
+  // the inPlay branches.** A hand target is shaped `looseCard`, and that return on the next
+  // line was swallowing this clause — which is why the first version of this label never
+  // rendered. A branch that cannot be reached is indistinguishable from one that was never
+  // written, so the placement is the fix, not the condition.
+  if (effectKind === 'payDiscardCost') return { key: 'pokemonBnb.choosePayDiscardAction', usesName: true }
+  // 04.12 CP23: a DECK search (126/128). Also above the `looseCard` return, and also a
+  // **pre-existing** gap this checkpoint only made visible: no dev board had ever opened a
+  // deck search, so these buttons had been rendering as "Deal 0 damage per damage counter
+  // to Pikachu" for every 126/128 play and nobody had seen it. The clause says "search
+  // your deck for a Pokemon, reveal it, and put it into your hand" — the action is taking
+  // the card into hand, which is what the label now says.
+  if (effectKind === 'searchDeckUpTo' || effectKind === 'searchDeck') {
+    return { key: 'pokemonBnb.chooseDeckSearchAction', usesName: true }
+  }
   if (shape === 'looseCard') return { key: '', usesName: true }
   // inPlay targets: the clause decides, because a Pokemon target can be a heal, an attach,
   // a switch, a return-to-deck, an Energy destination, or a plain victim.
@@ -70,6 +85,8 @@ export function choiceTemplateKey(
   // rather than inventing a near-identical string. The wording "shuffle" would be wrong
   // here, so it gets its own key.
   if (effectKind === 'returnSelfAndAttachmentsToDeckBottom') return { key: 'pokemonBnb.chooseDeckBottomAction', usesName: true }
+  // 04.12 CP23: 128/163's PLAY COST label now lives ABOVE, with the `looseCard` early
+  // return, because a hand target is `looseCard` and this branch was unreachable there.
   if (effectKind === 'switchActive') return { key: 'pokemonBnb.chooseSwitchAction', usesName: true }
   return null // damage / per-counter: the caller keeps its existing amount templates
 }

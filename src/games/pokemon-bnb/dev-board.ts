@@ -25,7 +25,7 @@
 // we want to hear about it.
 
 import type { CardDef, EnergyCardDef, PokemonCardDef } from './cards'
-import { cardIsPokemon, isBasicPokemon } from './cards'
+import { cardIsPokemon, cardIsTrainer, isBasicPokemon } from './cards'
 import { parseAttackEffects, processAction, setupBattle, type BattleState, type InPlayPokemon } from './game-core'
 import { DECK_SIZE, type LobbySettings } from './net/protocol'
 import { basicEnergyCard, type BasicEnergyType } from './pack'
@@ -54,7 +54,30 @@ export const DEV_BOARD_TARGETS: {
   { cardNumber: '174', attackClause: 'discardEnergyTypeThenTimesDamage', choiceKind: 'discardEnergyTypeThenTimesDamage' },
   { cardNumber: '180', attackClause: 'moveAttachedEnergyToBench', choiceKind: 'moveAttachedEnergyToBench' },
   { cardNumber: '182', attackClause: 'flipCoinsPerDefenderEnergyThenStatus', choiceKind: 'chooseStatusCondition' },
+  // 04.12 CP23 — the flows added after CP9, which had NO route to the screen at all.
+  // Each parks its dialog from a REAL action: 069/168 from `useAttack`, and 128 from
+  // `playTrainer`, which parks its PLAY COST before the card has even left hand.
+  { cardNumber: '069', attackClause: 'devolveOpponent', choiceKind: 'payDiscardCost' },
+  { cardNumber: '168', attackClause: 'returnSelfAndAttachmentsToDeckBottom', choiceKind: 'returnSelfAndAttachmentsToDeckBottom' },
+  // 128 is a TRAINER: the clause is found by asking the TRAINER parser, not the attack
+  // parser. Asking the attack parser was the original bug here — `cards.find(...)` looks
+  // for a Pokemon, a Trainer is not one, so the board silently built NOTHING and the
+  // screen fell back to the lobby. A dev harness failing quietly is the exact failure this
+  // file's header exists to prevent, so it is worth naming rather than just fixing.
+  { cardNumber: '128', attackClause: 'searchDeckToHand', choiceKind: 'payDiscardCost' },
 ]
+
+/**
+ * 04.12 CP23: card numbers whose dialog is opened by PLAYING A TRAINER, not attacking.
+ *
+ * **A SEPARATE LIST RATHER THAN A FLAG ON THE ENTRY, because the two need different
+ * work.** An attack board has to seat a Pokemon and attach Energy to it; a Trainer board
+ * has to put the card in HAND and give the player other cards to pay with, and the
+ * opening action is a different one entirely (`playTrainer`, not `useAttack`). Encoding
+ * that as a boolean would put two different code paths in one entry and make the attack
+ * boards the special case.
+ */
+export const DEV_BOARD_TRAINER_TARGETS = new Set(['128'])
 
 /** Fixed so a QA run is reproducible; overridable with `?board=NNN&seed=N`. */
 export const DEV_BOARD_SEED = 20260910
@@ -67,6 +90,11 @@ export type DevBoard = {
   cardName: string
   /** The choice kind the real engine is expected to park, for the harness to assert on. */
   choiceKind: string
+  /**
+   * 04.12 CP23: where the Trainer sits in the host's hand, so the mount effect can PLAY it.
+   * `-1` on an attack board, where the card is seated on the board instead.
+   */
+  trainerHandIndex: number
 }
 
 function inPlay(card: PokemonCardDef, energy: EnergyCardDef[], turn: number, salt: string): InPlayPokemon {
@@ -107,7 +135,28 @@ const ATTACHMENTS: Record<string, string[]> = {
   // Energy, so the guest's Active carries its own.
   '182': ['grass', 'psychic'],
   // What the OPPONENT's Active carries. Only 182 reads it.
+  // 04.12 CP23: 069 needs an EVOLVED Pokemon on the GUEST's board to devolve, and 128 is a
+  // Trainer that lives in HAND rather than on the board — neither exists in the four
+  // original entries' shapes.
   '182-defender': ['water', 'water'],
+  // 069 devolves the OPPONENT's Pokemon, so the GUEST's Active must be evolved. The stage
+  // is built from the pool's own Stage 2, and `evoStack` carries the Stage 1 underneath,
+  // because no card in this set has `evolvesFrom` — the stack is the only record of what it
+  // was. This is the one mutation CP20 made load-bearing rather than cosmetic.
+  // 069's "Miraculous Shine" costs [psychic, colorless], so ONE psychic is not enough —
+  // the board built and the attack was then refused by `canPayCost` ("Not enough Energy"),
+  // which is the engine being right and the board being wrong.
+  //
+  // **TWO PSYCHIC, NOT A "COLORLESS" ENTRY.** There is no colorless Energy card; a
+  // colorless requirement is paid by ANY attached Energy, so a second psychic satisfies
+  // both slots. Writing 'colorless' here would have asked `basicEnergyCard` for a card
+  // that does not exist.
+  '069': ['psychic', 'psychic'],
+  // 168's "Psychic Restore" costs [colorless] — one slot, paid by ANY Energy, so a single
+  // psychic card satisfies it. Undefined here meant zero attached, and the attack was
+  // refused for the same reason as 069's.
+  '168': ['psychic'],
+  // 128's cost needs two OTHER cards in hand, plus a Pokemon in the deck for its search.
 }
 
 /**
@@ -124,8 +173,13 @@ export function buildDevBoard(
 ): DevBoard | null {
   const target = DEV_BOARD_TARGETS.find((entry) => entry.cardNumber === cardNumber)
   if (!target) return null
-  const card = cards.find((entry) => cardIsPokemon(entry) && entry.number === cardNumber)
-  if (!card || !cardIsPokemon(card)) return null
+  // 04.12 CP23: a TRAINER target is not a Pokemon, so it cannot be found by the Pokemon
+  // lookup below, and it has no `attacks` array to search for a clause.
+  const isTrainerBoard = DEV_BOARD_TRAINER_TARGETS.has(cardNumber)
+  const card = isTrainerBoard
+    ? cards.find((entry) => cardIsTrainer(entry) && entry.number === cardNumber)
+    : cards.find((entry) => cardIsPokemon(entry) && entry.number === cardNumber)
+  if (!card) return null
 
   const basics = cards.filter((entry): entry is PokemonCardDef => isBasicPokemon(entry))
   if (basics.length === 0) return null
@@ -182,7 +236,15 @@ export function buildDevBoard(
   const turn = state.turn
   const hostSide = state.host
   const guestSide = state.guest
-  hostSide.active = inPlay(card, (ATTACHMENTS[cardNumber] ?? []).map(energyOf), turn, 'a')
+  // 04.12 CP23: a Trainer board has no Pokemon to seat as Active, so the host keeps
+  // whatever real setup put there rather than being overwritten with a Trainer-shaped
+  // card. The two are different kinds and the old mutation line is Pokemon-typed.
+  if (isTrainerBoard) {
+    const basic = inPlay(basics[0], [], turn, 'ta')
+    hostSide.active = basic
+  } else {
+    hostSide.active = inPlay(card as PokemonCardDef, (ATTACHMENTS[cardNumber] ?? []).map(energyOf), turn, 'a')
+  }
   // 180's printed text is "to your Benched Pokemon", so the Bench must be non-empty or
   // the clause parks nothing and the dialog never appears.
   hostSide.bench = [
@@ -197,15 +259,69 @@ export function buildDevBoard(
   )
   guestSide.bench = [inPlay(basics[3 % basics.length], [], turn, 'gb')]
 
-  // -- which attack parks the clause? Ask the real parser, not a hard-coded index.
-  const attackIndex = card.attacks.findIndex((attack) => {
-    try {
-      return parseAttackEffects(attack.text).some((effect) => effect.kind === target.attackClause)
-    } catch {
-      return false
-    }
-  })
-  if (attackIndex < 0) return null
+  // 04.12 CP23: the two new board shapes, each built the way the RULE needs and not the
+  // way that is convenient.
+  let trainerId = ''
+  if (cardNumber === '069') {
+    // The clause reads "each of your OPPONENT'S evolved Pokemon", so the evolved Pokemon
+    // belongs to the GUEST. Seated on the host by accident it would devolve the attacking
+    // side and prove nothing.
+    const stage1 = cards.find((entry): entry is PokemonCardDef => cardIsPokemon(entry) && entry.stage === 'Stage1')
+    const stage2 = cards.find((entry): entry is PokemonCardDef => cardIsPokemon(entry) && entry.stage === 'Stage2')
+    if (!stage1 || !stage2) return null
+    const evolved = inPlay(stage2, [], turn, 'g2')
+    // **THE STACK IS THE POINT.** No card here carries `evolvesFrom`, so without this the
+    // devolved Pokemon would have nothing underneath it and the clause would correctly
+    // do nothing — a board that looks right and screenshots an empty board.
+    evolved.evoStack = [stage1]
+    guestSide.active = evolved
+    guestSide.bench = [
+      (() => { const b = inPlay(stage2, [], turn, 'gb2'); b.evoStack = [stage1]; return b })(),
+      inPlay(basics[3 % basics.length], [], turn, 'gb'),
+    ]
+  }
+  if (DEV_BOARD_TRAINER_TARGETS.has(cardNumber)) {
+    // 128 lives in HAND, and its printed cost is "discard 2 OTHER cards", so the hand
+    // needs the Trainer AND two unrelated cards to pay with. Without those the cost gate
+    // refuses the play outright (`cost-unpayable`) and the dialog never appears — which is
+    // the correct rule, and would look like a broken board.
+    const trainer = cards.find((entry) => cardIsTrainer(entry) && entry.number === cardNumber)
+    if (!trainer) return null
+    hostSide.hand = [trainer, basics[0], energyOf('water'), ...hostSide.hand.slice(0, 4)]
+    // 128 searches its deck for a Pokemon; the deck is Basics, so the search always has a
+    // legal target and the second dialog is reachable too.
+    trainerId = trainer.id
+  }
 
-  return { state, attackIndex, cardNumber, cardName: card.name, choiceKind: target.choiceKind }
+  // -- which attack parks the clause? Ask the real parser, not a hard-coded index.
+  // A TRAINER board has no `attacks` array at all: its clause comes from the TRAINER
+  // parser via the `playTrainer` action, so the index is meaningless and stays -1.
+  // The `cardIsPokemon` re-test is the narrowing — `card` is a union, and without it
+  // `card.attacks` does not exist on `TrainerCardDef`.
+  const attackIndex = isTrainerBoard || !cardIsPokemon(card)
+    ? -1
+    : card.attacks.findIndex((attack) => {
+        try {
+          return parseAttackEffects(attack.text).some((effect) => effect.kind === target.attackClause)
+        } catch {
+          return false
+        }
+      })
+  // The guard below is deliberately NOT applied to a trainer board: `attackIndex` is -1
+  // by design there, and returning null on it would make every Trainer board unbuildable —
+  // which is how this one first failed, quietly.
+  if (!isTrainerBoard && attackIndex < 0) return null
+
+  return {
+    state,
+    attackIndex,
+    cardNumber,
+    cardName: card.name,
+    choiceKind: target.choiceKind,
+    // Read from the live hand rather than hard-coded, so reordering the seeding cannot
+    // silently play a different card than the one the entry names.
+    trainerHandIndex: DEV_BOARD_TRAINER_TARGETS.has(cardNumber)
+      ? state.host.hand.findIndex((entry) => entry.id === trainerId)
+      : -1,
+  }
 }

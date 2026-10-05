@@ -14,7 +14,7 @@ import { LOBBY_LIMITS, PROTOCOL_VERSION, clampLobbySettings, defaultLobbySetting
 import { createHost, joinHost, parseServerAddress, type PeerStatus, type SessionBase } from './net/peer'
 import { basicEnergyCatalog, openPacks, buildPool, seatSeed, type OpenedCard, type OpenedPool } from './pack'
 // 04.12 CP9: the dev/QA-only seeded board that finally puts 161/174/180/182 on screen.
-import { DEV_BOARD_SEED, buildDevBoard } from './dev-board'
+import { DEV_BOARD_SEED, DEV_BOARD_TRAINER_TARGETS, buildDevBoard } from './dev-board'
 // 04.11 CP19: kept in its own module so the label decision can be checked without
 // dragging JSX, CSS and the DOM into a Node process. See choice-labels.ts.
 import { choiceTemplateKey } from './choice-labels'
@@ -1104,10 +1104,13 @@ export function PokemonBnbGame({ locale: providedLocale, onLocaleChange, onExit,
        * parsing, the target list, the park and the labels are all the shipped code path.
        * A purpose-built dialog would have proved nothing.
        */
-      const attacked = processAction(board.state, 'host', {
-        type: 'useAttack',
-        attackIndex: board.attackIndex,
-      })
+      const attacked = processAction(board.state, 'host',
+        // 04.12 CP23: a Trainer board is opened by PLAYING the card, and 128's cost parks
+        // a dialog *before the card leaves hand* — a different action producing a different
+        // dialog, which is exactly the thing that had no route to the screen.
+        DEV_BOARD_TRAINER_TARGETS.has(devBoardParam)
+          ? { type: 'playTrainer', handIndex: board.trainerHandIndex ?? 0 }
+          : { type: 'useAttack', attackIndex: board.attackIndex })
       // A refusal is surfaced, never swallowed: it is the honest answer for a board that
       // could not be built, and a silent blank screen would be indistinguishable from a
       // rendering bug.

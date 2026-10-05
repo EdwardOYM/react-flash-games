@@ -43,7 +43,19 @@ import { choiceLogKey } from '../choice-labels'
 export function logChoicePrompt(state: BattleState): void {
   const choice = state.pendingChoice
   if (!choice) return
-  logEvent(state, choiceLogKey(choice), { player: choice.actor, count: choice.targets.length })
+  logEvent(state, choiceLogKey(choice), {
+    player: choice.actor,
+    // TWO counts, and they mean different things. `count` is how many TARGETS are on
+    // offer ("1 of 6 Pokemon in play"). `picks` is how many the player must actually
+    // choose — which for a multi-pick is 2, not the target list's length.
+    //
+    // 04.12 CP23: the second param is why. `chooseHandCard`/`chooseDeckCard` hardcoded
+    // "1", so 128's "discard 2 to play" announced "must choose 1 card from their hand"
+    // while offering six. The pre-existing single-pick dialogs all want 1 and still get
+    // 1, because a single pick has `remaining === 1`.
+    count: choice.targets.length,
+    picks: choice.remaining,
+  })
 }
 
 export function logEvent(state: BattleState, key: string, params?: Record<string, string | number>): void {
