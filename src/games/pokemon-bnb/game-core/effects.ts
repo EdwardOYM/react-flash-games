@@ -2396,6 +2396,38 @@ export function parseAttackEffects(text: string): ParsedEffect[] {
       pendingCoin = false
       continue
     }
+    // 04.12 CP22 / 184 Mew VMAX "Cross Fusion Strike" — DELIBERATELY LEFT UNIMPLEMENTED, as a
+    // DATA gap rather than an engine gap, and this is the place it would be written.
+    //
+    //   "Choose 1 of your Benched FUSION STRIKE Pokemon's attacks and use it as this attack."
+    //
+    // **NO CARD IN THIS POOL CARRIES A FUSION STRIKE RULE BOX** — the suffixes that exist
+    // across all 188 cards are EX, GX, SP, Legend and V. The clause therefore has no legal
+    // target at all, so any attack-borrowing engine built today would be code that can
+    // never execute, and untestable, since no board could ever produce a target.
+    //
+    // **IF A FUTURE SET ADDS A FUSION STRIKE POKEMON**, this attack becomes implementable and
+    // the work is: (1) a `ParsedEffect` kind for the clause; (2) a parked choice over the
+    // actor's BENCHED Pokémon carrying a `fusion` marker; (3) a resolver that pays the
+    // BORROWED attack's own `cost` from the Mew VMAX's attachments — not its own — and then
+    // resolves its effects under a DIFFERENT attacker; and (4) a recursion guard, since a
+    // borrowed attack must not itself be allowed to borrow.
+    //
+    // Two things to get right when that day comes, both of which are silent failures
+    // rather than errors: the borrowed attack's damage must be computed against the
+    // DEFENDER's Weakness using the BORROWING Pokémon's printed types (the attacker's types
+    // are what Weakness is keyed on), and `resolveAttack` must not overwrite the borrowing
+    // Pokémon's own `attacker` reference in the effect context.
+    //
+    // `coverage.ts` carries a `attackUnreachabilityReason` probe that names this as a data
+    // gap automatically, and it CLEARS ITSELF the moment a `fusion` card enters the pool —
+    // no edit here or there is needed, and that is the check that keeps this comment
+    // honest rather than a stale claim.
+    //
+    // 163 Misty has the same shape one step along: its clause IS implemented and its
+    // +20 lands after Weakness, but no POKEMON here is named "Misty" (only the Supporter
+    // itself is), so the bonus is equally inert. Both are data gaps, neither is a defect.
+
     // 04.12 CP19. All three are handled here, and the filter distinguishes them:
     // - 026 "Your opponent reveals their hand." — no filter at all; everything is public.
     // - 116 "…and you put an ITEM card you find there…" — Items only.
